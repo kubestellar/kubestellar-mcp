@@ -1,0 +1,51 @@
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: kubectl-claude
+    main: ./cmd/kubectl-claude
+    binary: kubectl-claude
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/kubestellar/kubectl-claude/internal/version.Version={{.Version}}
+      - -X github.com/kubestellar/kubectl-claude/internal/version.BuildDate={{.Date}}
+      - -X github.com/kubestellar/kubectl-claude/internal/version.GitCommit={{.Commit}}
+
+archives:
+  - id: kubectl-claude
+    format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - Merge pull request
+      - Merge branch
+
+release:
+  github:
+    owner: kubestellar
+    name: kubectl-claude
+  draft: false
+  prerelease: auto
