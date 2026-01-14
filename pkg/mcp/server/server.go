@@ -500,6 +500,122 @@ func (s *Server) handleToolsList(req *Request) {
 				Required: []string{"name"},
 			},
 		},
+		// Diagnostic Tools
+		{
+			Name:        "find_pod_issues",
+			Description: "Find pods with issues like CrashLoopBackOff, ImagePullBackOff, Pending, OOMKilled, or restarts",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"cluster": {
+						Type:        "string",
+						Description: "Cluster name (uses current context if not specified)",
+					},
+					"namespace": {
+						Type:        "string",
+						Description: "Namespace to check (all namespaces if not specified)",
+					},
+					"include_completed": {
+						Type:        "string",
+						Description: "Include completed/succeeded pods (true/false, default false)",
+					},
+				},
+			},
+		},
+		{
+			Name:        "find_deployment_issues",
+			Description: "Find deployments with issues like unavailable replicas, stuck rollouts, or misconfigurations",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"cluster": {
+						Type:        "string",
+						Description: "Cluster name (uses current context if not specified)",
+					},
+					"namespace": {
+						Type:        "string",
+						Description: "Namespace to check (all namespaces if not specified)",
+					},
+				},
+			},
+		},
+		{
+			Name:        "check_resource_limits",
+			Description: "Find pods/containers without CPU or memory limits/requests configured",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"cluster": {
+						Type:        "string",
+						Description: "Cluster name (uses current context if not specified)",
+					},
+					"namespace": {
+						Type:        "string",
+						Description: "Namespace to check (all namespaces if not specified)",
+					},
+				},
+			},
+		},
+		{
+			Name:        "check_security_issues",
+			Description: "Find security misconfigurations: privileged containers, running as root, host network/PID, missing security context",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"cluster": {
+						Type:        "string",
+						Description: "Cluster name (uses current context if not specified)",
+					},
+					"namespace": {
+						Type:        "string",
+						Description: "Namespace to check (all namespaces if not specified)",
+					},
+				},
+			},
+		},
+		{
+			Name:        "analyze_namespace",
+			Description: "Comprehensive namespace analysis: resource quotas, limit ranges, pod count, issues summary",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"cluster": {
+						Type:        "string",
+						Description: "Cluster name (uses current context if not specified)",
+					},
+					"namespace": {
+						Type:        "string",
+						Description: "Namespace to analyze",
+					},
+				},
+				Required: []string{"namespace"},
+			},
+		},
+		{
+			Name:        "get_warning_events",
+			Description: "Get only Warning events, filtered by namespace or resource",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"cluster": {
+						Type:        "string",
+						Description: "Cluster name (uses current context if not specified)",
+					},
+					"namespace": {
+						Type:        "string",
+						Description: "Namespace to check (all namespaces if not specified)",
+					},
+					"involved_object": {
+						Type:        "string",
+						Description: "Filter by involved object name",
+					},
+					"limit": {
+						Type:        "integer",
+						Description: "Maximum number of events (default 50)",
+					},
+				},
+			},
+		},
 	}
 
 	s.sendResult(req.ID, ToolsListResult{Tools: tools})
@@ -548,6 +664,18 @@ func (s *Server) handleToolsCall(ctx context.Context, req *Request) {
 		result, isError = s.toolAnalyzeSubjectPermissions(ctx, params.Arguments)
 	case "describe_role":
 		result, isError = s.toolDescribeRole(ctx, params.Arguments)
+	case "find_pod_issues":
+		result, isError = s.toolFindPodIssues(ctx, params.Arguments)
+	case "find_deployment_issues":
+		result, isError = s.toolFindDeploymentIssues(ctx, params.Arguments)
+	case "check_resource_limits":
+		result, isError = s.toolCheckResourceLimits(ctx, params.Arguments)
+	case "check_security_issues":
+		result, isError = s.toolCheckSecurityIssues(ctx, params.Arguments)
+	case "analyze_namespace":
+		result, isError = s.toolAnalyzeNamespace(ctx, params.Arguments)
+	case "get_warning_events":
+		result, isError = s.toolGetWarningEvents(ctx, params.Arguments)
 	default:
 		s.sendError(req.ID, -32602, fmt.Sprintf("Unknown tool: %s", params.Name), nil)
 		return
