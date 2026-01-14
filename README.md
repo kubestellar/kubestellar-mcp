@@ -42,6 +42,25 @@ Run `/mcp` in Claude Code - you should see:
 plugin:kubectl-claude:kubectl-claude · ✓ connected
 ```
 
+### Allow Tools Without Prompts
+
+To avoid permission prompts for each tool call, add to `~/.claude/settings.json`:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "mcp__plugin_kubectl-claude_kubectl-claude__*"
+    ]
+  }
+}
+```
+
+Or run in Claude Code:
+```
+/allowed-tools add mcp__plugin_kubectl-claude_kubectl-claude__*
+```
+
 ### Usage in Claude Code
 
 Once installed, ask questions like:
