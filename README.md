@@ -1,102 +1,126 @@
 # kubectl-claude
 
-AI-powered kubectl plugin for multi-cluster Kubernetes management.
-
-## Overview
-
-`kubectl-claude` is a kubectl plugin that helps you manage clusters and deployments across multiple Kubernetes clusters, powered by Claude AI.
-
-### Features
-
-- **Multi-cluster discovery** - Discover clusters from kubeconfig and KubeStellar
-- **Deployment management** - Deploy, rollout, and scale across clusters
-- **AI-powered assistance** - Natural language queries and intelligent recommendations
-- **MCP server mode** - Direct integration with Claude Code and AI IDEs
+AI-powered kubectl plugin for multi-cluster Kubernetes management, with built-in diagnostic tools.
 
 ## Installation
+
+### Homebrew (Recommended)
+
+```bash
+brew tap kubestellar/tap
+brew install kubectl-claude
+```
+
+### From Releases
+
+Download from [GitHub Releases](https://github.com/kubestellar/kubectl-claude/releases).
 
 ### From Source
 
 ```bash
 git clone https://github.com/kubestellar/kubectl-claude.git
 cd kubectl-claude
-make build
-make install
+go build -o kubectl-claude ./cmd/kubectl-claude
+sudo mv kubectl-claude /usr/local/bin/
 ```
 
-### Using Go Install
+## Claude Code Plugin
 
-```bash
-go install github.com/kubestellar/kubectl-claude/cmd/kubectl-claude@latest
+### Install the Plugin
+
+1. Add the KubeStellar marketplace:
+   ```
+   /plugin marketplace add kubestellar/claude-plugins
+   ```
+2. Go to `/plugin` → **Discover** tab
+3. Install **kubectl-claude**
+
+### Verify Installation
+
+Run `/mcp` in Claude Code - you should see:
+```
+plugin:kubectl-claude:kubectl-claude · ✓ connected
 ```
 
-## Usage
+### Usage in Claude Code
 
-### List Clusters
+Once installed, ask questions like:
+
+- "List my Kubernetes clusters"
+- "Find pods with issues in the production namespace"
+- "Check for security misconfigurations in my cluster"
+- "What permissions does the admin service account have?"
+- "Show me warning events in kube-system"
+- "Analyze the default namespace"
+
+## Available Tools
+
+### Cluster Management
+| Tool | Description |
+|------|-------------|
+| `list_clusters` | Discover clusters from kubeconfig |
+| `get_cluster_health` | Check cluster health status |
+| `get_nodes` | List cluster nodes with status |
+
+### Workload Tools
+| Tool | Description |
+|------|-------------|
+| `get_pods` | List pods with filtering options |
+| `get_deployments` | List deployments |
+| `get_services` | List services |
+| `get_events` | Get recent events |
+| `describe_pod` | Get detailed pod information |
+| `get_pod_logs` | Retrieve pod logs |
+
+### RBAC Analysis
+| Tool | Description |
+|------|-------------|
+| `get_roles` | List Roles in a namespace |
+| `get_cluster_roles` | List ClusterRoles |
+| `get_role_bindings` | List RoleBindings |
+| `get_cluster_role_bindings` | List ClusterRoleBindings |
+| `can_i` | Check if you can perform an action |
+| `analyze_subject_permissions` | Full RBAC analysis for any subject |
+| `describe_role` | Detailed view of Role/ClusterRole rules |
+
+### Diagnostic Tools
+| Tool | Description |
+|------|-------------|
+| `find_pod_issues` | Find CrashLoopBackOff, ImagePullBackOff, OOMKilled, pending pods |
+| `find_deployment_issues` | Find stuck rollouts, unavailable replicas, ReplicaSet errors |
+| `check_resource_limits` | Find pods without CPU/memory limits |
+| `check_security_issues` | Find privileged containers, root users, host network |
+| `analyze_namespace` | Comprehensive namespace analysis |
+| `get_warning_events` | Get only Warning events |
+
+## CLI Usage
+
+### As kubectl plugin
 
 ```bash
-# List all clusters from kubeconfig
+# List all clusters
 kubectl claude clusters list
 
-# List clusters from specific source
-kubectl claude clusters list --source=kubeconfig
-kubectl claude clusters list --source=kubestellar
+# Check cluster health
+kubectl claude clusters health
+
+# Natural language queries (requires ANTHROPIC_API_KEY)
+kubectl claude "show me failing pods"
 ```
 
-### Check Cluster Health
+### As MCP Server
 
 ```bash
-# Check health of all clusters
-kubectl claude clusters health --all-clusters
-
-# Check health of specific cluster
-kubectl claude clusters health prod-east
+# Start MCP server (used by Claude Code)
+kubectl-claude --mcp-server
 ```
 
-### Deploy to Multiple Clusters (Coming Soon)
+## Environment Variables
 
-```bash
-kubectl claude deploy nginx:1.25 --clusters=prod-east,prod-west
-```
-
-### Natural Language Queries (Coming Soon)
-
-```bash
-kubectl claude "show me all failing pods across all clusters"
-kubectl claude "why is my nginx deployment not healthy?"
-```
-
-## Development
-
-### Prerequisites
-
-- Go 1.22+
-- kubectl configured with cluster access
-
-### Building
-
-```bash
-make build
-```
-
-### Testing
-
-```bash
-make test
-```
-
-### Running
-
-```bash
-./bin/kubectl-claude clusters list
-```
-
-## Architecture
-
-kubectl-claude operates in two modes:
-
-1. **kubectl plugin mode** - `kubectl claude ...` for terminal users
-2. **MCP server mode** - `kubectl-claude --mcp-server` for Claude Code integration
+| Variable | Description |
+|----------|-------------|
+| `KUBECONFIG` | Path to kubeconfig file |
+| `ANTHROPIC_API_KEY` | API key for Claude AI (for natural language queries) |
 
 ## Contributing
 
