@@ -26,6 +26,7 @@ type HealthInfo struct {
 	NodesReady      string
 	APIServerStatus string
 	Message         string
+	Error           string
 }
 
 // Discoverer handles cluster discovery from multiple sources
@@ -167,6 +168,11 @@ func (d *Discoverer) buildClient(contextName string) (*kubernetes.Clientset, err
 	}
 
 	return kubernetes.NewForConfig(restConfig)
+}
+
+// CheckHealthByContext checks cluster health by context name
+func (d *Discoverer) CheckHealthByContext(contextName string) (*HealthInfo, error) {
+	return d.CheckHealth(ClusterInfo{Context: contextName})
 }
 
 // GetCurrentContext returns the current kubeconfig context name

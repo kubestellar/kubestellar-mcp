@@ -1,9 +1,12 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -11,6 +14,7 @@ import (
 	"github.com/kubestellar/kubectl-claude/internal/version"
 	"github.com/kubestellar/kubectl-claude/pkg/cmd/ai"
 	"github.com/kubestellar/kubectl-claude/pkg/cmd/clusters"
+	"github.com/kubestellar/kubectl-claude/pkg/mcp/server"
 )
 
 var (
@@ -18,6 +22,7 @@ var (
 	kubeconfig    string
 	allClusters   bool
 	targetCluster string
+	mcpServer     bool
 
 	// Kubernetes config flags
 	configFlags *genericclioptions.ConfigFlags
@@ -55,6 +60,34 @@ Examples:
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
+		// Check if running as MCP server
+		if mcpServer {
+			kubeconfig := ""
+			if configFlags.KubeConfig != nil {
+				kubeconfig = *configFlags.KubeConfig
+			}
+
+			srv := server.NewServer(kubeconfig)
+
+			// Handle shutdown gracefully
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			sigCh := make(chan os.Signal, 1)
+			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
+			go func() {
+				<-sigCh
+				cancel()
+			}()
+
+			if err := srv.Run(ctx); err != nil {
+				fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
+				os.Exit(1)
+			}
+			return
+		}
+
 		if len(args) > 0 && isNaturalLanguageQuery(args) {
 			// Treat as natural language query - run the query subcommand
 			queryCmd := ai.NewQueryCommand(configFlags)
@@ -85,6 +118,7 @@ func init() {
 	// Add our custom flags (don't redefine kubeconfig - it's in configFlags)
 	rootCmd.PersistentFlags().BoolVar(&allClusters, "all-clusters", false, "Operate on all discovered clusters")
 	rootCmd.PersistentFlags().StringVar(&targetCluster, "target-cluster", "", "Target specific cluster by name")
+	rootCmd.PersistentFlags().BoolVar(&mcpServer, "mcp-server", false, "Run as MCP server (for Claude Code integration)")
 
 	// Add subcommands
 	rootCmd.AddCommand(clusters.NewClustersCommand(configFlags))
