@@ -49,3 +49,18 @@ release:
     name: kubectl-claude
   draft: false
   prerelease: auto
+
+brews:
+  - name: kubectl-claude
+    repository:
+      owner: kubestellar
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Formula
+    homepage: "https://github.com/kubestellar/kubectl-claude"
+    description: "AI-powered multi-cluster Kubernetes management for Claude Code"
+    license: "Apache-2.0"
+    install: |
+      bin.install "kubectl-claude"
+    test: |
+      system "#{bin}/kubectl-claude", "version"
