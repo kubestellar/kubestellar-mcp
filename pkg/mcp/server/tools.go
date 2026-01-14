@@ -1011,10 +1011,46 @@ func (s *Server) toolAuditKubeconfig(ctx context.Context, args map[string]interf
 		sb.WriteString("\n")
 	}
 
-	// Cleanup recommendations
+	// Find duplicate contexts (same server URL)
+	serverToContexts := make(map[string][]string)
+	for _, r := range results {
+		if r.Server != "" {
+			serverToContexts[r.Server] = append(serverToContexts[r.Server], r.Context)
+		}
+	}
+
+	// Check for consolidation opportunities
+	hasDuplicates := false
+	for _, contexts := range serverToContexts {
+		if len(contexts) > 1 {
+			hasDuplicates = true
+			break
+		}
+	}
+
+	if hasDuplicates {
+		sb.WriteString("## Consolidation Suggestions\n\n")
+		sb.WriteString("The following contexts point to the same cluster and could be consolidated:\n\n")
+		for server, contexts := range serverToContexts {
+			if len(contexts) > 1 {
+				sb.WriteString(fmt.Sprintf("**Server:** `%s`\n", server))
+				sb.WriteString("- Contexts: ")
+				for i, ctx := range contexts {
+					if i > 0 {
+						sb.WriteString(", ")
+					}
+					sb.WriteString(fmt.Sprintf("`%s`", ctx))
+				}
+				sb.WriteString("\n")
+				sb.WriteString(fmt.Sprintf("- Consider keeping one and removing %d duplicate(s)\n\n", len(contexts)-1))
+			}
+		}
+	}
+
+	// Cleanup recommendations for inaccessible clusters
 	if inaccessible > 0 {
-		sb.WriteString("## Cleanup Recommendations\n\n")
-		sb.WriteString("The following contexts appear to be stale and can be removed:\n\n")
+		sb.WriteString("## Delete Inaccessible Contexts\n\n")
+		sb.WriteString("These contexts are unreachable and should be removed:\n\n")
 		sb.WriteString("```bash\n")
 		for _, r := range results {
 			if !r.Accessible {
@@ -1022,8 +1058,6 @@ func (s *Server) toolAuditKubeconfig(ctx context.Context, args map[string]interf
 			}
 		}
 		sb.WriteString("```\n\n")
-		sb.WriteString("To also remove unused clusters and users:\n")
-		sb.WriteString("```bash\n")
 
 		// Collect unique clusters and users from inaccessible contexts
 		clustersToDelete := make(map[string]bool)
@@ -1043,16 +1077,23 @@ func (s *Server) toolAuditKubeconfig(ctx context.Context, args map[string]interf
 			}
 		}
 
-		for cluster := range clustersToDelete {
-			sb.WriteString(fmt.Sprintf("kubectl config delete-cluster %s\n", cluster))
+		if len(clustersToDelete) > 0 || len(usersToDelete) > 0 {
+			sb.WriteString("Also remove orphaned clusters and users:\n")
+			sb.WriteString("```bash\n")
+			for cluster := range clustersToDelete {
+				sb.WriteString(fmt.Sprintf("kubectl config delete-cluster %s\n", cluster))
+			}
+			for user := range usersToDelete {
+				sb.WriteString(fmt.Sprintf("kubectl config delete-user %s\n", user))
+			}
+			sb.WriteString("```\n")
 		}
-		for user := range usersToDelete {
-			sb.WriteString(fmt.Sprintf("kubectl config delete-user %s\n", user))
-		}
-		sb.WriteString("```\n")
-	} else {
-		sb.WriteString("## All clusters are accessible!\n\n")
-		sb.WriteString("No cleanup needed.\n")
+	}
+
+	// Summary
+	if inaccessible == 0 && !hasDuplicates {
+		sb.WriteString("## All Good!\n\n")
+		sb.WriteString("All clusters are accessible and no duplicates found.\n")
 	}
 
 	return sb.String(), false
