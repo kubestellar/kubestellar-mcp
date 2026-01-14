@@ -616,6 +616,19 @@ func (s *Server) handleToolsList(req *Request) {
 				},
 			},
 		},
+		{
+			Name:        "audit_kubeconfig",
+			Description: "Audit all clusters in kubeconfig: check connectivity, identify stale/inaccessible clusters, and recommend cleanup",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"timeout_seconds": {
+						Type:        "integer",
+						Description: "Connection timeout in seconds per cluster (default 5)",
+					},
+				},
+			},
+		},
 	}
 
 	s.sendResult(req.ID, ToolsListResult{Tools: tools})
@@ -676,6 +689,8 @@ func (s *Server) handleToolsCall(ctx context.Context, req *Request) {
 		result, isError = s.toolAnalyzeNamespace(ctx, params.Arguments)
 	case "get_warning_events":
 		result, isError = s.toolGetWarningEvents(ctx, params.Arguments)
+	case "audit_kubeconfig":
+		result, isError = s.toolAuditKubeconfig(ctx, params.Arguments)
 	default:
 		s.sendError(req.ID, -32602, fmt.Sprintf("Unknown tool: %s", params.Name), nil)
 		return

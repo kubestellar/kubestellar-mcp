@@ -80,6 +80,7 @@ Once installed, ask questions like:
 | `list_clusters` | Discover clusters from kubeconfig |
 | `get_cluster_health` | Check cluster health status |
 | `get_nodes` | List cluster nodes with status |
+| `audit_kubeconfig` | Audit all clusters for connectivity and recommend cleanup |
 
 ### Workload Tools
 | Tool | Description |
