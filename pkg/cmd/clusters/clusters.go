@@ -19,13 +19,10 @@ Clusters can be discovered from:
 
 Examples:
   # List all clusters
-  kubectl claude clusters list
+  klaude-ops clusters list
 
   # Show cluster health
-  kubectl claude clusters health
-
-  # Compare two clusters
-  kubectl claude clusters compare prod-east prod-west`,
+  klaude-ops clusters health`,
 	}
 
 	cmd.AddCommand(newListCommand(configFlags))

@@ -14,8 +14,8 @@ import (
 
 const (
 	MCPVersion = "2024-11-05"
-	ServerName = "klaude"
-	ServerVersion = "0.6.0"
+	ServerName = "klaude-ops"
+	ServerVersion = "0.7.0"
 )
 
 // Server implements an MCP server over stdio

@@ -1,13 +1,32 @@
 version: 2
 
+project_name: klaude
+
 before:
   hooks:
     - go mod tidy
 
 builds:
-  - id: klaude
-    main: ./cmd/klaude
-    binary: klaude
+  - id: klaude-ops
+    main: ./cmd/klaude-ops
+    binary: klaude-ops
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/kubestellar/klaude/internal/version.Version={{.Version}}
+      - -X github.com/kubestellar/klaude/internal/version.BuildDate={{.Date}}
+      - -X github.com/kubestellar/klaude/internal/version.GitCommit={{.Commit}}
+
+  - id: klaude-deploy
+    main: ./cmd/klaude-deploy
+    binary: klaude-deploy
     env:
       - CGO_ENABLED=0
     goos:
@@ -23,9 +42,17 @@ builds:
       - -X github.com/kubestellar/klaude/internal/version.GitCommit={{.Commit}}
 
 archives:
-  - id: klaude
+  - id: klaude-ops
+    builds:
+      - klaude-ops
     format: tar.gz
-    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    name_template: "klaude-ops_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+  - id: klaude-deploy
+    builds:
+      - klaude-deploy
+    format: tar.gz
+    name_template: "klaude-deploy_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
 checksum:
   name_template: "checksums.txt"
@@ -51,16 +78,34 @@ release:
   prerelease: auto
 
 brews:
-  - name: klaude
+  - name: klaude-ops
+    ids:
+      - klaude-ops
     repository:
       owner: kubestellar
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     directory: Formula
     homepage: "https://github.com/kubestellar/klaude"
-    description: "AI-powered multi-cluster Kubernetes management for Claude Code"
+    description: "Multi-cluster Kubernetes diagnostics, RBAC analysis, and security checks"
     license: "Apache-2.0"
     install: |
-      bin.install "klaude"
+      bin.install "klaude-ops"
     test: |
-      system "#{bin}/klaude", "version"
+      system "#{bin}/klaude-ops", "version"
+
+  - name: klaude-deploy
+    ids:
+      - klaude-deploy
+    repository:
+      owner: kubestellar
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Formula
+    homepage: "https://github.com/kubestellar/klaude"
+    description: "App-centric multi-cluster deployment and operations for Kubernetes"
+    license: "Apache-2.0"
+    install: |
+      bin.install "klaude-deploy"
+    test: |
+      system "#{bin}/klaude-deploy", "version"

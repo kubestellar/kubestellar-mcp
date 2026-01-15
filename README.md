@@ -1,6 +1,15 @@
 # klaude
 
-AI-powered kubectl plugin for multi-cluster Kubernetes management, with built-in diagnostic tools.
+AI-powered multi-cluster Kubernetes tools for Claude Code.
+
+**Single-cluster UX for multi-cluster reality** - work with your **apps**, not your **clusters**.
+
+## Components
+
+| Binary | Description |
+|--------|-------------|
+| **klaude-ops** | Multi-cluster diagnostics, RBAC analysis, security checks |
+| **klaude-deploy** | App-centric deployment, GitOps, smart workload placement |
 
 ## Installation
 
@@ -8,7 +17,15 @@ AI-powered kubectl plugin for multi-cluster Kubernetes management, with built-in
 
 ```bash
 brew tap kubestellar/tap
-brew install klaude
+
+# Install diagnostics tools
+brew install klaude-ops
+
+# Install deployment tools
+brew install klaude-deploy
+
+# Or install both
+brew install klaude-ops klaude-deploy
 ```
 
 ### From Releases
@@ -20,157 +37,163 @@ Download from [GitHub Releases](https://github.com/kubestellar/klaude/releases).
 ```bash
 git clone https://github.com/kubestellar/klaude.git
 cd klaude
-go build -o klaude ./cmd/klaude
-sudo mv klaude /usr/local/bin/
+
+# Build both binaries
+go build -o bin/klaude-ops ./cmd/klaude-ops
+go build -o bin/klaude-deploy ./cmd/klaude-deploy
+
+sudo mv bin/klaude-* /usr/local/bin/
 ```
 
-## Claude Code Plugin
+## Claude Code Plugins
 
-### Install the Plugin
+### Install the Plugins
 
 1. Add the KubeStellar marketplace:
    ```
    /plugin marketplace add kubestellar/claude-plugins
    ```
 2. Go to `/plugin` → **Discover** tab
-3. Install **klaude**
+3. Install **klaude-ops** and/or **klaude-deploy**
 
 ### Verify Installation
 
 Run `/mcp` in Claude Code - you should see:
 ```
-plugin:klaude:klaude · ✓ connected
+plugin:klaude-ops:klaude-ops · ✓ connected
+plugin:klaude-deploy:klaude-deploy · ✓ connected
 ```
 
 ### Allow Tools Without Prompts
 
-To avoid permission prompts for each tool call, add to `~/.claude/settings.json`:
+Add to `~/.claude/settings.json`:
 
 ```json
 {
   "permissions": {
     "allow": [
-      "mcp__plugin_klaude_klaude__*"
+      "mcp__plugin_klaude-ops_klaude-ops__*",
+      "mcp__plugin_klaude-deploy_klaude-deploy__*"
     ]
   }
 }
 ```
 
-Or run in Claude Code:
-```
-/allowed-tools add mcp__plugin_klaude_klaude__*
-```
+---
 
-### Usage in Claude Code
+## klaude-ops
 
-Once installed, ask questions like:
+Multi-cluster Kubernetes diagnostics, RBAC analysis, and security checks.
+
+### Example Usage
 
 - "List my Kubernetes clusters"
-- "Find pods with issues in the production namespace"
-- "Check for security misconfigurations in my cluster"
+- "Find pods with issues across all clusters"
+- "Check for security misconfigurations"
 - "What permissions does the admin service account have?"
 - "Show me warning events in kube-system"
-- "Analyze the default namespace"
 
-## Available Tools
+### Features
 
-### Cluster Management
-| Tool | Description |
-|------|-------------|
-| `list_clusters` | Discover clusters from kubeconfig |
-| `get_cluster_health` | Check cluster health status |
-| `get_nodes` | List cluster nodes with status |
-| `audit_kubeconfig` | Audit all clusters for connectivity and recommend cleanup |
+| Category | Tools |
+|----------|-------|
+| **Cluster** | `list_clusters`, `get_cluster_health`, `get_nodes`, `audit_kubeconfig` |
+| **Workloads** | `get_pods`, `get_deployments`, `get_services`, `get_events`, `describe_pod`, `get_pod_logs` |
+| **RBAC** | `get_roles`, `get_cluster_roles`, `get_role_bindings`, `can_i`, `analyze_subject_permissions` |
+| **Diagnostics** | `find_pod_issues`, `find_deployment_issues`, `check_resource_limits`, `check_security_issues` |
+| **Gatekeeper** | `check_gatekeeper`, `install_ownership_policy`, `list_ownership_violations` |
+| **Upgrades** | `detect_cluster_type`, `get_cluster_version_info`, `check_helm_release_upgrades` |
 
-### Workload Tools
-| Tool | Description |
-|------|-------------|
-| `get_pods` | List pods with filtering options |
-| `get_deployments` | List deployments |
-| `get_services` | List services |
-| `get_events` | Get recent events |
-| `describe_pod` | Get detailed pod information |
-| `get_pod_logs` | Retrieve pod logs |
-
-### RBAC Analysis
-| Tool | Description |
-|------|-------------|
-| `get_roles` | List Roles in a namespace |
-| `get_cluster_roles` | List ClusterRoles |
-| `get_role_bindings` | List RoleBindings |
-| `get_cluster_role_bindings` | List ClusterRoleBindings |
-| `can_i` | Check if you can perform an action |
-| `analyze_subject_permissions` | Full RBAC analysis for any subject |
-| `describe_role` | Detailed view of Role/ClusterRole rules |
-
-### Diagnostic Tools
-| Tool | Description |
-|------|-------------|
-| `find_pod_issues` | Find CrashLoopBackOff, ImagePullBackOff, OOMKilled, pending pods |
-| `find_deployment_issues` | Find stuck rollouts, unavailable replicas, ReplicaSet errors |
-| `check_resource_limits` | Find pods without CPU/memory limits |
-| `check_security_issues` | Find privileged containers, root users, host network |
-| `analyze_namespace` | Comprehensive namespace analysis |
-| `get_warning_events` | Get only Warning events |
-| `find_resource_owners` | Find who owns/manages resources via managedFields, labels, annotations |
-
-### OPA Gatekeeper Policy Tools
-| Tool | Description |
-|------|-------------|
-| `check_gatekeeper` | Check if OPA Gatekeeper is installed and healthy |
-| `get_ownership_policy_status` | Get ownership policy configuration and violation count |
-| `list_ownership_violations` | List resources missing required ownership labels |
-| `install_ownership_policy` | Install ownership labels policy (dryrun/warn/enforce modes) |
-| `set_ownership_policy_mode` | Change policy enforcement mode |
-| `uninstall_ownership_policy` | Remove the ownership policy |
-
-### Upgrade Tools
-| Tool | Description |
-|------|-------------|
-| `detect_cluster_type` | Detect cluster distribution (OpenShift, EKS, GKE, AKS, kubeadm, k3s, kind) |
-| `get_cluster_version_info` | Get current version and available upgrades |
-| `check_olm_operator_upgrades` | Check OLM operators for pending upgrades |
-| `check_helm_release_upgrades` | List Helm releases and their versions |
-| `get_upgrade_prerequisites` | Validate upgrade readiness (nodes, pods, ClusterOperators) |
-| `trigger_openshift_upgrade` | Trigger OpenShift cluster upgrade (requires confirmation) |
-| `get_upgrade_status` | Monitor upgrade progress |
-
-## Slash Commands
-
-When using klaude as a Claude Code plugin, these slash commands are available:
+### Slash Commands
 
 | Command | Description |
 |---------|-------------|
-| `/k8s-health` | Check health of all Kubernetes clusters |
-| `/k8s-issues` | Find pod and deployment issues across clusters |
+| `/k8s-health` | Check health of all clusters |
+| `/k8s-issues` | Find pod and deployment issues |
 | `/k8s-security` | Check for security misconfigurations |
-| `/k8s-rbac` | Analyze RBAC permissions for a subject |
+| `/k8s-rbac` | Analyze RBAC permissions |
 | `/k8s-analyze` | Comprehensive namespace analysis |
-| `/k8s-audit-kubeconfig` | Audit kubeconfig clusters and recommend cleanup |
-| `/k8s-ownership` | Set up and manage resource ownership tracking with OPA Gatekeeper |
-| `/k8s-upgrade-check` | Check for available upgrades (cluster, OLM operators, Helm releases) |
-| `/k8s-upgrade` | Interactive cluster upgrade workflow with safety checks |
+| `/k8s-ownership` | Manage ownership tracking with OPA Gatekeeper |
+
+---
+
+## klaude-deploy
+
+App-centric multi-cluster deployment and operations.
+
+### Example Usage
+
+- "Where is nginx running?"
+- "Get logs from my api service"
+- "Deploy my ML model to clusters with GPUs"
+- "Are my clusters in sync with git?"
+- "Scale my app to 5 replicas across all clusters"
+
+### Features
+
+| Category | Tools |
+|----------|-------|
+| **App Discovery** | `get_app_instances`, `get_app_status`, `get_app_logs` |
+| **Deployment** | `deploy_app`, `scale_app`, `patch_app` |
+| **Placement** | `list_cluster_capabilities`, `find_clusters_for_workload` |
+| **GitOps** | `sync_from_git`, `detect_drift`, `reconcile`, `preview_changes` |
+
+### Slash Commands
+
+| Command | Description |
+|---------|-------------|
+| `/app-status` | Show status of an app across all clusters |
+| `/app-logs` | Get aggregated logs from an app |
+| `/deploy` | Deploy or update an app |
+| `/gitops-sync` | Sync clusters from git |
+| `/gitops-drift` | Check for drift from git |
+
+### Example Workflows
+
+**"Where is my app running?"**
+```
+nginx is running on 3 clusters:
+  - prod-east: 3 replicas, healthy
+  - prod-west: 3 replicas, healthy
+  - staging: 1 replica, healthy
+```
+
+**"Deploy to GPU clusters"**
+```
+Found 2 clusters with nvidia.com/gpu
+Deployed to gpu-cluster-1, gpu-cluster-2
+All healthy
+```
+
+**"Check for drift"**
+```
+Drift detected:
+  - prod-west: ConfigMap/app-config differs
+  - staging: Deployment/api has extra replicas
+```
+
+---
 
 ## CLI Usage
 
-### As kubectl plugin
+### klaude-ops
 
 ```bash
-# List all clusters
-kubectl klaude clusters list
+# Run as MCP server (for Claude Code)
+klaude-ops --mcp-server
+
+# List clusters
+klaude-ops clusters list
 
 # Check cluster health
-kubectl klaude clusters health
-
-# Natural language queries (requires ANTHROPIC_API_KEY)
-kubectl klaude "show me failing pods"
+klaude-ops clusters health
 ```
 
-### As MCP Server
+### klaude-deploy
 
 ```bash
-# Start MCP server (used by Claude Code)
-klaude --mcp-server
+# Run as MCP server (for Claude Code)
+klaude-deploy --mcp-server
 ```
 
 ## Environment Variables
@@ -178,7 +201,10 @@ klaude --mcp-server
 | Variable | Description |
 |----------|-------------|
 | `KUBECONFIG` | Path to kubeconfig file |
-| `ANTHROPIC_API_KEY` | API key for Claude AI (for natural language queries) |
+
+## Related Projects
+
+- [KubeStellar](https://kubestellar.io) - Multi-cluster orchestration platform
 
 ## Contributing
 

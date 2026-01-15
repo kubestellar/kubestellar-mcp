@@ -30,29 +30,27 @@ var (
 
 // rootCmd represents the base command
 var rootCmd = &cobra.Command{
-	Use:   "klaude",
-	Short: "AI-powered kubectl plugin for multi-cluster Kubernetes management",
-	Long: `klaude is an AI-powered kubectl plugin that helps you manage
-clusters and deployments across multiple Kubernetes clusters.
+	Use:   "klaude-ops",
+	Short: "Multi-cluster Kubernetes diagnostics, RBAC analysis, and security checks",
+	Long: `klaude-ops provides diagnostic tools for multi-cluster Kubernetes environments.
 
-It provides intelligent assistance for:
-  - Multi-cluster discovery and management
-  - Deployment operations across clusters
-  - Natural language queries about your clusters
-  - AI-powered troubleshooting and recommendations
+It provides:
+  - Multi-cluster diagnostics (find pod issues, deployment issues)
+  - Security analysis (privileged containers, resource limits)
+  - RBAC analysis (permissions, role bindings)
+  - Cluster health checks
+
+By default, operations run across ALL clusters. Specify --context to target a single cluster.
 
 Examples:
+  # Run as MCP server for Claude Code
+  klaude-ops --mcp-server
+
   # List all available clusters
-  kubectl klaude clusters list
-
-  # Ask a natural language question (shorthand)
-  kubectl klaude "show me all failing pods"
-
-  # Ask using query subcommand
-  kubectl klaude query "why is my pod crashing?"
+  klaude-ops clusters list
 
   # Check cluster health
-  kubectl klaude clusters health --all-clusters`,
+  klaude-ops clusters health --all-clusters`,
 	Version: version.Version,
 	// Handle natural language queries directly
 	Args: func(cmd *cobra.Command, args []string) error {
@@ -170,7 +168,7 @@ func newVersionCommand() *cobra.Command {
 		Use:   "version",
 		Short: "Print version information",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("klaude version %s\n", version.Version)
+			fmt.Printf("klaude-ops version %s\n", version.Version)
 			fmt.Printf("  Build date: %s\n", version.BuildDate)
 			fmt.Printf("  Git commit: %s\n", version.GitCommit)
 		},
