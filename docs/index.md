@@ -7,6 +7,20 @@ description: AI-powered kubectl plugin for multi-cluster Kubernetes management
 
 AI-powered kubectl plugin for multi-cluster Kubernetes management, with built-in diagnostic tools.
 
+## Quick Start
+
+```bash
+# Install via Homebrew
+brew tap kubestellar/tap
+brew install kubectl-claude
+
+# Check cluster health
+kubectl claude clusters health
+
+# Find issues across all namespaces
+kubectl claude "show me pods with problems"
+```
+
 ## Installation
 
 ### Homebrew (Recommended)
