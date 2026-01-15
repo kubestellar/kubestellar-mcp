@@ -764,6 +764,115 @@ func (s *Server) handleToolsList(req *Request) {
 				},
 			},
 		},
+		// Upgrade Tools
+		{
+			Name:        "detect_cluster_type",
+			Description: "Detect the Kubernetes distribution type (OpenShift, EKS, GKE, AKS, kubeadm, k3s, kind, etc.)",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"cluster": {
+						Type:        "string",
+						Description: "Cluster name (uses current context if not specified)",
+					},
+				},
+			},
+		},
+		{
+			Name:        "get_cluster_version_info",
+			Description: "Get current Kubernetes/OpenShift version and check for available upgrades",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"cluster": {
+						Type:        "string",
+						Description: "Cluster name (uses current context if not specified)",
+					},
+				},
+			},
+		},
+		{
+			Name:        "check_olm_operator_upgrades",
+			Description: "Check OLM-managed operators for available upgrades (requires OLM installed)",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"cluster": {
+						Type:        "string",
+						Description: "Cluster name (uses current context if not specified)",
+					},
+					"namespace": {
+						Type:        "string",
+						Description: "Namespace to check (all namespaces if not specified)",
+					},
+				},
+			},
+		},
+		{
+			Name:        "check_helm_release_upgrades",
+			Description: "Check Helm releases for available chart version upgrades",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"cluster": {
+						Type:        "string",
+						Description: "Cluster name (uses current context if not specified)",
+					},
+					"namespace": {
+						Type:        "string",
+						Description: "Namespace to check (all namespaces if not specified)",
+					},
+				},
+			},
+		},
+		{
+			Name:        "get_upgrade_prerequisites",
+			Description: "Check upgrade prerequisites: node health, pod issues, ClusterOperators (OpenShift), MachineConfigPools",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"cluster": {
+						Type:        "string",
+						Description: "Cluster name (uses current context if not specified)",
+					},
+				},
+			},
+		},
+		{
+			Name:        "trigger_openshift_upgrade",
+			Description: "Trigger an OpenShift cluster upgrade to a specific version (REQUIRES CONFIRMATION: pass confirm='yes-upgrade-now')",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"cluster": {
+						Type:        "string",
+						Description: "Cluster name (uses current context if not specified)",
+					},
+					"target_version": {
+						Type:        "string",
+						Description: "Target OpenShift version to upgrade to (e.g., 4.14.5)",
+					},
+					"confirm": {
+						Type:        "string",
+						Description: "Must be 'yes-upgrade-now' to proceed with the upgrade",
+					},
+				},
+				Required: []string{"target_version", "confirm"},
+			},
+		},
+		{
+			Name:        "get_upgrade_status",
+			Description: "Get the current upgrade status for a cluster (progress, ClusterOperators, MachineConfigPools)",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"cluster": {
+						Type:        "string",
+						Description: "Cluster name (uses current context if not specified)",
+					},
+				},
+			},
+		},
 	}
 
 	s.sendResult(req.ID, ToolsListResult{Tools: tools})
@@ -840,6 +949,21 @@ func (s *Server) handleToolsCall(ctx context.Context, req *Request) {
 		result, isError = s.toolSetOwnershipPolicyMode(ctx, params.Arguments)
 	case "uninstall_ownership_policy":
 		result, isError = s.toolUninstallOwnershipPolicy(ctx, params.Arguments)
+	// Upgrade Tools
+	case "detect_cluster_type":
+		result, isError = s.toolDetectClusterType(ctx, params.Arguments)
+	case "get_cluster_version_info":
+		result, isError = s.toolGetClusterVersionInfo(ctx, params.Arguments)
+	case "check_olm_operator_upgrades":
+		result, isError = s.toolCheckOLMOperatorUpgrades(ctx, params.Arguments)
+	case "check_helm_release_upgrades":
+		result, isError = s.toolCheckHelmReleaseUpgrades(ctx, params.Arguments)
+	case "get_upgrade_prerequisites":
+		result, isError = s.toolGetUpgradePrerequisites(ctx, params.Arguments)
+	case "trigger_openshift_upgrade":
+		result, isError = s.toolTriggerOpenShiftUpgrade(ctx, params.Arguments)
+	case "get_upgrade_status":
+		result, isError = s.toolGetUpgradeStatus(ctx, params.Arguments)
 	default:
 		s.sendError(req.ID, -32602, fmt.Sprintf("Unknown tool: %s", params.Name), nil)
 		return
