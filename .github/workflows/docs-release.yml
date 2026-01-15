@@ -35,7 +35,7 @@ jobs:
           {
             "event_type": "create-version-branch",
             "client_payload": {
-              "project": "kubectl-claude",
+              "project": "klaude",
               "version": "${{ steps.version.outputs.tag }}",
               "source_repo": "${{ github.repository }}",
               "source_branch": "${{ steps.version.outputs.branch }}"

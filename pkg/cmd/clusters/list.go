@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
-	"github.com/kubestellar/kubectl-claude/pkg/cluster"
+	"github.com/kubestellar/klaude/pkg/cluster"
 )
 
 type listOptions struct {
@@ -36,13 +36,13 @@ The output shows:
 
 Examples:
   # List all clusters
-  kubectl claude clusters list
+  kubectl klaude clusters list
 
   # List only kubeconfig clusters
-  kubectl claude clusters list --source=kubeconfig
+  kubectl klaude clusters list --source=kubeconfig
 
   # List only KubeStellar managed clusters
-  kubectl claude clusters list --source=kubestellar`,
+  kubectl klaude clusters list --source=kubestellar`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return o.run()
 		},

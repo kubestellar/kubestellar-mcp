@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
-	"github.com/kubestellar/kubectl-claude/pkg/cluster"
+	"github.com/kubestellar/klaude/pkg/cluster"
 )
 
 type healthOptions struct {
@@ -35,13 +35,13 @@ Health checks include:
 
 Examples:
   # Check health of all clusters
-  kubectl claude clusters health --all-clusters
+  kubectl klaude clusters health --all-clusters
 
   # Check health of specific cluster
-  kubectl claude clusters health prod-east
+  kubectl klaude clusters health prod-east
 
   # Check health of current context
-  kubectl claude clusters health`,
+  kubectl klaude clusters health`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				o.clusterName = args[0]
