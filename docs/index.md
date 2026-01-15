@@ -11,12 +11,14 @@ AI-powered multi-cluster Kubernetes tools for Claude Code.
 
 ## Components
 
-| Binary | Description |
-|--------|-------------|
-| **klaude-ops** | Multi-cluster diagnostics, RBAC analysis, security checks |
-| **klaude-deploy** | App-centric deployment, GitOps, smart workload placement |
+| Binary | Plugin | Description |
+|--------|--------|-------------|
+| **klaude-ops** | klaude-ops | Multi-cluster diagnostics, RBAC analysis, security checks |
+| **klaude-deploy** | klaude-deploy | App-centric deployment, GitOps, smart workload placement |
 
 ## Quick Start
+
+### 1. Install the Binaries
 
 ```bash
 # Install via Homebrew
@@ -27,6 +29,36 @@ brew install klaude-ops klaude-deploy
 brew install klaude-ops      # Diagnostics only
 brew install klaude-deploy   # Deployment only
 ```
+
+### 2. Install the Claude Code Plugins
+
+```
+/plugin marketplace add kubestellar/claude-plugins
+```
+
+Then go to `/plugin` → **Marketplaces** tab → click **Update** on kubestellar marketplace.
+
+Go to `/plugin` → **Discover** tab and install:
+- **klaude-ops** - for diagnostics, RBAC, security
+- **klaude-deploy** - for deployment, GitOps
+
+### 3. Verify Installation
+
+Run `/mcp` in Claude Code - you should see:
+```
+plugin:klaude-ops:klaude-ops · ✓ connected
+plugin:klaude-deploy:klaude-deploy · ✓ connected
+```
+
+### 4. Start Using
+
+Ask Claude:
+- "List my Kubernetes clusters"
+- "Find pods with issues"
+- "Where is nginx running?"
+- "Check for security misconfigurations"
+
+---
 
 ## Installation
 
@@ -62,28 +94,51 @@ go build -o bin/klaude-deploy ./cmd/klaude-deploy
 sudo mv bin/klaude-* /usr/local/bin/
 ```
 
-## Claude Code Plugins
+---
 
-### Install the Plugins
+## Claude Code Plugin Setup
 
-1. Add the KubeStellar marketplace:
+### Adding the Marketplace
+
+1. In Claude Code, run:
    ```
    /plugin marketplace add kubestellar/claude-plugins
    ```
-2. Go to `/plugin` → **Discover** tab
-3. Install **klaude-ops** and/or **klaude-deploy**
 
-### Verify Installation
+2. Go to `/plugin` → **Marketplaces** tab
 
-Run `/mcp` in Claude Code - you should see:
+3. Click **Update** on the kubestellar marketplace to refresh the plugin list
+
+### Installing Plugins
+
+1. Go to `/plugin` → **Discover** tab
+
+2. Search for "klaude" or browse the list
+
+3. Select and install:
+   - **klaude-ops** - Multi-cluster diagnostics, RBAC analysis, security checks
+   - **klaude-deploy** - App-centric deployment, GitOps, smart workload placement
+
+4. The plugins will automatically connect to the installed binaries
+
+### Verifying Connection
+
+Run `/mcp` in Claude Code to see connected MCP servers:
+
 ```
 plugin:klaude-ops:klaude-ops · ✓ connected
 plugin:klaude-deploy:klaude-deploy · ✓ connected
 ```
 
+If a plugin shows disconnected, ensure the binary is installed and in your PATH:
+```bash
+which klaude-ops
+which klaude-deploy
+```
+
 ### Allow Tools Without Prompts
 
-Add to `~/.claude/settings.json`:
+To avoid permission prompts for each tool call, add to `~/.claude/settings.json`:
 
 ```json
 {
@@ -94,6 +149,30 @@ Add to `~/.claude/settings.json`:
     ]
   }
 }
+```
+
+Or run in Claude Code:
+```
+/allowed-tools add mcp__plugin_klaude-ops_klaude-ops__*
+/allowed-tools add mcp__plugin_klaude-deploy_klaude-deploy__*
+```
+
+### Troubleshooting
+
+**Plugins not showing in Discover tab:**
+1. Go to `/plugin` → **Marketplaces** tab
+2. Click **Update** on the kubestellar marketplace
+3. Return to **Discover** tab and search again
+
+**Plugin shows disconnected:**
+1. Verify binary is installed: `which klaude-ops`
+2. Verify binary works: `klaude-ops version`
+3. Restart Claude Code
+
+**Marketplace not found:**
+```
+/plugin marketplace remove kubestellar
+/plugin marketplace add kubestellar/claude-plugins
 ```
 
 ---
@@ -109,6 +188,7 @@ Multi-cluster Kubernetes diagnostics, RBAC analysis, and security checks.
 - "Check for security misconfigurations"
 - "What permissions does the admin service account have?"
 - "Show me warning events in kube-system"
+- "Analyze the default namespace"
 
 ### Tools
 
@@ -184,6 +264,8 @@ Multi-cluster Kubernetes diagnostics, RBAC analysis, and security checks.
 | `/k8s-analyze` | Comprehensive namespace analysis |
 | `/k8s-audit-kubeconfig` | Audit kubeconfig clusters |
 | `/k8s-ownership` | Manage ownership tracking with OPA Gatekeeper |
+| `/k8s-upgrade-check` | Check for available upgrades (cluster, OLM, Helm) |
+| `/k8s-upgrade` | Guided cluster upgrade with safety checks |
 
 ---
 
