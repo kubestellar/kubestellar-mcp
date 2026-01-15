@@ -112,6 +112,17 @@ Once installed, ask questions like:
 | `check_security_issues` | Find privileged containers, root users, host network |
 | `analyze_namespace` | Comprehensive namespace analysis |
 | `get_warning_events` | Get only Warning events |
+| `find_resource_owners` | Find who owns/manages resources via managedFields, labels, annotations |
+
+### OPA Gatekeeper Policy Tools
+| Tool | Description |
+|------|-------------|
+| `check_gatekeeper` | Check if OPA Gatekeeper is installed and healthy |
+| `get_ownership_policy_status` | Get ownership policy configuration and violation count |
+| `list_ownership_violations` | List resources missing required ownership labels |
+| `install_ownership_policy` | Install ownership labels policy (dryrun/warn/enforce modes) |
+| `set_ownership_policy_mode` | Change policy enforcement mode |
+| `uninstall_ownership_policy` | Remove the ownership policy |
 
 ## CLI Usage
 
