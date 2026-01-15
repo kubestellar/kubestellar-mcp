@@ -14,6 +14,7 @@ import (
 	"github.com/kubestellar/klaude/internal/version"
 	"github.com/kubestellar/klaude/pkg/cmd/ai"
 	"github.com/kubestellar/klaude/pkg/cmd/clusters"
+	"github.com/kubestellar/klaude/pkg/cmd/upgrade"
 	"github.com/kubestellar/klaude/pkg/mcp/server"
 )
 
@@ -121,6 +122,7 @@ func init() {
 	// Add subcommands
 	rootCmd.AddCommand(clusters.NewClustersCommand(configFlags))
 	rootCmd.AddCommand(ai.NewQueryCommand(configFlags))
+	rootCmd.AddCommand(upgrade.NewWatchCommand(configFlags))
 	rootCmd.AddCommand(newVersionCommand())
 }
 
@@ -133,11 +135,12 @@ func isNaturalLanguageQuery(args []string) bool {
 
 	// Known subcommands
 	subcommands := map[string]bool{
-		"clusters":   true,
-		"query":      true,
-		"version":    true,
-		"help":       true,
-		"completion": true,
+		"clusters":      true,
+		"query":         true,
+		"watch-upgrade": true,
+		"version":       true,
+		"help":          true,
+		"completion":    true,
 	}
 
 	first := strings.ToLower(args[0])
