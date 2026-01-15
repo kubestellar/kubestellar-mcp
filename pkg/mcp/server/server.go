@@ -629,6 +629,141 @@ func (s *Server) handleToolsList(req *Request) {
 				},
 			},
 		},
+		{
+			Name:        "find_resource_owners",
+			Description: "Find who owns/manages resources by checking managedFields, ownership labels, and annotations",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"cluster": {
+						Type:        "string",
+						Description: "Cluster name (uses current context if not specified)",
+					},
+					"namespace": {
+						Type:        "string",
+						Description: "Namespace to check (required)",
+					},
+					"resource_type": {
+						Type:        "string",
+						Description: "Resource type to check: pods, deployments, services, all (default: all)",
+					},
+				},
+				Required: []string{"namespace"},
+			},
+		},
+		// OPA Gatekeeper Tools
+		{
+			Name:        "check_gatekeeper",
+			Description: "Check if OPA Gatekeeper is installed and running in the cluster",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"cluster": {
+						Type:        "string",
+						Description: "Cluster name (uses current context if not specified)",
+					},
+				},
+			},
+		},
+		{
+			Name:        "get_ownership_policy_status",
+			Description: "Get the status of the ownership labels policy including violation count",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"cluster": {
+						Type:        "string",
+						Description: "Cluster name (uses current context if not specified)",
+					},
+				},
+			},
+		},
+		{
+			Name:        "list_ownership_violations",
+			Description: "List resources that violate the ownership labels policy (missing owner/team labels)",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"cluster": {
+						Type:        "string",
+						Description: "Cluster name (uses current context if not specified)",
+					},
+					"namespace": {
+						Type:        "string",
+						Description: "Filter violations by namespace",
+					},
+					"limit": {
+						Type:        "integer",
+						Description: "Maximum number of violations to return (default 50)",
+					},
+				},
+			},
+		},
+		{
+			Name:        "install_ownership_policy",
+			Description: "Install the ownership labels policy (ConstraintTemplate and Constraint) for OPA Gatekeeper",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"cluster": {
+						Type:        "string",
+						Description: "Cluster name (uses current context if not specified)",
+					},
+					"labels": {
+						Type:        "array",
+						Description: "Required labels (default: [\"owner\", \"team\"])",
+						Items:       &Items{Type: "string"},
+					},
+					"target_namespaces": {
+						Type:        "array",
+						Description: "Namespaces to enforce (empty means all non-system namespaces)",
+						Items:       &Items{Type: "string"},
+					},
+					"exclude_namespaces": {
+						Type:        "array",
+						Description: "Namespaces to exclude (default: kube-*, openshift-*, gatekeeper-system)",
+						Items:       &Items{Type: "string"},
+					},
+					"mode": {
+						Type:        "string",
+						Description: "Enforcement mode: dryrun, warn, or enforce (default: dryrun)",
+						Enum:        []string{"dryrun", "warn", "enforce"},
+					},
+				},
+			},
+		},
+		{
+			Name:        "set_ownership_policy_mode",
+			Description: "Change the enforcement mode of the ownership labels policy",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"cluster": {
+						Type:        "string",
+						Description: "Cluster name (uses current context if not specified)",
+					},
+					"mode": {
+						Type:        "string",
+						Description: "Enforcement mode: dryrun, warn, or enforce",
+						Enum:        []string{"dryrun", "warn", "enforce"},
+					},
+				},
+				Required: []string{"mode"},
+			},
+		},
+		{
+			Name:        "uninstall_ownership_policy",
+			Description: "Remove the ownership labels policy from the cluster",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"cluster": {
+						Type:        "string",
+						Description: "Cluster name (uses current context if not specified)",
+					},
+				},
+			},
+		},
 	}
 
 	s.sendResult(req.ID, ToolsListResult{Tools: tools})
@@ -691,6 +826,20 @@ func (s *Server) handleToolsCall(ctx context.Context, req *Request) {
 		result, isError = s.toolGetWarningEvents(ctx, params.Arguments)
 	case "audit_kubeconfig":
 		result, isError = s.toolAuditKubeconfig(ctx, params.Arguments)
+	case "find_resource_owners":
+		result, isError = s.toolFindResourceOwners(ctx, params.Arguments)
+	case "check_gatekeeper":
+		result, isError = s.toolCheckGatekeeper(ctx, params.Arguments)
+	case "get_ownership_policy_status":
+		result, isError = s.toolGetOwnershipPolicyStatus(ctx, params.Arguments)
+	case "list_ownership_violations":
+		result, isError = s.toolListOwnershipViolations(ctx, params.Arguments)
+	case "install_ownership_policy":
+		result, isError = s.toolInstallOwnershipPolicy(ctx, params.Arguments)
+	case "set_ownership_policy_mode":
+		result, isError = s.toolSetOwnershipPolicyMode(ctx, params.Arguments)
+	case "uninstall_ownership_policy":
+		result, isError = s.toolUninstallOwnershipPolicy(ctx, params.Arguments)
 	default:
 		s.sendError(req.ID, -32602, fmt.Sprintf("Unknown tool: %s", params.Name), nil)
 		return
