@@ -15,6 +15,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.WORKFLOW_SYNC_TOKEN }}
         run: |
-          gh api repos/kubestellar/docs/dispatches \
-            -f event_type=create-version-branch \
-            -F client_payload='{"project":"kubectl-claude","version":"${{ github.event.release.tag_name }}","source_repo":"${{ github.repository }}","source_branch":"${{ github.event.release.target_commitish }}"}'
+          cat <<EOF | gh api repos/kubestellar/docs/dispatches --input -
+          {
+            "event_type": "create-version-branch",
+            "client_payload": {
+              "project": "kubectl-claude",
+              "version": "${{ github.event.release.tag_name }}",
+              "source_repo": "${{ github.repository }}",
+              "source_branch": "${{ github.event.release.target_commitish }}"
+            }
+          }
+          EOF
