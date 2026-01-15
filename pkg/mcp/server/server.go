@@ -9,13 +9,13 @@ import (
 	"os"
 	"sync"
 
-	"github.com/kubestellar/kubectl-claude/pkg/cluster"
+	"github.com/kubestellar/klaude/pkg/cluster"
 )
 
 const (
 	MCPVersion = "2024-11-05"
-	ServerName = "kubectl-claude"
-	ServerVersion = "0.1.0"
+	ServerName = "klaude"
+	ServerVersion = "0.6.0"
 )
 
 // Server implements an MCP server over stdio

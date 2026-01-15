@@ -11,10 +11,10 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
-	"github.com/kubestellar/kubectl-claude/internal/version"
-	"github.com/kubestellar/kubectl-claude/pkg/cmd/ai"
-	"github.com/kubestellar/kubectl-claude/pkg/cmd/clusters"
-	"github.com/kubestellar/kubectl-claude/pkg/mcp/server"
+	"github.com/kubestellar/klaude/internal/version"
+	"github.com/kubestellar/klaude/pkg/cmd/ai"
+	"github.com/kubestellar/klaude/pkg/cmd/clusters"
+	"github.com/kubestellar/klaude/pkg/mcp/server"
 )
 
 var (
@@ -30,9 +30,9 @@ var (
 
 // rootCmd represents the base command
 var rootCmd = &cobra.Command{
-	Use:   "kubectl-claude",
+	Use:   "klaude",
 	Short: "AI-powered kubectl plugin for multi-cluster Kubernetes management",
-	Long: `kubectl-claude is an AI-powered kubectl plugin that helps you manage
+	Long: `klaude is an AI-powered kubectl plugin that helps you manage
 clusters and deployments across multiple Kubernetes clusters.
 
 It provides intelligent assistance for:
@@ -43,16 +43,16 @@ It provides intelligent assistance for:
 
 Examples:
   # List all available clusters
-  kubectl claude clusters list
+  kubectl klaude clusters list
 
   # Ask a natural language question (shorthand)
-  kubectl claude "show me all failing pods"
+  kubectl klaude "show me all failing pods"
 
   # Ask using query subcommand
-  kubectl claude query "why is my pod crashing?"
+  kubectl klaude query "why is my pod crashing?"
 
   # Check cluster health
-  kubectl claude clusters health --all-clusters`,
+  kubectl klaude clusters health --all-clusters`,
 	Version: version.Version,
 	// Handle natural language queries directly
 	Args: func(cmd *cobra.Command, args []string) error {
@@ -170,7 +170,7 @@ func newVersionCommand() *cobra.Command {
 		Use:   "version",
 		Short: "Print version information",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("kubectl-claude version %s\n", version.Version)
+			fmt.Printf("klaude version %s\n", version.Version)
 			fmt.Printf("  Build date: %s\n", version.BuildDate)
 			fmt.Printf("  Git commit: %s\n", version.GitCommit)
 		},

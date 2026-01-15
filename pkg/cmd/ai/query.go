@@ -9,8 +9,8 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
-	"github.com/kubestellar/kubectl-claude/pkg/ai/claude"
-	"github.com/kubestellar/kubectl-claude/pkg/cluster"
+	"github.com/kubestellar/klaude/pkg/ai/claude"
+	"github.com/kubestellar/klaude/pkg/cluster"
 )
 
 type queryOptions struct {
@@ -40,16 +40,16 @@ The AI assistant has context about your available clusters and can help with:
 
 Examples:
   # Ask about pods
-  kubectl claude query "show me all pods that are not running"
+  kubectl klaude query "show me all pods that are not running"
 
   # Get troubleshooting help
-  kubectl claude query "why might my deployment be failing to start?"
+  kubectl klaude query "why might my deployment be failing to start?"
 
   # Get command suggestions
-  kubectl claude query "how do I scale my nginx deployment to 5 replicas?"
+  kubectl klaude query "how do I scale my nginx deployment to 5 replicas?"
 
   # Ask about cluster state
-  kubectl claude query "what's the overall health of my cluster?"`,
+  kubectl klaude query "what's the overall health of my cluster?"`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			o.query = strings.Join(args, " ")

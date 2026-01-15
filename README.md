@@ -1,4 +1,4 @@
-# kubectl-claude
+# klaude
 
 AI-powered kubectl plugin for multi-cluster Kubernetes management, with built-in diagnostic tools.
 
@@ -8,20 +8,20 @@ AI-powered kubectl plugin for multi-cluster Kubernetes management, with built-in
 
 ```bash
 brew tap kubestellar/tap
-brew install kubectl-claude
+brew install klaude
 ```
 
 ### From Releases
 
-Download from [GitHub Releases](https://github.com/kubestellar/kubectl-claude/releases).
+Download from [GitHub Releases](https://github.com/kubestellar/klaude/releases).
 
 ### From Source
 
 ```bash
-git clone https://github.com/kubestellar/kubectl-claude.git
-cd kubectl-claude
-go build -o kubectl-claude ./cmd/kubectl-claude
-sudo mv kubectl-claude /usr/local/bin/
+git clone https://github.com/kubestellar/klaude.git
+cd klaude
+go build -o klaude ./cmd/klaude
+sudo mv klaude /usr/local/bin/
 ```
 
 ## Claude Code Plugin
@@ -33,13 +33,13 @@ sudo mv kubectl-claude /usr/local/bin/
    /plugin marketplace add kubestellar/claude-plugins
    ```
 2. Go to `/plugin` → **Discover** tab
-3. Install **kubectl-claude**
+3. Install **klaude**
 
 ### Verify Installation
 
 Run `/mcp` in Claude Code - you should see:
 ```
-plugin:kubectl-claude:kubectl-claude · ✓ connected
+plugin:klaude:klaude · ✓ connected
 ```
 
 ### Allow Tools Without Prompts
@@ -50,7 +50,7 @@ To avoid permission prompts for each tool call, add to `~/.claude/settings.json`
 {
   "permissions": {
     "allow": [
-      "mcp__plugin_kubectl-claude_kubectl-claude__*"
+      "mcp__plugin_klaude_klaude__*"
     ]
   }
 }
@@ -58,7 +58,7 @@ To avoid permission prompts for each tool call, add to `~/.claude/settings.json`
 
 Or run in Claude Code:
 ```
-/allowed-tools add mcp__plugin_kubectl-claude_kubectl-claude__*
+/allowed-tools add mcp__plugin_klaude_klaude__*
 ```
 
 ### Usage in Claude Code
@@ -137,7 +137,7 @@ Once installed, ask questions like:
 
 ## Slash Commands
 
-When using kubectl-claude as a Claude Code plugin, these slash commands are available:
+When using klaude as a Claude Code plugin, these slash commands are available:
 
 | Command | Description |
 |---------|-------------|
@@ -157,20 +157,20 @@ When using kubectl-claude as a Claude Code plugin, these slash commands are avai
 
 ```bash
 # List all clusters
-kubectl claude clusters list
+kubectl klaude clusters list
 
 # Check cluster health
-kubectl claude clusters health
+kubectl klaude clusters health
 
 # Natural language queries (requires ANTHROPIC_API_KEY)
-kubectl claude "show me failing pods"
+kubectl klaude "show me failing pods"
 ```
 
 ### As MCP Server
 
 ```bash
 # Start MCP server (used by Claude Code)
-kubectl-claude --mcp-server
+klaude --mcp-server
 ```
 
 ## Environment Variables

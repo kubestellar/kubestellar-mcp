@@ -5,9 +5,9 @@ before:
     - go mod tidy
 
 builds:
-  - id: kubectl-claude
-    main: ./cmd/kubectl-claude
-    binary: kubectl-claude
+  - id: klaude
+    main: ./cmd/klaude
+    binary: klaude
     env:
       - CGO_ENABLED=0
     goos:
@@ -18,12 +18,12 @@ builds:
       - arm64
     ldflags:
       - -s -w
-      - -X github.com/kubestellar/kubectl-claude/internal/version.Version={{.Version}}
-      - -X github.com/kubestellar/kubectl-claude/internal/version.BuildDate={{.Date}}
-      - -X github.com/kubestellar/kubectl-claude/internal/version.GitCommit={{.Commit}}
+      - -X github.com/kubestellar/klaude/internal/version.Version={{.Version}}
+      - -X github.com/kubestellar/klaude/internal/version.BuildDate={{.Date}}
+      - -X github.com/kubestellar/klaude/internal/version.GitCommit={{.Commit}}
 
 archives:
-  - id: kubectl-claude
+  - id: klaude
     format: tar.gz
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
@@ -46,21 +46,21 @@ changelog:
 release:
   github:
     owner: kubestellar
-    name: kubectl-claude
+    name: klaude
   draft: false
   prerelease: auto
 
 brews:
-  - name: kubectl-claude
+  - name: klaude
     repository:
       owner: kubestellar
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     directory: Formula
-    homepage: "https://github.com/kubestellar/kubectl-claude"
+    homepage: "https://github.com/kubestellar/klaude"
     description: "AI-powered multi-cluster Kubernetes management for Claude Code"
     license: "Apache-2.0"
     install: |
-      bin.install "kubectl-claude"
+      bin.install "klaude"
     test: |
-      system "#{bin}/kubectl-claude", "version"
+      system "#{bin}/klaude", "version"
