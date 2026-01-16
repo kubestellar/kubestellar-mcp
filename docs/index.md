@@ -360,6 +360,23 @@ klaude-ops clusters list
 
 # Check cluster health
 klaude-ops clusters health
+
+# Watch OpenShift upgrade with live progress bar
+klaude-ops watch-upgrade
+klaude-ops watch-upgrade --context=prod-cluster --interval=5s
+```
+
+#### Live Progress Bar
+
+The `watch-upgrade` command displays a self-updating progress bar that overwrites itself:
+
+```
+⏳ 4.18.30 [###########---------------------------------------]  22% (200/906) cloud-controller-manager
+```
+
+When complete:
+```
+✅ 4.18.30 [##################################################] 100%
 ```
 
 ### klaude-deploy
