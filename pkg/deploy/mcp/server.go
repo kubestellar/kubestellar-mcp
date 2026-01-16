@@ -12,7 +12,7 @@ import (
 
 const (
 	ServerName    = "klaude-deploy"
-	ServerVersion = "0.7.0"
+	ServerVersion = "0.7.1"
 )
 
 // Server implements the MCP server for klaude-deploy
