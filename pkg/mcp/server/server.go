@@ -10,7 +10,6 @@ import (
 	"sync"
 
 	"github.com/kubestellar/klaude/pkg/cluster"
-	"github.com/kubestellar/klaude/pkg/gitops"
 )
 
 const (
