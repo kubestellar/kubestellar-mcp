@@ -449,6 +449,202 @@ func (s *Server) handleListTools(req *MCPRequest) *MCPResponse {
 				"required": []string{"repo"},
 			},
 		},
+		// Helm Tools
+		{
+			"name":        "helm_install",
+			"description": "Install or upgrade a Helm chart to clusters. Supports values overrides and targeting specific clusters.",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"release_name": map[string]interface{}{
+						"type":        "string",
+						"description": "Name for the Helm release",
+					},
+					"chart": map[string]interface{}{
+						"type":        "string",
+						"description": "Chart name or path (e.g., nginx, ./mychart, oci://registry/chart)",
+					},
+					"namespace": map[string]interface{}{
+						"type":        "string",
+						"description": "Target namespace (default: default)",
+					},
+					"values": map[string]interface{}{
+						"type":        "object",
+						"description": "Values to set (key-value pairs for --set)",
+					},
+					"values_yaml": map[string]interface{}{
+						"type":        "string",
+						"description": "Values in YAML format (equivalent to -f values.yaml)",
+					},
+					"version": map[string]interface{}{
+						"type":        "string",
+						"description": "Chart version to install",
+					},
+					"repo": map[string]interface{}{
+						"type":        "string",
+						"description": "Chart repository URL",
+					},
+					"wait": map[string]interface{}{
+						"type":        "boolean",
+						"description": "Wait for resources to be ready",
+					},
+					"timeout": map[string]interface{}{
+						"type":        "string",
+						"description": "Timeout for wait (e.g., 5m, 300s)",
+					},
+					"dry_run": map[string]interface{}{
+						"type":        "boolean",
+						"description": "Preview changes without applying",
+					},
+					"clusters": map[string]interface{}{
+						"type":        "array",
+						"items":       map[string]interface{}{"type": "string"},
+						"description": "Target clusters (all clusters if not specified)",
+					},
+				},
+				"required": []string{"release_name", "chart"},
+			},
+		},
+		{
+			"name":        "helm_uninstall",
+			"description": "Uninstall a Helm release from clusters.",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"release_name": map[string]interface{}{
+						"type":        "string",
+						"description": "Name of the Helm release to uninstall",
+					},
+					"namespace": map[string]interface{}{
+						"type":        "string",
+						"description": "Namespace of the release (default: default)",
+					},
+					"dry_run": map[string]interface{}{
+						"type":        "boolean",
+						"description": "Preview changes without applying",
+					},
+					"clusters": map[string]interface{}{
+						"type":        "array",
+						"items":       map[string]interface{}{"type": "string"},
+						"description": "Target clusters (clusters where release exists if not specified)",
+					},
+				},
+				"required": []string{"release_name"},
+			},
+		},
+		{
+			"name":        "helm_list",
+			"description": "List Helm releases across clusters.",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"namespace": map[string]interface{}{
+						"type":        "string",
+						"description": "Filter by namespace",
+					},
+					"all_namespaces": map[string]interface{}{
+						"type":        "boolean",
+						"description": "List releases in all namespaces",
+					},
+					"filter": map[string]interface{}{
+						"type":        "string",
+						"description": "Filter releases by name regex",
+					},
+					"clusters": map[string]interface{}{
+						"type":        "array",
+						"items":       map[string]interface{}{"type": "string"},
+						"description": "Target clusters (all clusters if not specified)",
+					},
+				},
+			},
+		},
+		{
+			"name":        "helm_rollback",
+			"description": "Rollback a Helm release to a previous revision.",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"release_name": map[string]interface{}{
+						"type":        "string",
+						"description": "Name of the Helm release",
+					},
+					"namespace": map[string]interface{}{
+						"type":        "string",
+						"description": "Namespace of the release (default: default)",
+					},
+					"revision": map[string]interface{}{
+						"type":        "integer",
+						"description": "Revision to rollback to (previous if not specified)",
+					},
+					"dry_run": map[string]interface{}{
+						"type":        "boolean",
+						"description": "Preview changes without applying",
+					},
+					"clusters": map[string]interface{}{
+						"type":        "array",
+						"items":       map[string]interface{}{"type": "string"},
+						"description": "Target clusters (clusters where release exists if not specified)",
+					},
+				},
+				"required": []string{"release_name"},
+			},
+		},
+		// Delete Tool
+		{
+			"name":        "delete_resource",
+			"description": "Delete a Kubernetes resource from clusters. Supports all common resource types.",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"kind": map[string]interface{}{
+						"type":        "string",
+						"description": "Resource kind (e.g., Deployment, Service, Pod, ConfigMap, Secret, StatefulSet, DaemonSet, Job, CronJob, Ingress, PVC, Namespace, ServiceAccount, Role, RoleBinding, ClusterRole, ClusterRoleBinding)",
+					},
+					"name": map[string]interface{}{
+						"type":        "string",
+						"description": "Resource name",
+					},
+					"namespace": map[string]interface{}{
+						"type":        "string",
+						"description": "Namespace (default: default, ignored for cluster-scoped resources)",
+					},
+					"dry_run": map[string]interface{}{
+						"type":        "boolean",
+						"description": "Preview changes without applying",
+					},
+					"clusters": map[string]interface{}{
+						"type":        "array",
+						"items":       map[string]interface{}{"type": "string"},
+						"description": "Target clusters (all clusters if not specified)",
+					},
+				},
+				"required": []string{"kind", "name"},
+			},
+		},
+		// Generic kubectl apply
+		{
+			"name":        "kubectl_apply",
+			"description": "Apply any Kubernetes manifest to clusters. Supports all resource types using dynamic client.",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"manifest": map[string]interface{}{
+						"type":        "string",
+						"description": "Kubernetes manifest (YAML or JSON)",
+					},
+					"dry_run": map[string]interface{}{
+						"type":        "boolean",
+						"description": "Preview changes without applying",
+					},
+					"clusters": map[string]interface{}{
+						"type":        "array",
+						"items":       map[string]interface{}{"type": "string"},
+						"description": "Target clusters (all clusters if not specified)",
+					},
+				},
+				"required": []string{"manifest"},
+			},
+		},
 	}
 
 	return &MCPResponse{
@@ -503,6 +699,20 @@ func (s *Server) handleToolCall(ctx context.Context, req *MCPRequest) *MCPRespon
 		result, err = s.handleReconcile(ctx, params.Arguments)
 	case "preview_changes":
 		result, err = s.handlePreviewChanges(ctx, params.Arguments)
+	// Helm tools
+	case "helm_install":
+		result, err = s.handleHelmInstall(ctx, params.Arguments)
+	case "helm_uninstall":
+		result, err = s.handleHelmUninstall(ctx, params.Arguments)
+	case "helm_list":
+		result, err = s.handleHelmList(ctx, params.Arguments)
+	case "helm_rollback":
+		result, err = s.handleHelmRollback(ctx, params.Arguments)
+	// Delete and kubectl tools
+	case "delete_resource":
+		result, err = s.handleDeleteResource(ctx, params.Arguments)
+	case "kubectl_apply":
+		result, err = s.handleKubectlApply(ctx, params.Arguments)
 	default:
 		return &MCPResponse{
 			JSONRPC: "2.0",
