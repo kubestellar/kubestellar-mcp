@@ -103,6 +103,7 @@ Multi-cluster Kubernetes diagnostics, RBAC analysis, and security checks.
 | **Diagnostics** | `find_pod_issues`, `find_deployment_issues`, `check_resource_limits`, `check_security_issues` |
 | **Gatekeeper** | `check_gatekeeper`, `install_ownership_policy`, `list_ownership_violations` |
 | **Upgrades** | `detect_cluster_type`, `get_cluster_version_info`, `check_helm_release_upgrades` |
+| **GitOps** | `detect_drift` |
 
 ### Slash Commands
 
@@ -137,6 +138,10 @@ App-centric multi-cluster deployment and operations.
 | **Deployment** | `deploy_app`, `scale_app`, `patch_app` |
 | **Placement** | `list_cluster_capabilities`, `find_clusters_for_workload` |
 | **GitOps** | `sync_from_git`, `detect_drift`, `reconcile`, `preview_changes` |
+| **Helm** | `helm_install`, `helm_uninstall`, `helm_list`, `helm_rollback` |
+| **Kustomize** | `kustomize_build`, `kustomize_apply`, `kustomize_delete` |
+| **Resources** | `kubectl_apply`, `delete_resource` |
+| **Labels** | `add_labels`, `remove_labels` |
 
 ### Slash Commands
 
@@ -170,6 +175,31 @@ All healthy
 Drift detected:
   - prod-west: ConfigMap/app-config differs
   - staging: Deployment/api has extra replicas
+```
+
+**"Install nginx-ingress with Helm"**
+```
+Installing nginx-ingress to 3 clusters...
+  - prod-east: Installed nginx-ingress v1.10.0
+  - prod-west: Installed nginx-ingress v1.10.0
+  - staging: Installed nginx-ingress v1.10.0
+All releases healthy
+```
+
+**"Apply kustomize overlay"**
+```
+Building kustomize from overlays/production...
+Applied to 2 clusters:
+  - prod-east: 5 resources applied
+  - prod-west: 5 resources applied
+```
+
+**"Delete the test deployment"**
+```
+Deleted deployment/test from 3 clusters:
+  - prod-east: deleted
+  - prod-west: deleted
+  - staging: deleted
 ```
 
 ---
