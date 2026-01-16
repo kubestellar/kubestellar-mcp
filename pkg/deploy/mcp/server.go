@@ -645,6 +645,139 @@ func (s *Server) handleListTools(req *MCPRequest) *MCPResponse {
 				"required": []string{"manifest"},
 			},
 		},
+		// Kustomize Tools
+		{
+			"name":        "kustomize_build",
+			"description": "Build kustomize output from a directory containing kustomization.yaml. Returns the rendered manifests.",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"path": map[string]interface{}{
+						"type":        "string",
+						"description": "Path to directory containing kustomization.yaml",
+					},
+				},
+				"required": []string{"path"},
+			},
+		},
+		{
+			"name":        "kustomize_apply",
+			"description": "Build and apply kustomize output to clusters.",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"path": map[string]interface{}{
+						"type":        "string",
+						"description": "Path to directory containing kustomization.yaml",
+					},
+					"dry_run": map[string]interface{}{
+						"type":        "boolean",
+						"description": "Preview changes without applying",
+					},
+					"clusters": map[string]interface{}{
+						"type":        "array",
+						"items":       map[string]interface{}{"type": "string"},
+						"description": "Target clusters (all clusters if not specified)",
+					},
+				},
+				"required": []string{"path"},
+			},
+		},
+		{
+			"name":        "kustomize_delete",
+			"description": "Build kustomize output and delete those resources from clusters.",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"path": map[string]interface{}{
+						"type":        "string",
+						"description": "Path to directory containing kustomization.yaml",
+					},
+					"dry_run": map[string]interface{}{
+						"type":        "boolean",
+						"description": "Preview changes without applying",
+					},
+					"clusters": map[string]interface{}{
+						"type":        "array",
+						"items":       map[string]interface{}{"type": "string"},
+						"description": "Target clusters (all clusters if not specified)",
+					},
+				},
+				"required": []string{"path"},
+			},
+		},
+		// Label Tools
+		{
+			"name":        "add_labels",
+			"description": "Add labels to a Kubernetes resource across clusters.",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"kind": map[string]interface{}{
+						"type":        "string",
+						"description": "Resource kind (e.g., Deployment, Service, Pod, Node)",
+					},
+					"name": map[string]interface{}{
+						"type":        "string",
+						"description": "Resource name",
+					},
+					"namespace": map[string]interface{}{
+						"type":        "string",
+						"description": "Namespace (default: default, ignored for cluster-scoped)",
+					},
+					"labels": map[string]interface{}{
+						"type":        "object",
+						"description": "Labels to add (key-value pairs)",
+					},
+					"dry_run": map[string]interface{}{
+						"type":        "boolean",
+						"description": "Preview changes without applying",
+					},
+					"clusters": map[string]interface{}{
+						"type":        "array",
+						"items":       map[string]interface{}{"type": "string"},
+						"description": "Target clusters (all clusters if not specified)",
+					},
+				},
+				"required": []string{"kind", "name", "labels"},
+			},
+		},
+		{
+			"name":        "remove_labels",
+			"description": "Remove labels from a Kubernetes resource across clusters.",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"kind": map[string]interface{}{
+						"type":        "string",
+						"description": "Resource kind (e.g., Deployment, Service, Pod, Node)",
+					},
+					"name": map[string]interface{}{
+						"type":        "string",
+						"description": "Resource name",
+					},
+					"namespace": map[string]interface{}{
+						"type":        "string",
+						"description": "Namespace (default: default, ignored for cluster-scoped)",
+					},
+					"labels": map[string]interface{}{
+						"type":        "array",
+						"items":       map[string]interface{}{"type": "string"},
+						"description": "Label keys to remove",
+					},
+					"dry_run": map[string]interface{}{
+						"type":        "boolean",
+						"description": "Preview changes without applying",
+					},
+					"clusters": map[string]interface{}{
+						"type":        "array",
+						"items":       map[string]interface{}{"type": "string"},
+						"description": "Target clusters (all clusters if not specified)",
+					},
+				},
+				"required": []string{"kind", "name", "labels"},
+			},
+		},
 	}
 
 	return &MCPResponse{
@@ -713,6 +846,18 @@ func (s *Server) handleToolCall(ctx context.Context, req *MCPRequest) *MCPRespon
 		result, err = s.handleDeleteResource(ctx, params.Arguments)
 	case "kubectl_apply":
 		result, err = s.handleKubectlApply(ctx, params.Arguments)
+	// Kustomize tools
+	case "kustomize_build":
+		result, err = s.handleKustomizeBuild(ctx, params.Arguments)
+	case "kustomize_apply":
+		result, err = s.handleKustomizeApply(ctx, params.Arguments)
+	case "kustomize_delete":
+		result, err = s.handleKustomizeDelete(ctx, params.Arguments)
+	// Label tools
+	case "add_labels":
+		result, err = s.handleAddLabels(ctx, params.Arguments)
+	case "remove_labels":
+		result, err = s.handleRemoveLabels(ctx, params.Arguments)
 	default:
 		return &MCPResponse{
 			JSONRPC: "2.0",
