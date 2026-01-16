@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/kubestellar/klaude/pkg/cluster"
+	"github.com/kubestellar/klaude/pkg/gitops"
 )
 
 const (
@@ -873,6 +874,37 @@ func (s *Server) handleToolsList(req *Request) {
 				},
 			},
 		},
+		// GitOps Tools
+		{
+			Name:        "detect_drift",
+			Description: "Detect configuration drift between Git repository manifests and cluster state. Shows which resources differ.",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]Property{
+					"repo_url": {
+						Type:        "string",
+						Description: "Git repository URL (e.g., https://github.com/org/manifests)",
+					},
+					"path": {
+						Type:        "string",
+						Description: "Path within repository to YAML manifests (e.g., production/)",
+					},
+					"branch": {
+						Type:        "string",
+						Description: "Git branch to use (default: main)",
+					},
+					"cluster": {
+						Type:        "string",
+						Description: "Target cluster to check (uses current context if not specified)",
+					},
+					"namespace": {
+						Type:        "string",
+						Description: "Override namespace for all resources",
+					},
+				},
+				Required: []string{"repo_url"},
+			},
+		},
 	}
 
 	s.sendResult(req.ID, ToolsListResult{Tools: tools})
@@ -964,6 +996,9 @@ func (s *Server) handleToolsCall(ctx context.Context, req *Request) {
 		result, isError = s.toolTriggerOpenShiftUpgrade(ctx, params.Arguments)
 	case "get_upgrade_status":
 		result, isError = s.toolGetUpgradeStatus(ctx, params.Arguments)
+	// GitOps Tools
+	case "detect_drift":
+		result, isError = s.toolDetectDrift(ctx, params.Arguments)
 	default:
 		s.sendError(req.ID, -32602, fmt.Sprintf("Unknown tool: %s", params.Name), nil)
 		return
