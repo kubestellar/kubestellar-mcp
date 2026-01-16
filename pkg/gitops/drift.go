@@ -108,7 +108,7 @@ func (d *DriftDetector) checkResource(ctx context.Context, manifest Manifest, cl
 
 	// Get current state from cluster
 	var current *unstructured.Unstructured
-	if namespace != "" && !isClusterScoped(manifest.Kind) {
+	if namespace != "" && !IsClusterScoped(manifest.Kind) {
 		current, err = d.dynClient.Resource(gvr).Namespace(namespace).Get(ctx, manifest.Metadata.Name, metav1.GetOptions{})
 	} else {
 		current, err = d.dynClient.Resource(gvr).Get(ctx, manifest.Metadata.Name, metav1.GetOptions{})
@@ -280,8 +280,8 @@ func kindToResource(kind string) string {
 	return strings.ToLower(kind) + "s"
 }
 
-// isClusterScoped returns true if the kind is cluster-scoped
-func isClusterScoped(kind string) bool {
+// IsClusterScoped returns true if the kind is cluster-scoped
+func IsClusterScoped(kind string) bool {
 	clusterScoped := map[string]bool{
 		"Namespace":             true,
 		"Node":                  true,

@@ -95,7 +95,7 @@ func (s *Syncer) Sync(ctx context.Context, manifests []Manifest, clusterName str
 
 		// Override namespace if specified
 		namespace := manifest.GetNamespace()
-		if opts.Namespace != "" && !isClusterScoped(manifest.Kind) {
+		if opts.Namespace != "" && !IsClusterScoped(manifest.Kind) {
 			namespace = opts.Namespace
 		}
 
@@ -140,7 +140,7 @@ func (s *Syncer) syncResource(ctx context.Context, manifest Manifest, namespace 
 	obj := &unstructured.Unstructured{Object: manifest.Raw}
 
 	// Set namespace if not cluster-scoped
-	if !isClusterScoped(manifest.Kind) && namespace != "" {
+	if !IsClusterScoped(manifest.Kind) && namespace != "" {
 		obj.SetNamespace(namespace)
 	}
 
@@ -152,7 +152,7 @@ func (s *Syncer) syncResource(ctx context.Context, manifest Manifest, namespace 
 
 	// Check if resource exists
 	var existing *unstructured.Unstructured
-	if isClusterScoped(manifest.Kind) {
+	if IsClusterScoped(manifest.Kind) {
 		existing, err = s.dynClient.Resource(gvr).Get(ctx, manifest.Metadata.Name, metav1.GetOptions{})
 	} else {
 		existing, err = s.dynClient.Resource(gvr).Namespace(namespace).Get(ctx, manifest.Metadata.Name, metav1.GetOptions{})
@@ -167,7 +167,7 @@ func (s *Syncer) syncResource(ctx context.Context, manifest Manifest, namespace 
 		}
 
 		var created *unstructured.Unstructured
-		if isClusterScoped(manifest.Kind) {
+		if IsClusterScoped(manifest.Kind) {
 			created, err = s.dynClient.Resource(gvr).Create(ctx, obj, metav1.CreateOptions{})
 		} else {
 			created, err = s.dynClient.Resource(gvr).Namespace(namespace).Create(ctx, obj, metav1.CreateOptions{})
@@ -196,7 +196,7 @@ func (s *Syncer) syncResource(ctx context.Context, manifest Manifest, namespace 
 	}
 
 	var updated *unstructured.Unstructured
-	if isClusterScoped(manifest.Kind) {
+	if IsClusterScoped(manifest.Kind) {
 		updated, err = s.dynClient.Resource(gvr).Patch(ctx, manifest.Metadata.Name,
 			types.ApplyPatchType, data, metav1.PatchOptions{
 				FieldManager: "klaude-deploy",
