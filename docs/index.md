@@ -253,6 +253,11 @@ Multi-cluster Kubernetes diagnostics, RBAC analysis, and security checks.
 | `trigger_openshift_upgrade` | Trigger OpenShift cluster upgrade (requires confirmation) |
 | `get_upgrade_status` | Monitor upgrade progress |
 
+#### GitOps Tools
+| Tool | Description |
+|------|-------------|
+| `detect_drift` | Detect configuration drift between Git manifests and cluster state |
+
 ### Slash Commands
 
 | Command | Description |
