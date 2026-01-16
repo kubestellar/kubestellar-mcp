@@ -353,7 +353,9 @@ func (s *Server) helmList(cluster, namespace string, allNs bool, filter string) 
 	}
 
 	var releases []HelmReleaseInfo
-	json.Unmarshal(stdout.Bytes(), &releases)
+	if err := json.Unmarshal(stdout.Bytes(), &releases); err != nil {
+		return nil
+	}
 	return releases
 }
 
