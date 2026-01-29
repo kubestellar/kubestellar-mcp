@@ -1,9 +1,14 @@
 name: goreleaser
 
+# Manual fallback — the primary release pipeline is release.yml (nightly cron).
+# Use this workflow only if you need to re-run GoReleaser on an existing tag.
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing git tag to release (e.g. v0.8.1)'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -16,6 +21,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          ref: ${{ github.event.inputs.tag }}
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
@@ -38,7 +44,7 @@ jobs:
           client-payload: |
             {
               "project": "kubestellar-mcp",
-              "version": "${{ github.ref_name }}",
+              "version": "${{ github.event.inputs.tag }}",
               "source_repo": "kubestellar/kubestellar-mcp",
-              "source_branch": "${{ github.ref_name }}"
+              "source_branch": "${{ github.event.inputs.tag }}"
             }
