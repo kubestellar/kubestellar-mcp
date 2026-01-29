@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
-	"github.com/kubestellar/klaude/pkg/cluster"
+	"github.com/kubestellar/kubestellar-mcp/pkg/cluster"
 )
 
 type listOptions struct {

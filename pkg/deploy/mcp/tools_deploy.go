@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/kubestellar/klaude/pkg/multicluster"
+	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 )
 
 // DeployResult represents the result of a deployment operation

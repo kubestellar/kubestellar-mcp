@@ -30,13 +30,13 @@ brew install kubestellar-ops kubestellar-deploy
 
 ### From Releases
 
-Download from [GitHub Releases](https://github.com/kubestellar/klaude/releases).
+Download from [GitHub Releases](https://github.com/kubestellar/kubestellar-mcp/releases).
 
 ### From Source
 
 ```bash
-git clone https://github.com/kubestellar/klaude.git
-cd klaude
+git clone https://github.com/kubestellar/kubestellar-mcp.git
+cd kubestellar-mcp
 
 # Build both binaries
 go build -o bin/kubestellar-ops ./cmd/kubestellar-ops

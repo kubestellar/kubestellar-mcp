@@ -11,11 +11,11 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
-	"github.com/kubestellar/klaude/internal/version"
-	"github.com/kubestellar/klaude/pkg/cmd/ai"
-	"github.com/kubestellar/klaude/pkg/cmd/clusters"
-	"github.com/kubestellar/klaude/pkg/cmd/upgrade"
-	"github.com/kubestellar/klaude/pkg/mcp/server"
+	"github.com/kubestellar/kubestellar-mcp/internal/version"
+	"github.com/kubestellar/kubestellar-mcp/pkg/cmd/ai"
+	"github.com/kubestellar/kubestellar-mcp/pkg/cmd/clusters"
+	"github.com/kubestellar/kubestellar-mcp/pkg/cmd/upgrade"
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/server"
 )
 
 var (

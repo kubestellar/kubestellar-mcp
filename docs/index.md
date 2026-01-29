@@ -79,13 +79,13 @@ brew install kubestellar-ops kubestellar-deploy
 
 ### From Releases
 
-Download from [GitHub Releases](https://github.com/kubestellar/klaude/releases).
+Download from [GitHub Releases](https://github.com/kubestellar/kubestellar-mcp/releases).
 
 ### From Source
 
 ```bash
-git clone https://github.com/kubestellar/klaude.git
-cd klaude
+git clone https://github.com/kubestellar/kubestellar-mcp.git
+cd kubestellar-mcp
 
 # Build both binaries
 go build -o bin/kubestellar-ops ./cmd/kubestellar-ops
@@ -399,8 +399,8 @@ kubestellar-deploy --mcp-server
 
 ## Contributing
 
-Contributions are welcome! Please read our [contributing guidelines](https://github.com/kubestellar/klaude/blob/main/CONTRIBUTING.md).
+Contributions are welcome! Please read our [contributing guidelines](https://github.com/kubestellar/kubestellar-mcp/blob/main/CONTRIBUTING.md).
 
 ## License
 
-Apache License 2.0 - see [LICENSE](https://github.com/kubestellar/klaude/blob/main/LICENSE) for details.
+Apache License 2.0 - see [LICENSE](https://github.com/kubestellar/kubestellar-mcp/blob/main/LICENSE) for details.

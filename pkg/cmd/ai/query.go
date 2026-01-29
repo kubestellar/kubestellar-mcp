@@ -9,8 +9,8 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
-	"github.com/kubestellar/klaude/pkg/ai/claude"
-	"github.com/kubestellar/klaude/pkg/cluster"
+	"github.com/kubestellar/kubestellar-mcp/pkg/ai/claude"
+	"github.com/kubestellar/kubestellar-mcp/pkg/cluster"
 )
 
 type queryOptions struct {

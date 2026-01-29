@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/kubestellar/klaude/pkg/cmd"
+	"github.com/kubestellar/kubestellar-mcp/pkg/cmd"
 )
 
 func main() {
