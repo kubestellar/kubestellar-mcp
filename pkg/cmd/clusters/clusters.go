@@ -19,10 +19,10 @@ Clusters can be discovered from:
 
 Examples:
   # List all clusters
-  klaude-ops clusters list
+  kubestellar-ops clusters list
 
   # Show cluster health
-  klaude-ops clusters health`,
+  kubestellar-ops clusters health`,
 	}
 
 	cmd.AddCommand(newListCommand(configFlags))

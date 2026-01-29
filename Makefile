@@ -1,6 +1,5 @@
-# klaude Makefile
+# kubestellar-mcp Makefile
 
-BINARY_NAME := klaude
 MODULE := github.com/kubestellar/klaude
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -15,26 +14,31 @@ GO := go
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
 
-.PHONY: all build clean test install lint
+.PHONY: all build build-ops build-deploy clean test install lint
 
 all: build
 
-build:
-	CGO_ENABLED=0 $(GO) build -ldflags="$(LDFLAGS)" -o bin/$(BINARY_NAME) ./cmd/klaude
+build: build-ops build-deploy
 
-build-all: build-linux-amd64 build-linux-arm64 build-darwin-amd64 build-darwin-arm64
+build-ops:
+	CGO_ENABLED=0 $(GO) build -ldflags="$(LDFLAGS)" -o bin/kubestellar-ops ./cmd/kubestellar-ops
 
-build-linux-amd64:
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 $(GO) build -ldflags="$(LDFLAGS)" -o bin/$(BINARY_NAME)-linux-amd64 ./cmd/klaude
+build-deploy:
+	CGO_ENABLED=0 $(GO) build -ldflags="$(LDFLAGS)" -o bin/kubestellar-deploy ./cmd/kubestellar-deploy
 
-build-linux-arm64:
-	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 $(GO) build -ldflags="$(LDFLAGS)" -o bin/$(BINARY_NAME)-linux-arm64 ./cmd/klaude
+build-all: build-ops-all build-deploy-all
 
-build-darwin-amd64:
-	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 $(GO) build -ldflags="$(LDFLAGS)" -o bin/$(BINARY_NAME)-darwin-amd64 ./cmd/klaude
+build-ops-all:
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 $(GO) build -ldflags="$(LDFLAGS)" -o bin/kubestellar-ops-linux-amd64 ./cmd/kubestellar-ops
+	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 $(GO) build -ldflags="$(LDFLAGS)" -o bin/kubestellar-ops-linux-arm64 ./cmd/kubestellar-ops
+	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 $(GO) build -ldflags="$(LDFLAGS)" -o bin/kubestellar-ops-darwin-amd64 ./cmd/kubestellar-ops
+	GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 $(GO) build -ldflags="$(LDFLAGS)" -o bin/kubestellar-ops-darwin-arm64 ./cmd/kubestellar-ops
 
-build-darwin-arm64:
-	GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 $(GO) build -ldflags="$(LDFLAGS)" -o bin/$(BINARY_NAME)-darwin-arm64 ./cmd/klaude
+build-deploy-all:
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 $(GO) build -ldflags="$(LDFLAGS)" -o bin/kubestellar-deploy-linux-amd64 ./cmd/kubestellar-deploy
+	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 $(GO) build -ldflags="$(LDFLAGS)" -o bin/kubestellar-deploy-linux-arm64 ./cmd/kubestellar-deploy
+	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 $(GO) build -ldflags="$(LDFLAGS)" -o bin/kubestellar-deploy-darwin-amd64 ./cmd/kubestellar-deploy
+	GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 $(GO) build -ldflags="$(LDFLAGS)" -o bin/kubestellar-deploy-darwin-arm64 ./cmd/kubestellar-deploy
 
 clean:
 	rm -rf bin/
@@ -43,7 +47,8 @@ test:
 	$(GO) test -v ./...
 
 install: build
-	cp bin/$(BINARY_NAME) $(GOPATH)/bin/
+	cp bin/kubestellar-ops $(GOPATH)/bin/
+	cp bin/kubestellar-deploy $(GOPATH)/bin/
 
 lint:
 	golangci-lint run ./...
@@ -51,8 +56,10 @@ lint:
 .PHONY: help
 help:
 	@echo "Available targets:"
-	@echo "  build         - Build for current platform"
-	@echo "  build-all     - Build for all platforms"
+	@echo "  build         - Build both binaries for current platform"
+	@echo "  build-ops     - Build kubestellar-ops for current platform"
+	@echo "  build-deploy  - Build kubestellar-deploy for current platform"
+	@echo "  build-all     - Build all binaries for all platforms"
 	@echo "  clean         - Remove build artifacts"
 	@echo "  test          - Run tests"
 	@echo "  install       - Install to GOPATH/bin"

@@ -14,7 +14,7 @@ import (
 
 const (
 	MCPVersion = "2024-11-05"
-	ServerName = "klaude-ops"
+	ServerName = "kubestellar-ops"
 	ServerVersion = "0.8.0"
 )
 

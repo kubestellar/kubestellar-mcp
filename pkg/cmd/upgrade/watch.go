@@ -54,13 +54,13 @@ The progress bar shows:
 
 Examples:
   # Watch upgrade on current context
-  klaude-ops watch-upgrade
+  kubestellar-ops watch-upgrade
 
   # Watch upgrade on specific cluster
-  klaude-ops watch-upgrade --context=prod-cluster
+  kubestellar-ops watch-upgrade --context=prod-cluster
 
   # Custom refresh interval
-  klaude-ops watch-upgrade --interval=5s`,
+  kubestellar-ops watch-upgrade --interval=5s`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return watchUpgrade(cmd.Context(), configFlags, interval)
 		},

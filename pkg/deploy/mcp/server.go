@@ -11,11 +11,11 @@ import (
 )
 
 const (
-	ServerName    = "klaude-deploy"
+	ServerName    = "kubestellar-deploy"
 	ServerVersion = "0.8.0"
 )
 
-// Server implements the MCP server for klaude-deploy
+// Server implements the MCP server for kubestellar-deploy
 type Server struct {
 	manager  *multicluster.ClientManager
 	executor *multicluster.Executor
@@ -245,7 +245,7 @@ func (s *Server) handleListTools(req *MCPRequest) *MCPResponse {
 		},
 		{
 			"name":        "deploy_app",
-			"description": "Deploy an app to clusters. Can specify clusters explicitly or let klaude find matching clusters based on requirements.",
+			"description": "Deploy an app to clusters. Can specify clusters explicitly or let kubestellar find matching clusters based on requirements.",
 			"inputSchema": map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{

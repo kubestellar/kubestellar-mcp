@@ -199,13 +199,13 @@ func (s *Syncer) syncResource(ctx context.Context, manifest Manifest, namespace 
 	if IsClusterScoped(manifest.Kind) {
 		updated, err = s.dynClient.Resource(gvr).Patch(ctx, manifest.Metadata.Name,
 			types.ApplyPatchType, data, metav1.PatchOptions{
-				FieldManager: "klaude-deploy",
+				FieldManager: "kubestellar-deploy",
 				Force:        boolPtr(true),
 			})
 	} else {
 		updated, err = s.dynClient.Resource(gvr).Namespace(namespace).Patch(ctx, manifest.Metadata.Name,
 			types.ApplyPatchType, data, metav1.PatchOptions{
-				FieldManager: "klaude-deploy",
+				FieldManager: "kubestellar-deploy",
 				Force:        boolPtr(true),
 			})
 	}

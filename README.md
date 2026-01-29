@@ -1,4 +1,4 @@
-# klaude
+# kubestellar-mcp
 
 AI-powered multi-cluster Kubernetes tools for Claude Code.
 
@@ -8,8 +8,8 @@ AI-powered multi-cluster Kubernetes tools for Claude Code.
 
 | Binary | Description |
 |--------|-------------|
-| **klaude-ops** | Multi-cluster diagnostics, RBAC analysis, security checks |
-| **klaude-deploy** | App-centric deployment, GitOps, smart workload placement |
+| **kubestellar-ops** | Multi-cluster diagnostics, RBAC analysis, security checks |
+| **kubestellar-deploy** | App-centric deployment, GitOps, smart workload placement |
 
 ## Installation
 
@@ -19,13 +19,13 @@ AI-powered multi-cluster Kubernetes tools for Claude Code.
 brew tap kubestellar/tap
 
 # Install diagnostics tools
-brew install klaude-ops
+brew install kubestellar-ops
 
 # Install deployment tools
-brew install klaude-deploy
+brew install kubestellar-deploy
 
 # Or install both
-brew install klaude-ops klaude-deploy
+brew install kubestellar-ops kubestellar-deploy
 ```
 
 ### From Releases
@@ -39,10 +39,10 @@ git clone https://github.com/kubestellar/klaude.git
 cd klaude
 
 # Build both binaries
-go build -o bin/klaude-ops ./cmd/klaude-ops
-go build -o bin/klaude-deploy ./cmd/klaude-deploy
+go build -o bin/kubestellar-ops ./cmd/kubestellar-ops
+go build -o bin/kubestellar-deploy ./cmd/kubestellar-deploy
 
-sudo mv bin/klaude-* /usr/local/bin/
+sudo mv bin/kubestellar-* /usr/local/bin/
 ```
 
 ## Claude Code Plugins
@@ -54,14 +54,14 @@ sudo mv bin/klaude-* /usr/local/bin/
    /plugin marketplace add kubestellar/claude-plugins
    ```
 2. Go to `/plugin` → **Discover** tab
-3. Install **klaude-ops** and/or **klaude-deploy**
+3. Install **kubestellar-ops** and/or **kubestellar-deploy**
 
 ### Verify Installation
 
 Run `/mcp` in Claude Code - you should see:
 ```
-plugin:klaude-ops:klaude-ops · ✓ connected
-plugin:klaude-deploy:klaude-deploy · ✓ connected
+plugin:kubestellar-ops:kubestellar-ops · ✓ connected
+plugin:kubestellar-deploy:kubestellar-deploy · ✓ connected
 ```
 
 ### Allow Tools Without Prompts
@@ -72,8 +72,8 @@ Add to `~/.claude/settings.json`:
 {
   "permissions": {
     "allow": [
-      "mcp__plugin_klaude-ops_klaude-ops__*",
-      "mcp__plugin_klaude-deploy_klaude-deploy__*"
+      "mcp__plugin_kubestellar-ops_kubestellar-ops__*",
+      "mcp__plugin_kubestellar-deploy_kubestellar-deploy__*"
     ]
   }
 }
@@ -81,7 +81,7 @@ Add to `~/.claude/settings.json`:
 
 ---
 
-## klaude-ops
+## kubestellar-ops
 
 Multi-cluster Kubernetes diagnostics, RBAC analysis, and security checks.
 
@@ -118,7 +118,7 @@ Multi-cluster Kubernetes diagnostics, RBAC analysis, and security checks.
 
 ---
 
-## klaude-deploy
+## kubestellar-deploy
 
 App-centric multi-cluster deployment and operations.
 
@@ -206,24 +206,24 @@ Deleted deployment/test from 3 clusters:
 
 ## CLI Usage
 
-### klaude-ops
+### kubestellar-ops
 
 ```bash
 # Run as MCP server (for Claude Code)
-klaude-ops --mcp-server
+kubestellar-ops --mcp-server
 
 # List clusters
-klaude-ops clusters list
+kubestellar-ops clusters list
 
 # Check cluster health
-klaude-ops clusters health
+kubestellar-ops clusters health
 ```
 
-### klaude-deploy
+### kubestellar-deploy
 
 ```bash
 # Run as MCP server (for Claude Code)
-klaude-deploy --mcp-server
+kubestellar-deploy --mcp-server
 ```
 
 ## Environment Variables

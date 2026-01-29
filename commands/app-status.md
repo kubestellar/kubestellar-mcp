@@ -4,7 +4,7 @@ Show the status of an app across all clusters.
 
 ## Usage
 
-Ask about an app's status, and klaude-deploy will find where it's running and aggregate the status.
+Ask about an app's status, and kubestellar-deploy will find where it's running and aggregate the status.
 
 ## Examples
 

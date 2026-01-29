@@ -37,7 +37,7 @@ jobs:
           event-type: create-version-branch
           client-payload: |
             {
-              "project": "klaude",
+              "project": "kubestellar-mcp",
               "version": "${{ github.ref_name }}",
               "source_repo": "kubestellar/klaude",
               "source_branch": "${{ github.ref_name }}"

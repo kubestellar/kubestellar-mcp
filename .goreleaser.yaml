@@ -1,15 +1,15 @@
 version: 2
 
-project_name: klaude
+project_name: kubestellar-mcp
 
 before:
   hooks:
     - go mod tidy
 
 builds:
-  - id: klaude-ops
-    main: ./cmd/klaude-ops
-    binary: klaude-ops
+  - id: kubestellar-ops
+    main: ./cmd/kubestellar-ops
+    binary: kubestellar-ops
     env:
       - CGO_ENABLED=0
     goos:
@@ -24,9 +24,9 @@ builds:
       - -X github.com/kubestellar/klaude/internal/version.BuildDate={{.Date}}
       - -X github.com/kubestellar/klaude/internal/version.GitCommit={{.Commit}}
 
-  - id: klaude-deploy
-    main: ./cmd/klaude-deploy
-    binary: klaude-deploy
+  - id: kubestellar-deploy
+    main: ./cmd/kubestellar-deploy
+    binary: kubestellar-deploy
     env:
       - CGO_ENABLED=0
     goos:
@@ -42,17 +42,17 @@ builds:
       - -X github.com/kubestellar/klaude/internal/version.GitCommit={{.Commit}}
 
 archives:
-  - id: klaude-ops
+  - id: kubestellar-ops
     builds:
-      - klaude-ops
+      - kubestellar-ops
     format: tar.gz
-    name_template: "klaude-ops_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    name_template: "kubestellar-ops_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
-  - id: klaude-deploy
+  - id: kubestellar-deploy
     builds:
-      - klaude-deploy
+      - kubestellar-deploy
     format: tar.gz
-    name_template: "klaude-deploy_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    name_template: "kubestellar-deploy_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
 checksum:
   name_template: "checksums.txt"
@@ -78,9 +78,9 @@ release:
   prerelease: auto
 
 brews:
-  - name: klaude-ops
+  - name: kubestellar-ops
     ids:
-      - klaude-ops
+      - kubestellar-ops
     repository:
       owner: kubestellar
       name: homebrew-tap
@@ -90,13 +90,13 @@ brews:
     description: "Multi-cluster Kubernetes diagnostics, RBAC analysis, and security checks"
     license: "Apache-2.0"
     install: |
-      bin.install "klaude-ops"
+      bin.install "kubestellar-ops"
     test: |
-      system "#{bin}/klaude-ops", "version"
+      system "#{bin}/kubestellar-ops", "version"
 
-  - name: klaude-deploy
+  - name: kubestellar-deploy
     ids:
-      - klaude-deploy
+      - kubestellar-deploy
     repository:
       owner: kubestellar
       name: homebrew-tap
@@ -106,6 +106,6 @@ brews:
     description: "App-centric multi-cluster deployment and operations for Kubernetes"
     license: "Apache-2.0"
     install: |
-      bin.install "klaude-deploy"
+      bin.install "kubestellar-deploy"
     test: |
-      system "#{bin}/klaude-deploy", "version"
+      system "#{bin}/kubestellar-deploy", "version"
