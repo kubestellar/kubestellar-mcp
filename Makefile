@@ -1,6 +1,6 @@
 # kubestellar-mcp Makefile
 
-MODULE := github.com/kubestellar/klaude
+MODULE := github.com/kubestellar/kubestellar-mcp
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")

@@ -8,7 +8,7 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/kubestellar/klaude/pkg/gitops"
+	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
 )
 
 // GitOpsDriftResult aggregates drift results from multiple clusters

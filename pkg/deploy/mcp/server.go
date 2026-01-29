@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/kubestellar/klaude/pkg/multicluster"
+	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 )
 
 const (

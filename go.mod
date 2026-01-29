@@ -1,4 +1,4 @@
-module github.com/kubestellar/klaude
+module github.com/kubestellar/kubestellar-mcp
 
 go 1.22.0
 

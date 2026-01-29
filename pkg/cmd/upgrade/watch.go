@@ -16,7 +16,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/kubestellar/klaude/pkg/progress"
+	"github.com/kubestellar/kubestellar-mcp/pkg/progress"
 )
 
 var (

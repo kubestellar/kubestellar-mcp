@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/kubestellar/klaude/pkg/deploy/mcp"
+	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp"
 )
 
 var (

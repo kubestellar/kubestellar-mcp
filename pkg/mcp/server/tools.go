@@ -18,7 +18,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/kubestellar/klaude/pkg/gitops"
+	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
 )
 
 func (s *Server) toolListClusters(args map[string]interface{}) (string, bool) {

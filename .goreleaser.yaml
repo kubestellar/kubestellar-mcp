@@ -20,9 +20,9 @@ builds:
       - arm64
     ldflags:
       - -s -w
-      - -X github.com/kubestellar/klaude/internal/version.Version={{.Version}}
-      - -X github.com/kubestellar/klaude/internal/version.BuildDate={{.Date}}
-      - -X github.com/kubestellar/klaude/internal/version.GitCommit={{.Commit}}
+      - -X github.com/kubestellar/kubestellar-mcp/internal/version.Version={{.Version}}
+      - -X github.com/kubestellar/kubestellar-mcp/internal/version.BuildDate={{.Date}}
+      - -X github.com/kubestellar/kubestellar-mcp/internal/version.GitCommit={{.Commit}}
 
   - id: kubestellar-deploy
     main: ./cmd/kubestellar-deploy
@@ -37,9 +37,9 @@ builds:
       - arm64
     ldflags:
       - -s -w
-      - -X github.com/kubestellar/klaude/internal/version.Version={{.Version}}
-      - -X github.com/kubestellar/klaude/internal/version.BuildDate={{.Date}}
-      - -X github.com/kubestellar/klaude/internal/version.GitCommit={{.Commit}}
+      - -X github.com/kubestellar/kubestellar-mcp/internal/version.Version={{.Version}}
+      - -X github.com/kubestellar/kubestellar-mcp/internal/version.BuildDate={{.Date}}
+      - -X github.com/kubestellar/kubestellar-mcp/internal/version.GitCommit={{.Commit}}
 
 archives:
   - id: kubestellar-ops
@@ -73,7 +73,7 @@ changelog:
 release:
   github:
     owner: kubestellar
-    name: klaude
+    name: kubestellar-mcp
   draft: false
   prerelease: auto
 
@@ -86,7 +86,7 @@ brews:
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     directory: Formula
-    homepage: "https://github.com/kubestellar/klaude"
+    homepage: "https://github.com/kubestellar/kubestellar-mcp"
     description: "Multi-cluster Kubernetes diagnostics, RBAC analysis, and security checks"
     license: "Apache-2.0"
     install: |
@@ -102,7 +102,7 @@ brews:
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     directory: Formula
-    homepage: "https://github.com/kubestellar/klaude"
+    homepage: "https://github.com/kubestellar/kubestellar-mcp"
     description: "App-centric multi-cluster deployment and operations for Kubernetes"
     license: "Apache-2.0"
     install: |

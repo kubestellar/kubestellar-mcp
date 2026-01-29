@@ -9,7 +9,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/kubestellar/klaude/pkg/cluster"
+	"github.com/kubestellar/kubestellar-mcp/pkg/cluster"
 )
 
 const (
