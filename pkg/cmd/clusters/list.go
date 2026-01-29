@@ -36,13 +36,13 @@ The output shows:
 
 Examples:
   # List all clusters
-  kubectl klaude clusters list
+  kubestellar-ops clusters list
 
   # List only kubeconfig clusters
-  kubectl klaude clusters list --source=kubeconfig
+  kubestellar-ops clusters list --source=kubeconfig
 
   # List only KubeStellar managed clusters
-  kubectl klaude clusters list --source=kubestellar`,
+  kubestellar-ops clusters list --source=kubestellar`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return o.run()
 		},

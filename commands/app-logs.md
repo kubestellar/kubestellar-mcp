@@ -4,7 +4,7 @@ Get aggregated logs from an app across all clusters.
 
 ## Usage
 
-Request logs from an app by name, and klaude-deploy will aggregate logs from all clusters where it runs.
+Request logs from an app by name, and kubestellar-deploy will aggregate logs from all clusters where it runs.
 
 ## Examples
 

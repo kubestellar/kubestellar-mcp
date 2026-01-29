@@ -4,7 +4,7 @@ Deploy an app to multiple clusters with smart placement.
 
 ## Usage
 
-Deploy a workload to clusters. You can specify target clusters explicitly or let klaude-deploy find matching clusters based on requirements.
+Deploy a workload to clusters. You can specify target clusters explicitly or let kubestellar-deploy find matching clusters based on requirements.
 
 ## Examples
 
@@ -36,7 +36,7 @@ Use the `deploy_app` tool with:
 
 ## Smart Placement
 
-If you don't specify clusters, klaude-deploy can:
+If you don't specify clusters, kubestellar-deploy can:
 - Deploy to all clusters
 - Filter to clusters with specific GPU types
 - Filter to clusters with minimum CPU/memory

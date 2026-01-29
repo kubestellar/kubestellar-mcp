@@ -4,7 +4,7 @@ Sync manifests from a git repository to your clusters.
 
 ## Usage
 
-Provide a git repository URL and optional path, and klaude-deploy will apply all manifests to your clusters.
+Provide a git repository URL and optional path, and kubestellar-deploy will apply all manifests to your clusters.
 
 ## Examples
 

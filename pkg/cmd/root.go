@@ -31,9 +31,9 @@ var (
 
 // rootCmd represents the base command
 var rootCmd = &cobra.Command{
-	Use:   "klaude-ops",
+	Use:   "kubestellar-ops",
 	Short: "Multi-cluster Kubernetes diagnostics, RBAC analysis, and security checks",
-	Long: `klaude-ops provides diagnostic tools for multi-cluster Kubernetes environments.
+	Long: `kubestellar-ops provides diagnostic tools for multi-cluster Kubernetes environments.
 
 It provides:
   - Multi-cluster diagnostics (find pod issues, deployment issues)
@@ -45,13 +45,13 @@ By default, operations run across ALL clusters. Specify --context to target a si
 
 Examples:
   # Run as MCP server for Claude Code
-  klaude-ops --mcp-server
+  kubestellar-ops --mcp-server
 
   # List all available clusters
-  klaude-ops clusters list
+  kubestellar-ops clusters list
 
   # Check cluster health
-  klaude-ops clusters health --all-clusters`,
+  kubestellar-ops clusters health --all-clusters`,
 	Version: version.Version,
 	// Handle natural language queries directly
 	Args: func(cmd *cobra.Command, args []string) error {
@@ -171,7 +171,7 @@ func newVersionCommand() *cobra.Command {
 		Use:   "version",
 		Short: "Print version information",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("klaude-ops version %s\n", version.Version)
+			fmt.Printf("kubestellar-ops version %s\n", version.Version)
 			fmt.Printf("  Build date: %s\n", version.BuildDate)
 			fmt.Printf("  Git commit: %s\n", version.GitCommit)
 		},

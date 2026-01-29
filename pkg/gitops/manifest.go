@@ -64,7 +64,7 @@ func NewManifestReader() *ManifestReader {
 // ReadFromGit clones a repo and reads manifests
 func (r *ManifestReader) ReadFromGit(source ManifestSource) ([]Manifest, error) {
 	// Create temp directory
-	tempDir, err := os.MkdirTemp("", "klaude-deploy-*")
+	tempDir, err := os.MkdirTemp("", "kubestellar-deploy-*")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp dir: %w", err)
 	}

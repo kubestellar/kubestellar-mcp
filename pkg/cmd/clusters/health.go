@@ -35,13 +35,13 @@ Health checks include:
 
 Examples:
   # Check health of all clusters
-  kubectl klaude clusters health --all-clusters
+  kubestellar-ops clusters health --all-clusters
 
   # Check health of specific cluster
-  kubectl klaude clusters health prod-east
+  kubestellar-ops clusters health prod-east
 
   # Check health of current context
-  kubectl klaude clusters health`,
+  kubestellar-ops clusters health`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				o.clusterName = args[0]
