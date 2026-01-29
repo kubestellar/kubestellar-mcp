@@ -39,6 +39,6 @@ jobs:
             {
               "project": "kubestellar-mcp",
               "version": "${{ github.ref_name }}",
-              "source_repo": "kubestellar/klaude",
+              "source_repo": "kubestellar/kubestellar-mcp",
               "source_branch": "${{ github.ref_name }}"
             }
