@@ -47,18 +47,22 @@ sudo mv bin/kubestellar-* /usr/local/bin/
 
 ## Claude Code Plugins
 
-### Install the Plugins
+### Step 1: Add the KubeStellar Marketplace
 
-1. Add the KubeStellar marketplace:
-   ```
-   /plugin marketplace add kubestellar/claude-plugins
-   ```
-2. Go to `/plugin` → **Discover** tab
-3. Install **kubestellar-ops** and/or **kubestellar-deploy**
+In Claude Code, run:
 
-### Verify Installation
+```
+/plugin marketplace add kubestellar/claude-plugins
+```
+
+### Step 2: Install the Plugins
+
+Go to `/plugin` → **Discover** tab → Install **kubestellar-ops** and/or **kubestellar-deploy**.
+
+### Step 3: Verify
 
 Run `/mcp` in Claude Code - you should see:
+
 ```
 plugin:kubestellar-ops:kubestellar-ops · ✓ connected
 plugin:kubestellar-deploy:kubestellar-deploy · ✓ connected
@@ -77,6 +81,29 @@ Add to `~/.claude/settings.json`:
     ]
   }
 }
+```
+
+Or run in Claude Code:
+
+```
+/allowed-tools add mcp__plugin_kubestellar-ops_kubestellar-ops__*
+/allowed-tools add mcp__plugin_kubestellar-deploy_kubestellar-deploy__*
+```
+
+### Updating
+
+Update the CLI tools via Homebrew:
+
+```bash
+brew update
+brew upgrade kubestellar-ops kubestellar-deploy
+```
+
+Update the plugins in Claude Code:
+
+```
+/plugin update kubestellar-ops
+/plugin update kubestellar-deploy
 ```
 
 ---
@@ -114,7 +141,10 @@ Multi-cluster Kubernetes diagnostics, RBAC analysis, and security checks.
 | `/k8s-security` | Check for security misconfigurations |
 | `/k8s-rbac` | Analyze RBAC permissions |
 | `/k8s-analyze` | Comprehensive namespace analysis |
+| `/k8s-audit-kubeconfig` | Audit kubeconfig clusters and recommend cleanup |
 | `/k8s-ownership` | Manage ownership tracking with OPA Gatekeeper |
+| `/k8s-upgrade-check` | Check for available upgrades |
+| `/k8s-upgrade` | Upgrade cluster (master and nodes) |
 
 ---
 
