@@ -180,11 +180,16 @@ func (s *Server) toolGetPods(ctx context.Context, args map[string]interface{}) (
 			}
 		}
 
+		startTime := "<pending>"
+		if pod.Status.StartTime != nil {
+			startTime = pod.Status.StartTime.Format("2006-01-02 15:04:05")
+		}
+
 		sb.WriteString(fmt.Sprintf("%-50s %-12s %d/%d   %s\n",
 			pod.Namespace+"/"+pod.Name,
 			status,
 			ready, total,
-			pod.Status.StartTime.Format("2006-01-02 15:04:05")))
+			startTime))
 	}
 
 	return sb.String(), false
