@@ -57,7 +57,12 @@ In Claude Code, run:
 
 ### Step 2: Install the Plugins
 
-Go to `/plugin` → **Discover** tab → Install **kubestellar-ops** and/or **kubestellar-deploy**.
+```
+/plugin install kubestellar-ops
+/plugin install kubestellar-deploy
+```
+
+Or go to `/plugin` → **Discover** tab → Install **kubestellar-ops** and/or **kubestellar-deploy**.
 
 ### Step 3: Verify
 
