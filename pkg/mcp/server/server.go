@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"sync"
 
@@ -1033,6 +1034,10 @@ func (s *Server) send(resp Response) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	data, _ := json.Marshal(resp)
+	data, err := json.Marshal(resp)
+	if err != nil {
+		log.Printf("Failed to marshal MCP response: %v", err)
+		return
+	}
 	fmt.Fprintf(s.writer, "%s\n", data)
 }
