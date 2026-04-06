@@ -48,3 +48,14 @@ jobs:
               "source_repo": "kubestellar/kubestellar-mcp",
               "source_branch": "${{ github.event.inputs.tag }}"
             }
+      - name: Trigger marketplace plugin update
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.WORKFLOW_SYNC_TOKEN }}
+          repository: kubestellar/claude-plugins
+          event-type: update-plugin-version
+          client-payload: |
+            {
+              "version": "${{ github.ref_name }}",
+              "source_repo": "kubestellar/klaude"
+            }
