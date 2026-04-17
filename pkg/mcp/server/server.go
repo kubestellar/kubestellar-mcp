@@ -152,7 +152,7 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) {
 	switch req.Method {
 	case "initialize":
 		s.handleInitialize(req)
-	case "initialized":
+	case "initialized", "notifications/initialized":
 		// No response needed for notification
 	case "tools/list":
 		s.handleToolsList(req)

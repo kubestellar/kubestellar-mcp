@@ -109,6 +109,9 @@ func (s *Server) handleRequest(req *MCPRequest) *MCPResponse {
 		return s.handleListTools(req)
 	case "tools/call":
 		return s.handleToolCall(ctx, req)
+	case "initialized", "notifications/initialized":
+		// No response needed for MCP lifecycle notification
+		return nil
 	default:
 		return &MCPResponse{
 			JSONRPC: "2.0",
