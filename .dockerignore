@@ -1,0 +1,10 @@
+bin/
+.git/
+.github/
+docs/
+*.md
+!go.mod
+!go.sum
+LICENSE
+DCO
+.goreleaser.yaml
