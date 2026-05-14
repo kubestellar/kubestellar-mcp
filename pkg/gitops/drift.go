@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strings"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -114,6 +115,11 @@ func (d *DriftDetector) checkResource(ctx context.Context, manifest Manifest, cl
 	}
 
 	if err != nil {
+		// Only treat as missing if resource truly doesn't exist
+		if !apierrors.IsNotFound(err) {
+			return nil, fmt.Errorf("failed to get resource: %w", err)
+		}
+
 		// Resource doesn't exist in cluster
 		return &DriftResult{
 			Cluster:     clusterName,
