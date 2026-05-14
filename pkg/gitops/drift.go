@@ -20,7 +20,6 @@ type DriftType string
 
 const (
 	DriftTypeMissing  DriftType = "missing"  // Resource exists in git but not in cluster
-	DriftTypeExtra    DriftType = "extra"    // Resource exists in cluster but not in git
 	DriftTypeModified DriftType = "modified" // Resource differs between git and cluster
 )
 

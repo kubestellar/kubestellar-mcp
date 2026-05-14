@@ -65,7 +65,6 @@ func NewSyncer(config *rest.Config) (*Syncer, error) {
 // SyncOptions controls sync behavior
 type SyncOptions struct {
 	DryRun    bool     // Preview changes without applying
-	Prune     bool     // Delete resources not in manifests
 	Namespace string   // Override namespace for all resources
 	Include   []string // Only sync these kinds
 	Exclude   []string // Don't sync these kinds
