@@ -10,6 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -114,6 +115,9 @@ func (d *DriftDetector) checkResource(ctx context.Context, manifest Manifest, cl
 	}
 
 	if err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return nil, fmt.Errorf("failed to GET resource: %w", err)
+		}
 		// Resource doesn't exist in cluster
 		return &DriftResult{
 			Cluster:     clusterName,

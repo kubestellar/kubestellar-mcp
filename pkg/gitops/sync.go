@@ -9,6 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 )
@@ -158,6 +159,9 @@ func (s *Syncer) syncResource(ctx context.Context, manifest Manifest, namespace 
 	}
 
 	if err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return nil, fmt.Errorf("failed to GET resource: %w", err)
+		}
 		// Resource doesn't exist - create it
 		if dryRun {
 			result.Action = SyncActionCreated
