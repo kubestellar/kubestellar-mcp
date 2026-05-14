@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -158,6 +159,11 @@ func (s *Syncer) syncResource(ctx context.Context, manifest Manifest, namespace 
 	}
 
 	if err != nil {
+		// Only proceed with create if resource truly doesn't exist
+		if !apierrors.IsNotFound(err) {
+			return nil, fmt.Errorf("failed to get resource: %w", err)
+		}
+
 		// Resource doesn't exist - create it
 		if dryRun {
 			result.Action = SyncActionCreated
