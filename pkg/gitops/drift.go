@@ -9,10 +9,14 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/restmapper"
+	"k8s.io/klog/v2"
 )
 
 // DriftType indicates the type of drift detected
@@ -38,8 +42,9 @@ type DriftResult struct {
 
 // DriftDetector detects drift between git manifests and cluster state
 type DriftDetector struct {
-	client    *kubernetes.Clientset
-	dynClient dynamic.Interface
+	client     *kubernetes.Clientset
+	dynClient  dynamic.Interface
+	restMapper meta.RESTMapper
 }
 
 // NewDriftDetector creates a new drift detector
@@ -54,9 +59,25 @@ func NewDriftDetector(config *rest.Config) (*DriftDetector, error) {
 		return nil, err
 	}
 
+	// Build a RESTMapper via discovery so Kind→GVR resolution works for CRDs
+	// and resources with non-standard plural forms.
+	var mapper meta.RESTMapper
+	dc, err := discovery.NewDiscoveryClientForConfig(config)
+	if err != nil {
+		klog.Warningf("could not create discovery client for RESTMapper: %v; falling back to static mapping", err)
+	} else {
+		gr, err := restmapper.GetAPIGroupResources(dc)
+		if err != nil {
+			klog.Warningf("could not fetch API group resources for RESTMapper: %v; falling back to static mapping", err)
+		} else {
+			mapper = restmapper.NewDiscoveryRESTMapper(gr)
+		}
+	}
+
 	return &DriftDetector{
-		client:    client,
-		dynClient: dynClient,
+		client:     client,
+		dynClient:  dynClient,
+		restMapper: mapper,
 	}, nil
 }
 
@@ -227,16 +248,32 @@ func compareObjects(path string, expected, actual map[string]interface{}) []stri
 	return differences
 }
 
-// getGVR returns the GroupVersionResource for a manifest
+// getGVR returns the GroupVersionResource for a manifest.
+// It first attempts a dynamic lookup via the RESTMapper (which correctly handles
+// CRDs and resources with non-standard plural forms) and falls back to the
+// static kindToResource() map when the mapper is unavailable or the Kind is
+// not yet registered.
 func (d *DriftDetector) getGVR(manifest Manifest) (schema.GroupVersionResource, error) {
 	gv, err := schema.ParseGroupVersion(manifest.APIVersion)
 	if err != nil {
 		return schema.GroupVersionResource{}, err
 	}
 
-	// Map kind to resource name (lowercase plural)
-	resource := kindToResource(manifest.Kind)
+	if d.restMapper != nil {
+		mapping, err := d.restMapper.RESTMapping(
+			schema.GroupKind{Group: gv.Group, Kind: manifest.Kind},
+			gv.Version,
+		)
+		if err == nil {
+			return mapping.Resource, nil
+		}
+		klog.V(2).Infof("RESTMapper lookup failed for kind=%s group=%s version=%s: %v; falling back to static mapping",
+			manifest.Kind, gv.Group, gv.Version, err)
+	}
 
+	// Static fallback: keeps behaviour correct for well-known built-in types
+	// even when the cluster is unreachable during mapper initialisation.
+	resource := kindToResource(manifest.Kind)
 	return schema.GroupVersionResource{
 		Group:    gv.Group,
 		Version:  gv.Version,
