@@ -1,8 +1,6 @@
 module github.com/kubestellar/kubestellar-mcp
 
-go 1.22.0
-
-toolchain go1.24.1
+go 1.22
 
 require (
 	github.com/spf13/cobra v1.8.1
