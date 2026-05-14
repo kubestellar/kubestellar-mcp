@@ -48,6 +48,7 @@ type SyncSummary struct {
 // Syncer synchronizes manifests to clusters
 type Syncer struct {
 	dynClient dynamic.Interface
+	mapper    meta.RESTMapper
 }
 
 // NewSyncer creates a new syncer
@@ -57,8 +58,22 @@ func NewSyncer(config *rest.Config) (*Syncer, error) {
 		return nil, err
 	}
 
+	// Create discovery client for RESTMapper
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get API group resources and build RESTMapper
+	groupResources, err := restmapper.GetAPIGroupResources(discoveryClient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get API group resources: %w", err)
+	}
+	mapper := restmapper.NewDiscoveryRESTMapper(groupResources)
+
 	return &Syncer{
 		dynClient: dynClient,
+		mapper:    mapper,
 	}, nil
 }
 
@@ -247,20 +262,26 @@ func (s *Syncer) shouldSync(kind string, opts SyncOptions) bool {
 	return true
 }
 
-// getGVR returns the GroupVersionResource for a manifest
+// getGVR returns the GroupVersionResource for a manifest using RESTMapper
 func (s *Syncer) getGVR(manifest Manifest) (schema.GroupVersionResource, error) {
 	gv, err := schema.ParseGroupVersion(manifest.APIVersion)
 	if err != nil {
 		return schema.GroupVersionResource{}, err
 	}
 
-	resource := kindToResource(manifest.Kind)
+	// Use RESTMapper to resolve Kind to GVR dynamically
+	gvk := schema.GroupVersionKind{
+		Group:   gv.Group,
+		Version: gv.Version,
+		Kind:    manifest.Kind,
+	}
 
-	return schema.GroupVersionResource{
-		Group:    gv.Group,
-		Version:  gv.Version,
-		Resource: resource,
-	}, nil
+	mapping, err := s.mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+	if err != nil {
+		return schema.GroupVersionResource{}, fmt.Errorf("failed to get REST mapping for %s: %w", gvk.String(), err)
+	}
+
+	return mapping.Resource, nil
 }
 
 func boolPtr(b bool) *bool {

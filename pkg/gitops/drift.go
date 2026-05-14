@@ -40,6 +40,7 @@ type DriftResult struct {
 type DriftDetector struct {
 	client    *kubernetes.Clientset
 	dynClient dynamic.Interface
+	mapper    meta.RESTMapper
 }
 
 // NewDriftDetector creates a new drift detector
@@ -54,9 +55,23 @@ func NewDriftDetector(config *rest.Config) (*DriftDetector, error) {
 		return nil, err
 	}
 
+	// Create discovery client for RESTMapper
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get API group resources and build RESTMapper
+	groupResources, err := restmapper.GetAPIGroupResources(discoveryClient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get API group resources: %w", err)
+	}
+	mapper := restmapper.NewDiscoveryRESTMapper(groupResources)
+
 	return &DriftDetector{
 		client:    client,
 		dynClient: dynClient,
+		mapper:    mapper,
 	}, nil
 }
 
@@ -227,24 +242,30 @@ func compareObjects(path string, expected, actual map[string]interface{}) []stri
 	return differences
 }
 
-// getGVR returns the GroupVersionResource for a manifest
+// getGVR returns the GroupVersionResource for a manifest using RESTMapper
 func (d *DriftDetector) getGVR(manifest Manifest) (schema.GroupVersionResource, error) {
 	gv, err := schema.ParseGroupVersion(manifest.APIVersion)
 	if err != nil {
 		return schema.GroupVersionResource{}, err
 	}
 
-	// Map kind to resource name (lowercase plural)
-	resource := kindToResource(manifest.Kind)
+	// Use RESTMapper to resolve Kind to GVR dynamically
+	gvk := schema.GroupVersionKind{
+		Group:   gv.Group,
+		Version: gv.Version,
+		Kind:    manifest.Kind,
+	}
 
-	return schema.GroupVersionResource{
-		Group:    gv.Group,
-		Version:  gv.Version,
-		Resource: resource,
-	}, nil
+	mapping, err := d.mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+	if err != nil {
+		return schema.GroupVersionResource{}, fmt.Errorf("failed to get REST mapping for %s: %w", gvk.String(), err)
+	}
+
+	return mapping.Resource, nil
 }
 
-// kindToResource converts Kind to resource name
+// kindToResource is now deprecated but kept for reference
+// Use getGVR() instead which uses RESTMapper for dynamic resolution
 func kindToResource(kind string) string {
 	// Common mappings
 	mappings := map[string]string{
