@@ -42,12 +42,10 @@ require (
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
-       github.com/pkg/errors v0.9.1 // indirect
-       github.com/pmezard/go-difflib v1.0.0 // indirect
-       github.com/spf13/pflag v1.0.5 // indirect
-       github.com/stretchr/objx v0.5.0 // indirect
-       github.com/stretchr/testify v1.8.4 // indirect
-       github.com/xlab/treeprint v1.2.0 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/xlab/treeprint v1.2.0 // indirect
 	go.starlark.net v0.0.0-20230525235612-a134d8f9ddca // indirect
 	golang.org/x/net v0.55.0 // indirect
 	golang.org/x/oauth2 v0.10.0 // indirect
