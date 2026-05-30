@@ -8,7 +8,7 @@ Thanks for contributing to kubestellar-mcp.
 - This repo has two binaries:
   - `cmd/kubestellar-ops` for diagnostics, RBAC, and security tools
   - `cmd/kubestellar-deploy` for deployment and GitOps tools
-- Keep docs in sync when tool behavior changes, especially `README.md`, `CONTRIBUTING.md`, and the matching file in `commands/`.
+- Keep docs in sync when tool behavior changes, especially `README.md`, `docs/index.md`, `CONTRIBUTING.md`, and the matching file in `commands/`.
 
 ## Local development
 
