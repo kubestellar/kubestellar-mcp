@@ -95,6 +95,36 @@ Or run in Claude Code:
 /allowed-tools add mcp__plugin_kubestellar-deploy_kubestellar-deploy__*
 ```
 
+## Kubernetes RBAC
+
+The MCP binaries use your active kubeconfig by default. If you run them in-cluster, bind the same permissions to the pod ServiceAccount.
+
+| Use case | Typical permissions |
+|----------|---------------------|
+| **kubestellar-ops** read-only | `get`, `list`, `watch` on namespaces, nodes, pods, pods/log, services, endpoints, deployments, replica sets, statefulsets, daemonsets, jobs, cronjobs, events, resourcequotas, limitranges, roles, rolebindings, clusterroles, and clusterrolebindings |
+| **kubestellar-deploy** write | Everything above, plus `create`, `update`, `patch`, and `delete` on the resource types you plan to manage |
+
+Example read-only ClusterRole:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubestellar-mcp-readonly
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces", "nodes", "pods", "pods/log", "services", "endpoints", "events", "resourcequotas", "limitranges"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps", "batch"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets", "jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings", "clusterroles", "clusterrolebindings"]
+    verbs: ["get", "list", "watch"]
+```
+
+For write workflows, add `create`, `update`, `patch`, and `delete` to the resource rules you actually need.
+
 ### Updating
 
 Update the CLI tools via Homebrew:
