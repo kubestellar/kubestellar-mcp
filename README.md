@@ -34,6 +34,8 @@ Download from [GitHub Releases](https://github.com/kubestellar/kubestellar-mcp/r
 
 ### From Source
 
+**Prerequisites:** Go 1.26+ (`go version` to verify)
+
 ```bash
 git clone https://github.com/kubestellar/kubestellar-mcp.git
 cd kubestellar-mcp
@@ -62,7 +64,9 @@ In Claude Code, run:
 /plugin install kubestellar-deploy
 ```
 
-Or go to `/plugin` → **Discover** tab → Install **kubestellar-ops** and/or **kubestellar-deploy**.
+Or:
+1. Go to `/plugin` → **Marketplaces** tab → click **Update** on kubestellar marketplace
+2. Go to `/plugin` → **Discover** tab → Install **kubestellar-ops** and/or **kubestellar-deploy**
 
 ### Step 3: Verify
 
