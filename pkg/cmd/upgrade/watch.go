@@ -96,9 +96,8 @@ func watchUpgrade(ctx context.Context, configFlags *genericclioptions.ConfigFlag
 	}
 
 	// Check if this is an OpenShift cluster
-	_, err = dynClient.Resource(clusterVersionGVR).Get(ctx, "version", metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("not an OpenShift cluster or ClusterVersion not accessible: %w", err)
+	if err := ensureOpenShiftCluster(ctx, dynClient); err != nil {
+		return err
 	}
 
 	fmt.Println("Watching OpenShift cluster upgrade progress...")
@@ -133,6 +132,15 @@ func watchUpgrade(ctx context.Context, configFlags *genericclioptions.ConfigFlag
 			<-ticker.C
 		}
 	}
+}
+
+func ensureOpenShiftCluster(ctx context.Context, dynClient dynamic.Interface) error {
+	_, err := dynClient.Resource(clusterVersionGVR).Get(ctx, "version", metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("not an OpenShift cluster or ClusterVersion not accessible: %w", err)
+	}
+
+	return nil
 }
 
 func getUpgradeStatus(ctx context.Context, dynClient dynamic.Interface) (progress.Status, error) {
