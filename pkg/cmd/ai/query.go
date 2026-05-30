@@ -13,6 +13,23 @@ import (
 	"github.com/kubestellar/kubestellar-mcp/pkg/cluster"
 )
 
+type claudeQueryClient interface {
+	Query(ctx context.Context, systemPrompt, userQuery string) (string, error)
+}
+
+type clusterDiscoverer interface {
+	DiscoverClusters(source string) ([]cluster.ClusterInfo, error)
+	CheckHealth(cluster.ClusterInfo) (*cluster.HealthInfo, error)
+}
+
+var newClaudeQueryClient = func(model string) (claudeQueryClient, error) {
+	return claude.NewClient(claude.WithModel(model))
+}
+
+var newClusterDiscoverer = func(kubeconfig string) clusterDiscoverer {
+	return cluster.NewDiscoverer(kubeconfig)
+}
+
 type queryOptions struct {
 	configFlags   *genericclioptions.ConfigFlags
 	query         string
@@ -65,7 +82,7 @@ Examples:
 
 func (o *queryOptions) run(ctx context.Context) error {
 	// Create Claude client
-	client, err := claude.NewClient(claude.WithModel(o.model))
+	client, err := newClaudeQueryClient(o.model)
 	if err != nil {
 		return fmt.Errorf("failed to create Claude client: %w\n\nMake sure ANTHROPIC_API_KEY environment variable is set", err)
 	}
@@ -76,7 +93,7 @@ func (o *queryOptions) run(ctx context.Context) error {
 		kubeconfig = *o.configFlags.KubeConfig
 	}
 
-	discoverer := cluster.NewDiscoverer(kubeconfig)
+	discoverer := newClusterDiscoverer(kubeconfig)
 	clusters, err := discoverer.DiscoverClusters("all")
 	if err != nil {
 		fmt.Printf("Warning: failed to discover clusters: %v\n", err)
