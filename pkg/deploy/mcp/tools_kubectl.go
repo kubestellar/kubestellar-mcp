@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 )
@@ -403,11 +404,13 @@ func getGVR(kind string) (schema.GroupVersionResource, bool) {
 	}
 }
 
-// yamlToJSON is a simple converter (for basic cases)
+// yamlToJSON converts YAML or JSON strings to JSON for Kubernetes decoding.
 func yamlToJSON(yamlStr string) string {
-	// This is a simplified version - in production use a proper YAML parser
-	// For now, we'll rely on unstructuredFromYAML
-	return yamlStr
+	data, err := yamlToJSONBytes([]byte(yamlStr))
+	if err != nil {
+		return yamlStr
+	}
+	return string(data)
 }
 
 // unstructuredFromYAML parses YAML into an Unstructured object
@@ -420,26 +423,16 @@ func unstructuredFromYAML(yamlStr string, obj *unstructured.Unstructured) error 
 	return json.Unmarshal(data, obj)
 }
 
-// yamlToJSONBytes converts YAML bytes to JSON bytes
+// yamlToJSONBytes converts YAML bytes to JSON bytes.
 func yamlToJSONBytes(y []byte) ([]byte, error) {
-	// Simple YAML to JSON conversion using k8s utilities
-	// This handles the common case of simple YAML manifests
-	var obj map[string]interface{}
-	if err := parseYAML(y, &obj); err != nil {
-		return nil, err
-	}
-	return json.Marshal(obj)
+	return k8syaml.ToJSON(y)
 }
 
-// parseYAML is a simple YAML parser for Kubernetes manifests
+// parseYAML parses YAML or JSON manifests into the provided value.
 func parseYAML(data []byte, v interface{}) error {
-	// Use the k8s YAML decoder which handles both YAML and JSON
-	decoder := json.NewDecoder(strings.NewReader(string(data)))
-	// Try JSON first
-	if err := decoder.Decode(v); err == nil {
-		return nil
+	jsonData, err := yamlToJSONBytes(data)
+	if err != nil {
+		return err
 	}
-	// Fall back to YAML parsing via the existing manifest parser
-	// For simplicity, we convert common YAML patterns
-	return fmt.Errorf("YAML parsing requires k8s.io/apimachinery/pkg/util/yaml - use JSON format or deploy_app tool")
+	return json.Unmarshal(jsonData, v)
 }
