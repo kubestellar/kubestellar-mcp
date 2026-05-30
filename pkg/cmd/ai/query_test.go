@@ -55,6 +55,8 @@ func TestNewQueryCommand_MetadataDefaultsAndArgs(t *testing.T) {
 	cmd := NewQueryCommand(configFlags)
 
 	require.Equal(t, "query <natural language query>", cmd.Use)
+	require.Contains(t, cmd.Short, "natural language")
+	require.Contains(t, cmd.Long, "Examples:")
 	require.Equal(t, claude.DefaultModel, cmd.Flag("model").DefValue)
 	require.Equal(t, "false", cmd.Flag("include-status").DefValue)
 	require.Error(t, cmd.Args(cmd, nil))
