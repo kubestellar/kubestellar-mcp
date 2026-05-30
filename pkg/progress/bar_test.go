@@ -368,3 +368,4 @@ func TestHelperRenderFunctions(t *testing.T) {
 			t.Fatalf("RenderFailed() output = %q, want failure rendering", output)
 		}
 	})
+}
