@@ -1,8 +1,10 @@
 package gitops
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,6 +12,35 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
+
+// allowedRepoSchemes restricts git clone to safe URL schemes.
+// file:// and ssh:// are blocked to prevent SSRF and local file reads.
+var allowedRepoSchemes = map[string]bool{
+	"https": true,
+	"http":  true,
+}
+
+// ValidateRepoURL ensures the repository URL uses an allowed scheme
+// to prevent SSRF, local file reads, and arbitrary SSH connections.
+func ValidateRepoURL(repo string) error {
+	if repo == "" {
+		return fmt.Errorf("repo URL is required")
+	}
+	u, err := url.Parse(repo)
+	if err != nil {
+		return fmt.Errorf("invalid repo URL: %w", err)
+	}
+	if u.Scheme == "" {
+		return fmt.Errorf("repo URL must include a scheme (e.g., https://); got %q", repo)
+	}
+	if !allowedRepoSchemes[u.Scheme] {
+		return fmt.Errorf("repo URL scheme %q is not allowed; use https://", u.Scheme)
+	}
+	if u.Host == "" {
+		return fmt.Errorf("repo URL must include a host; got %q", repo)
+	}
+	return nil
+}
 
 // ManifestSource represents where to get manifests from
 type ManifestSource struct {
@@ -61,8 +92,15 @@ func NewManifestReader() *ManifestReader {
 	return &ManifestReader{}
 }
 
-// ReadFromGit clones a repo and reads manifests
-func (r *ManifestReader) ReadFromGit(source ManifestSource) ([]Manifest, error) {
+// ReadFromGit clones a repo and reads manifests.
+// ctx is used to cancel the git clone subprocess if the caller's context is done.
+// The repo URL is validated to only allow https:// and http:// schemes.
+func (r *ManifestReader) ReadFromGit(ctx context.Context, source ManifestSource) ([]Manifest, error) {
+	// Validate repo URL to prevent SSRF and local file reads
+	if err := ValidateRepoURL(source.Repo); err != nil {
+		return nil, fmt.Errorf("repo URL validation failed: %w", err)
+	}
+
 	// Create temp directory
 	tempDir, err := os.MkdirTemp("", "kubestellar-deploy-*")
 	if err != nil {
@@ -76,7 +114,7 @@ func (r *ManifestReader) ReadFromGit(source ManifestSource) ([]Manifest, error) 
 		branch = "main"
 	}
 
-	cmd := exec.Command("git", "clone", "--depth", "1", "--branch", branch, source.Repo, tempDir)
+	cmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1", "--branch", branch, source.Repo, tempDir)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("failed to clone repo: %w\n%s", err, output)
