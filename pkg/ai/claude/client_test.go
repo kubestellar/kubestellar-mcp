@@ -128,7 +128,7 @@ func TestQueryHandlesEmptyResponse(t *testing.T) {
 
 func decodeClaudeRequest(t *testing.T, r *http.Request, target *Request) {
 	t.Helper()
-	defer r.Body.Close()
+	defer func() { _ = r.Body.Close() }()
 	if err := json.NewDecoder(r.Body).Decode(target); err != nil {
 		t.Fatalf("failed to decode request: %v", err)
 	}
