@@ -2,7 +2,6 @@ package mcp
 
 import (
 	"encoding/json"
-	"strings"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -60,10 +59,17 @@ func TestYAMLHelpersWithJSONInput(t *testing.T) {
 	}
 }
 
-func TestParseYAMLRejectsYAMLInput(t *testing.T) {
+func TestParseYAMLHandlesYAMLInput(t *testing.T) {
 	var parsed map[string]interface{}
 	err := parseYAML([]byte("apiVersion: v1\nkind: Pod\nmetadata:\n  name: demo\n"), &parsed)
-	if err == nil || !strings.Contains(err.Error(), "use JSON format or deploy_app tool") {
-		t.Fatalf("parseYAML() error = %v, want YAML unsupported error", err)
+	if err != nil {
+		t.Fatalf("parseYAML() unexpected error: %v", err)
+	}
+	if parsed["kind"] != "Pod" {
+		t.Fatalf("parseYAML() kind = %v, want Pod", parsed["kind"])
+	}
+	meta, ok := parsed["metadata"].(map[string]interface{})
+	if !ok || meta["name"] != "demo" {
+		t.Fatalf("parseYAML() metadata.name = %v, want demo", meta["name"])
 	}
 }

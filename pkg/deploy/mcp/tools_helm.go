@@ -73,7 +73,7 @@ func (s *Server) handleHelmInstall(ctx context.Context, args json.RawMessage) (i
 
 	var results []HelmResult
 	for _, cluster := range targetClusters {
-		result := s.helmInstall(cluster, params.ReleaseName, params.Chart, params.Namespace,
+		result := s.helmInstall(ctx, cluster, params.ReleaseName, params.Chart, params.Namespace,
 			params.Values, params.ValuesYAML, params.Version, params.Repo, params.Wait, params.Timeout, params.DryRun)
 		results = append(results, result)
 	}
@@ -95,7 +95,7 @@ func (s *Server) handleHelmInstall(ctx context.Context, args json.RawMessage) (i
 }
 
 // helmInstall runs helm install/upgrade for a single cluster
-func (s *Server) helmInstall(cluster, releaseName, chart, namespace string,
+func (s *Server) helmInstall(ctx context.Context, cluster, releaseName, chart, namespace string,
 	values map[string]string, valuesYAML, version, repo string, wait bool, timeout string, dryRun bool) HelmResult {
 
 	cmdArgs := []string{"upgrade", "--install", releaseName, chart,
@@ -136,7 +136,7 @@ func (s *Server) helmInstall(cluster, releaseName, chart, namespace string,
 		cmdArgs = append(cmdArgs, "--dry-run")
 	}
 
-	cmd := exec.CommandContext(context.Background(), "helm", cmdArgs...)
+	cmd := exec.CommandContext(ctx, "helm", cmdArgs...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -211,7 +211,7 @@ func (s *Server) handleHelmUninstall(ctx context.Context, args json.RawMessage) 
 			return nil, err
 		}
 		for _, c := range clusters {
-			if s.helmReleaseExists(c.Name, params.ReleaseName, params.Namespace) {
+			if s.helmReleaseExists(ctx, c.Name, params.ReleaseName, params.Namespace) {
 				targetClusters = append(targetClusters, c.Name)
 			}
 		}
@@ -223,7 +223,7 @@ func (s *Server) handleHelmUninstall(ctx context.Context, args json.RawMessage) 
 
 	var results []HelmResult
 	for _, cluster := range targetClusters {
-		result := s.helmUninstall(cluster, params.ReleaseName, params.Namespace, params.DryRun)
+		result := s.helmUninstall(ctx, cluster, params.ReleaseName, params.Namespace, params.DryRun)
 		results = append(results, result)
 	}
 
@@ -244,7 +244,7 @@ func (s *Server) handleHelmUninstall(ctx context.Context, args json.RawMessage) 
 }
 
 // helmUninstall runs helm uninstall for a single cluster
-func (s *Server) helmUninstall(cluster, releaseName, namespace string, dryRun bool) HelmResult {
+func (s *Server) helmUninstall(ctx context.Context, cluster, releaseName, namespace string, dryRun bool) HelmResult {
 	if dryRun {
 		return HelmResult{
 			Cluster:     cluster,
@@ -260,7 +260,7 @@ func (s *Server) helmUninstall(cluster, releaseName, namespace string, dryRun bo
 		"--kube-context", cluster,
 	}
 
-	cmd := exec.CommandContext(context.Background(), "helm", cmdArgs...)
+	cmd := exec.CommandContext(ctx, "helm", cmdArgs...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -289,10 +289,10 @@ func (s *Server) helmUninstall(cluster, releaseName, namespace string, dryRun bo
 // handleHelmList lists Helm releases across clusters
 func (s *Server) handleHelmList(ctx context.Context, args json.RawMessage) (interface{}, error) {
 	var params struct {
-		Namespace   string   `json:"namespace"`
-		AllNs       bool     `json:"all_namespaces"`
-		Filter      string   `json:"filter"`
-		Clusters    []string `json:"clusters"`
+		Namespace string   `json:"namespace"`
+		AllNs     bool     `json:"all_namespaces"`
+		Filter    string   `json:"filter"`
+		Clusters  []string `json:"clusters"`
 	}
 	if err := json.Unmarshal(args, &params); err != nil {
 		return nil, fmt.Errorf("invalid arguments: %w", err)
@@ -312,7 +312,7 @@ func (s *Server) handleHelmList(ctx context.Context, args json.RawMessage) (inte
 
 	allReleases := make(map[string][]HelmReleaseInfo)
 	for _, cluster := range targetClusters {
-		releases := s.helmList(cluster, params.Namespace, params.AllNs, params.Filter)
+		releases := s.helmList(ctx, cluster, params.Namespace, params.AllNs, params.Filter)
 		if len(releases) > 0 {
 			allReleases[cluster] = releases
 		}
@@ -331,7 +331,7 @@ func (s *Server) handleHelmList(ctx context.Context, args json.RawMessage) (inte
 }
 
 // helmList runs helm list for a single cluster
-func (s *Server) helmList(cluster, namespace string, allNs bool, filter string) []HelmReleaseInfo {
+func (s *Server) helmList(ctx context.Context, cluster, namespace string, allNs bool, filter string) []HelmReleaseInfo {
 	cmdArgs := []string{"list", "--kube-context", cluster, "-o", "json"}
 
 	if allNs {
@@ -344,7 +344,7 @@ func (s *Server) helmList(cluster, namespace string, allNs bool, filter string) 
 		cmdArgs = append(cmdArgs, "--filter", filter)
 	}
 
-	cmd := exec.CommandContext(context.Background(), "helm", cmdArgs...)
+	cmd := exec.CommandContext(ctx, "helm", cmdArgs...)
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
 
@@ -360,13 +360,13 @@ func (s *Server) helmList(cluster, namespace string, allNs bool, filter string) 
 }
 
 // helmReleaseExists checks if a release exists in a cluster
-func (s *Server) helmReleaseExists(cluster, releaseName, namespace string) bool {
+func (s *Server) helmReleaseExists(ctx context.Context, cluster, releaseName, namespace string) bool {
 	cmdArgs := []string{"status", releaseName,
 		"--namespace", namespace,
 		"--kube-context", cluster,
 	}
 
-	cmd := exec.CommandContext(context.Background(), "helm", cmdArgs...)
+	cmd := exec.CommandContext(ctx, "helm", cmdArgs...)
 	return cmd.Run() == nil
 }
 
@@ -399,7 +399,7 @@ func (s *Server) handleHelmRollback(ctx context.Context, args json.RawMessage) (
 			return nil, err
 		}
 		for _, c := range clusters {
-			if s.helmReleaseExists(c.Name, params.ReleaseName, params.Namespace) {
+			if s.helmReleaseExists(ctx, c.Name, params.ReleaseName, params.Namespace) {
 				targetClusters = append(targetClusters, c.Name)
 			}
 		}
@@ -411,7 +411,7 @@ func (s *Server) handleHelmRollback(ctx context.Context, args json.RawMessage) (
 
 	var results []HelmResult
 	for _, cluster := range targetClusters {
-		result := s.helmRollback(cluster, params.ReleaseName, params.Namespace, params.Revision, params.DryRun)
+		result := s.helmRollback(ctx, cluster, params.ReleaseName, params.Namespace, params.Revision, params.DryRun)
 		results = append(results, result)
 	}
 
@@ -432,7 +432,7 @@ func (s *Server) handleHelmRollback(ctx context.Context, args json.RawMessage) (
 }
 
 // helmRollback runs helm rollback for a single cluster
-func (s *Server) helmRollback(cluster, releaseName, namespace string, revision int, dryRun bool) HelmResult {
+func (s *Server) helmRollback(ctx context.Context, cluster, releaseName, namespace string, revision int, dryRun bool) HelmResult {
 	cmdArgs := []string{"rollback", releaseName,
 		"--namespace", namespace,
 		"--kube-context", cluster,
@@ -446,7 +446,7 @@ func (s *Server) helmRollback(cluster, releaseName, namespace string, revision i
 		cmdArgs = append(cmdArgs, "--dry-run")
 	}
 
-	cmd := exec.CommandContext(context.Background(), "helm", cmdArgs...)
+	cmd := exec.CommandContext(ctx, "helm", cmdArgs...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
