@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
 	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 )
 
@@ -20,6 +21,9 @@ type Server struct {
 	manager  *multicluster.ClientManager
 	executor *multicluster.Executor
 	selector *multicluster.Selector
+	// newManifestReader is a factory for creating manifest readers.
+	// Tests can override this to allow file:// URLs for local test repos.
+	newManifestReader func() *gitops.ManifestReader
 }
 
 // NewServer creates a new MCP server
@@ -33,10 +37,19 @@ func NewServer() (*Server, error) {
 	selector := multicluster.NewSelector(executor)
 
 	return &Server{
-		manager:  manager,
-		executor: executor,
-		selector: selector,
+		manager:           manager,
+		executor:          executor,
+		selector:          selector,
+		newManifestReader: gitops.NewManifestReader,
 	}, nil
+}
+
+// getManifestReader returns a manifest reader using the configured factory.
+func (s *Server) getManifestReader() *gitops.ManifestReader {
+	if s.newManifestReader != nil {
+		return s.newManifestReader()
+	}
+	return gitops.NewManifestReader()
 }
 
 // MCPRequest represents an incoming MCP request

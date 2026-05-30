@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
 	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -302,7 +303,18 @@ func newHelmTestServer(t *testing.T, contexts map[string]string) *Server {
 	executor := multicluster.NewExecutor(manager)
 	selector := multicluster.NewSelector(executor)
 
-	return &Server{manager: manager, executor: executor, selector: selector}
+	return &Server{
+		manager:  manager,
+		executor: executor,
+		selector: selector,
+		newManifestReader: func() *gitops.ManifestReader {
+			return gitops.NewManifestReaderWithSchemes(map[string]bool{
+				"https": true,
+				"http":  true,
+				"file":  true,
+			})
+		},
+	}
 }
 
 func mustMarshalJSON(t *testing.T, v interface{}) json.RawMessage {

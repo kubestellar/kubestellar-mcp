@@ -205,5 +205,5 @@ func createGitRepo(t *testing.T, files map[string]string) string {
 		runGit("commit", "-m", "test repo")
 	}
 
-	return absDir
+	return "file://" + absDir
 }
