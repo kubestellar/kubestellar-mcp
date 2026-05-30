@@ -17,7 +17,7 @@ type ClusterResult struct {
 }
 
 // ExecuteFunc is a function that executes on a single cluster
-type ExecuteFunc func(ctx context.Context, client *kubernetes.Clientset, clusterName string) (interface{}, error)
+type ExecuteFunc func(ctx context.Context, client kubernetes.Interface, clusterName string) (interface{}, error)
 
 // executeMultiCluster runs an operation across clusters
 // If clusterName is specified, runs on that cluster only

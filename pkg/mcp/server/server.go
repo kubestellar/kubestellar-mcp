@@ -10,22 +10,30 @@ import (
 	"os"
 	"sync"
 
+	"k8s.io/client-go/kubernetes"
+
 	"github.com/kubestellar/kubestellar-mcp/pkg/cluster"
 )
 
 const (
-	MCPVersion = "2024-11-05"
-	ServerName = "kubestellar-ops"
+	MCPVersion    = "2024-11-05"
+	ServerName    = "kubestellar-ops"
 	ServerVersion = "0.8.0"
 )
 
+type discoverer interface {
+	DiscoverClusters(source string) ([]cluster.ClusterInfo, error)
+	CheckHealthByContext(contextName string) (*cluster.HealthInfo, error)
+}
+
 // Server implements an MCP server over stdio
 type Server struct {
-	kubeconfig string
-	discoverer *cluster.Discoverer
-	reader     *bufio.Reader
-	writer     io.Writer
-	mu         sync.Mutex
+	kubeconfig    string
+	discoverer    discoverer
+	clientFactory func(clusterName string) (kubernetes.Interface, error)
+	reader        *bufio.Reader
+	writer        io.Writer
+	mu            sync.Mutex
 }
 
 // JSON-RPC types
