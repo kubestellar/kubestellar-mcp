@@ -117,7 +117,11 @@ func (s *Server) toolGetClusterHealth(args map[string]interface{}) (string, bool
 	return sb.String(), false
 }
 
-func (s *Server) getClientForCluster(clusterName string) (*kubernetes.Clientset, error) {
+func (s *Server) getClientForCluster(clusterName string) (kubernetes.Interface, error) {
+	if s.clientFactory != nil {
+		return s.clientFactory(clusterName)
+	}
+
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	if s.kubeconfig != "" {
 		loadingRules.ExplicitPath = s.kubeconfig
@@ -1095,14 +1099,14 @@ func (s *Server) toolAuditKubeconfig(ctx context.Context, args map[string]interf
 	}
 
 	type clusterResult struct {
-		Context     string
-		Cluster     string
-		Server      string
-		User        string
-		Accessible  bool
-		Error       string
-		IsCurrent   bool
-		ServerInfo  string
+		Context    string
+		Cluster    string
+		Server     string
+		User       string
+		Accessible bool
+		Error      string
+		IsCurrent  bool
+		ServerInfo string
 	}
 
 	results := make([]clusterResult, 0, len(config.Contexts))
