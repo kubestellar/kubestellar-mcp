@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -58,7 +59,7 @@ func TestGetOpenShiftVersionInfo(t *testing.T) {
 	s := &Server{}
 	var sb strings.Builder
 
-	result, isErr := s.getOpenShiftVersionInfo(nil, cv, &sb)
+	result, isErr := s.getOpenShiftVersionInfo(context.TODO(), cv, &sb)
 	if isErr {
 		t.Fatalf("getOpenShiftVersionInfo() returned error: %s", result)
 	}
@@ -106,7 +107,7 @@ func TestGetOpenShiftVersionInfo_NoUpdates(t *testing.T) {
 	s := &Server{}
 	var sb strings.Builder
 
-	result, isErr := s.getOpenShiftVersionInfo(nil, cv, &sb)
+	result, isErr := s.getOpenShiftVersionInfo(context.TODO(), cv, &sb)
 	if isErr {
 		t.Fatalf("getOpenShiftVersionInfo() returned error: %s", result)
 	}
