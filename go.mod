@@ -5,10 +5,10 @@ go 1.25.0
 require (
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.9.0
-	k8s.io/api v0.30.4
-	k8s.io/apimachinery v0.30.4
-	k8s.io/cli-runtime v0.30.4
-	k8s.io/client-go v0.30.4
+	k8s.io/api v0.36.1
+	k8s.io/apimachinery v0.36.1
+	k8s.io/cli-runtime v0.36.1
+	k8s.io/client-go v0.36.1
 	k8s.io/klog/v2 v2.120.1
 )
 
@@ -67,3 +67,4 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
+
