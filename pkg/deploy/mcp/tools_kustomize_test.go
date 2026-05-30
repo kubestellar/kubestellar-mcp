@@ -4,240 +4,203 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
-	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-
-	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestHandleKustomizeBuildValidatesPath(t *testing.T) {
-	server := newKustomizeTestServer(t, nil)
+	server := newHelmTestServer(t, map[string]string{})
 
 	tests := []struct {
 		name    string
 		args    map[string]interface{}
 		wantErr string
 	}{
-		{
-			name:    "missing path parameter",
-			args:    map[string]interface{}{},
-			wantErr: "path is required",
-		},
-		{
-			name:    "empty path",
-			args:    map[string]interface{}{"path": ""},
-			wantErr: "path is required",
-		},
-		{
-			name:    "nonexistent path",
-			args:    map[string]interface{}{"path": "/nonexistent/path"},
-			wantErr: "no kustomization.yaml or kustomization.yml found",
-		},
+		{name: "missing path", args: map[string]interface{}{}, wantErr: "path is required"},
+		{name: "missing kustomization file", args: map[string]interface{}{"path": t.TempDir()}, wantErr: "no kustomization.yaml or kustomization.yml found"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			args := mustMarshalJSON(t, tt.args)
-			_, err := server.handleKustomizeBuild(context.Background(), args)
-			if err == nil {
-				t.Fatalf("handleKustomizeBuild() expected error containing %q, got nil", tt.wantErr)
-			}
-			if !strings.Contains(err.Error(), tt.wantErr) {
-				t.Fatalf("handleKustomizeBuild() error = %v, want error containing %q", err, tt.wantErr)
-			}
+			_, err := server.handleKustomizeBuild(context.Background(), mustMarshalJSON(t, tt.args))
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantErr)
 		})
 	}
 }
 
-func TestHandleKustomizeBuildWithFakeBinary(t *testing.T) {
-	setupFakeKustomize(t)
-	server := newKustomizeTestServer(t, nil)
-
-	// Create a test kustomization directory
+func TestHandleKustomizeBuildCountsResources(t *testing.T) {
+	logFile := setupFakeKustomize(t)
+	server := newHelmTestServer(t, map[string]string{})
 	dir := createTestKustomization(t, "kustomization.yaml")
+	t.Setenv("FAKE_KUSTOMIZE_BUILD_STDOUT", "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: demo\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: demo\n")
 
-	t.Setenv("FAKE_KUSTOMIZE_OUTPUT", "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: demo1\n---\nkind: Service\n")
-
-	args := mustMarshalJSON(t, map[string]interface{}{
-		"path": dir,
-	})
-
-	got, err := server.handleKustomizeBuild(context.Background(), args)
-	if err != nil {
-		t.Fatalf("handleKustomizeBuild() error = %v", err)
-	}
+	got, err := server.handleKustomizeBuild(context.Background(), mustMarshalJSON(t, map[string]interface{}{"path": dir}))
+	require.NoError(t, err)
 
 	result := got.(map[string]interface{})
-	if result["path"] != dir {
-		t.Fatalf("path = %v, want %s", result["path"], dir)
-	}
-	if result["resources"].(int) != 2 {
-		t.Fatalf("resources = %v, want 2", result["resources"])
-	}
-	output := result["output"].(string)
-	if !strings.Contains(output, "ConfigMap") {
-		t.Fatalf("output missing ConfigMap: %s", output)
-	}
+	assert.Equal(t, dir, result["path"])
+	assert.Equal(t, 2, result["resources"])
+	assert.Contains(t, result["output"].(string), "Deployment")
+	assert.Contains(t, readLogFile(t, logFile), "args=build "+dir)
 }
 
-func TestHandleKustomizeApplyDryRun(t *testing.T) {
-	setupFakeKustomize(t)
-	server := newKustomizeTestServer(t, map[string]string{
-		"alpha": "https://alpha.example.com",
-		"beta":  "https://beta.example.com",
-	})
-
+func TestHandleKustomizeBuildFallsBackToKubectlKustomize(t *testing.T) {
+	logFile := setupFakeKustomize(t)
+	server := newHelmTestServer(t, map[string]string{})
 	dir := createTestKustomization(t, "kustomization.yml")
-	t.Setenv("FAKE_KUSTOMIZE_OUTPUT", "kind: Pod\n---\nkind: Service\n---\nkind: ConfigMap\n")
+	t.Setenv("FAKE_KUSTOMIZE_BUILD_FAIL", "1")
+	t.Setenv("FAKE_KUBECTL_KUSTOMIZE_STDOUT", "apiVersion: v1\nkind: Service\nmetadata:\n  name: demo\n")
 
-	args := mustMarshalJSON(t, map[string]interface{}{
-		"path":    dir,
-		"dry_run": true,
-	})
-
-	got, err := server.handleKustomizeApply(context.Background(), args)
-	if err != nil {
-		t.Fatalf("handleKustomizeApply() error = %v", err)
-	}
+	got, err := server.handleKustomizeBuild(context.Background(), mustMarshalJSON(t, map[string]interface{}{"path": dir}))
+	require.NoError(t, err)
 
 	result := got.(map[string]interface{})
-	if !result["dryRun"].(bool) {
-		t.Fatalf("dryRun = %v, want true", result["dryRun"])
-	}
-	if result["totalClusters"].(int) != 2 {
-		t.Fatalf("totalClusters = %v, want 2", result["totalClusters"])
-	}
-	if result["successCount"].(int) != 2 {
-		t.Fatalf("successCount = %v, want 2", result["successCount"])
-	}
-
-	results := result["results"].([]KustomizeResult)
-	if len(results) != 2 {
-		t.Fatalf("results count = %d, want 2", len(results))
-	}
-
-	for _, r := range results {
-		if r.Status != "would-apply" {
-			t.Fatalf("unexpected result status: %#v", r)
-		}
-		if r.Resources != 3 {
-			t.Fatalf("resources = %d, want 3", r.Resources)
-		}
-	}
+	assert.Equal(t, 1, result["resources"])
+	assert.Contains(t, result["output"].(string), "Service")
+	logData := readLogFile(t, logFile)
+	assert.Contains(t, logData, "bin=kustomize")
+	assert.Contains(t, logData, "bin=kubectl")
+	assert.Contains(t, logData, "args=kustomize "+dir)
 }
 
-func TestHandleKustomizeApplyWithSpecificClusters(t *testing.T) {
+func TestApplyKustomizeDryRunReturnsWouldApply(t *testing.T) {
+	server := newHelmTestServer(t, map[string]string{})
+
+	result := server.applyKustomize(context.Background(), "alpha", "/workdir/demo", "kind: ConfigMap\n", 3, true)
+
+	assert.Equal(t, "alpha", result.Cluster)
+	assert.Equal(t, "would-apply", result.Status)
+	assert.Equal(t, 3, result.Resources)
+	assert.Equal(t, "Would apply 3 resources from /workdir/demo", result.Message)
+}
+
+func TestHandleKustomizeApplyDryRunAcrossExplicitClusters(t *testing.T) {
 	setupFakeKustomize(t)
-	server := newKustomizeTestServer(t, map[string]string{
-		"alpha": "https://alpha.example.com",
-		"beta":  "https://beta.example.com",
-		"gamma": "https://gamma.example.com",
-	})
-
+	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com", "beta": "https://beta.example.com"})
 	dir := createTestKustomization(t, "kustomization.yaml")
-	t.Setenv("FAKE_KUSTOMIZE_OUTPUT", "kind: Deployment\n")
+	t.Setenv("FAKE_KUSTOMIZE_BUILD_STDOUT", "kind: ConfigMap\n---\nkind: Service\n")
 
-	args := mustMarshalJSON(t, map[string]interface{}{
+	got, err := server.handleKustomizeApply(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 		"path":     dir,
-		"clusters": []string{"alpha", "gamma"},
+		"clusters": []string{"beta", "alpha"},
 		"dry_run":  true,
-	})
-
-	got, err := server.handleKustomizeApply(context.Background(), args)
-	if err != nil {
-		t.Fatalf("handleKustomizeApply() error = %v", err)
-	}
+	}))
+	require.NoError(t, err)
 
 	result := got.(map[string]interface{})
-	targetClusters := result["targetClusters"].([]string)
-	if len(targetClusters) != 2 {
-		t.Fatalf("targetClusters count = %d, want 2", len(targetClusters))
-	}
-	if targetClusters[0] != "alpha" || targetClusters[1] != "gamma" {
-		t.Fatalf("targetClusters = %v, want [alpha gamma]", targetClusters)
-	}
-}
-
-func TestHandleKustomizeDeleteDryRun(t *testing.T) {
-	setupFakeKustomize(t)
-	server := newKustomizeTestServer(t, map[string]string{
-		"alpha": "https://alpha.example.com",
-	})
-
-	dir := createTestKustomization(t, "kustomization.yaml")
-	t.Setenv("FAKE_KUSTOMIZE_OUTPUT", "kind: Deployment\n---\nkind: Service\n")
-
-	args := mustMarshalJSON(t, map[string]interface{}{
-		"path":    dir,
-		"dry_run": true,
-	})
-
-	got, err := server.handleKustomizeDelete(context.Background(), args)
-	if err != nil {
-		t.Fatalf("handleKustomizeDelete() error = %v", err)
-	}
-
-	result := got.(map[string]interface{})
-	if !result["dryRun"].(bool) {
-		t.Fatalf("dryRun = %v, want true", result["dryRun"])
-	}
+	assert.Equal(t, []string{"beta", "alpha"}, result["targetClusters"])
+	assert.Equal(t, 2, result["successCount"])
+	assert.Equal(t, 2, result["totalClusters"])
+	assert.True(t, result["dryRun"].(bool))
 
 	results := result["results"].([]KustomizeResult)
-	if len(results) != 1 {
-		t.Fatalf("results count = %d, want 1", len(results))
-	}
-	if results[0].Status != "would-delete" {
-		t.Fatalf("status = %q, want would-delete", results[0].Status)
-	}
-	if results[0].Resources != 2 {
-		t.Fatalf("resources = %d, want 2", results[0].Resources)
+	require.Len(t, results, 2)
+	for _, item := range results {
+		assert.Equal(t, "would-apply", item.Status)
+		assert.Equal(t, 2, item.Resources)
 	}
 }
 
-func TestHandleKustomizeDeleteValidation(t *testing.T) {
-	server := newKustomizeTestServer(t, nil)
+func TestHandleKustomizeApplyReturnsNoClustersAvailable(t *testing.T) {
+	setupFakeKustomize(t)
+	server := newHelmTestServer(t, map[string]string{})
+	dir := createTestKustomization(t, "kustomization.yaml")
+	t.Setenv("FAKE_KUSTOMIZE_BUILD_STDOUT", "kind: ConfigMap\n")
 
-	args := mustMarshalJSON(t, map[string]interface{}{
-		"path": "",
-	})
-
-	_, err := server.handleKustomizeDelete(context.Background(), args)
-	if err == nil || !strings.Contains(err.Error(), "path is required") {
-		t.Fatalf("handleKustomizeDelete() error = %v, want 'path is required'", err)
-	}
+	_, err := server.handleKustomizeApply(context.Background(), mustMarshalJSON(t, map[string]interface{}{"path": dir, "dry_run": true}))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no clusters available")
 }
 
-func setupFakeKustomize(t *testing.T) {
+func TestHandleKustomizeApplyRunsKubectlApply(t *testing.T) {
+	logFile := setupFakeKustomize(t)
+	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+	dir := createTestKustomization(t, "kustomization.yaml")
+	t.Setenv("FAKE_KUSTOMIZE_BUILD_STDOUT", "kind: ConfigMap\nmetadata:\n  name: demo\n")
+	t.Setenv("FAKE_KUBECTL_APPLY_STDOUT", "configmap/demo created")
+
+	got, err := server.handleKustomizeApply(context.Background(), mustMarshalJSON(t, map[string]interface{}{"path": dir, "clusters": []string{"alpha"}}))
+	require.NoError(t, err)
+
+	result := got.(map[string]interface{})
+	results := result["results"].([]KustomizeResult)
+	require.Len(t, results, 1)
+	assert.Equal(t, "applied", results[0].Status)
+	assert.Contains(t, results[0].Message, "configmap/demo created")
+
+	logData := readLogFile(t, logFile)
+	assert.Contains(t, logData, "bin=kubectl")
+	assert.Contains(t, logData, "cluster=alpha")
+	assert.Contains(t, logData, "args=apply -f - --context alpha")
+	assert.Contains(t, logData, "stdin=kind: ConfigMap")
+}
+
+func TestDeleteKustomizeDryRunReturnsWouldDelete(t *testing.T) {
+	server := newHelmTestServer(t, map[string]string{})
+
+	result := server.deleteKustomize(context.Background(), "beta", "/workdir/demo", "kind: Service\n", 2, true)
+
+	assert.Equal(t, "beta", result.Cluster)
+	assert.Equal(t, "would-delete", result.Status)
+	assert.Equal(t, 2, result.Resources)
+	assert.Equal(t, "Would delete 2 resources from /workdir/demo", result.Message)
+}
+
+func TestHandleKustomizeDeleteRunsKubectlDelete(t *testing.T) {
+	logFile := setupFakeKustomize(t)
+	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+	dir := createTestKustomization(t, "kustomization.yaml")
+	t.Setenv("FAKE_KUSTOMIZE_BUILD_STDOUT", "kind: Deployment\nmetadata:\n  name: demo\n")
+	t.Setenv("FAKE_KUBECTL_DELETE_STDOUT", "deployment.apps/demo deleted")
+
+	got, err := server.handleKustomizeDelete(context.Background(), mustMarshalJSON(t, map[string]interface{}{"path": dir, "clusters": []string{"alpha"}}))
+	require.NoError(t, err)
+
+	result := got.(map[string]interface{})
+	results := result["results"].([]KustomizeResult)
+	require.Len(t, results, 1)
+	assert.Equal(t, "deleted", results[0].Status)
+	assert.Contains(t, results[0].Message, "deployment.apps/demo deleted")
+
+	logData := readLogFile(t, logFile)
+	assert.Contains(t, logData, "args=delete -f - --context alpha --ignore-not-found")
+	assert.Contains(t, logData, "stdin=kind: Deployment")
+}
+
+func setupFakeKustomize(t *testing.T) string {
 	t.Helper()
 
 	dir, err := os.MkdirTemp(".", "fake-kustomize-*")
-	if err != nil {
-		t.Fatalf("MkdirTemp() error = %v", err)
-	}
-	t.Cleanup(func() {
-		_ = os.RemoveAll(dir)
-	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
 
 	absDir, err := filepath.Abs(dir)
-	if err != nil {
-		t.Fatalf("filepath.Abs() error = %v", err)
-	}
+	require.NoError(t, err)
 
+	logFile := filepath.Join(absDir, "kustomize.log")
+	t.Setenv("FAKE_KUSTOMIZE_LOG", logFile)
 	t.Setenv("PATH", absDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
-	script := `#!/bin/sh
+	kustomizeScript := `#!/bin/sh
 cmd="$1"
 shift
+if [ -n "$FAKE_KUSTOMIZE_LOG" ]; then
+  {
+    echo "---"
+    echo "bin=kustomize"
+    echo "args=$cmd $*"
+  } >> "$FAKE_KUSTOMIZE_LOG"
+fi
 case "$cmd" in
   build)
-    if [ "$FAKE_KUSTOMIZE_FAIL" = "1" ]; then
-      echo "kustomize build failed" >&2
+    if [ "$FAKE_KUSTOMIZE_BUILD_FAIL" = "1" ]; then
+      echo "${FAKE_KUSTOMIZE_BUILD_STDERR:-kustomize build failed}" >&2
       exit 1
     fi
-    printf '%s' "${FAKE_KUSTOMIZE_OUTPUT:-apiVersion: v1\nkind: ConfigMap\n}"
+    printf '%s' "${FAKE_KUSTOMIZE_BUILD_STDOUT:-kind: ConfigMap\n}"
     ;;
   *)
     echo "unsupported kustomize command: $cmd" >&2
@@ -245,71 +208,74 @@ case "$cmd" in
     ;;
 esac
 `
-	if err := os.WriteFile(filepath.Join(absDir, "kustomize"), []byte(script), 0o755); err != nil {
-		t.Fatalf("WriteFile() error = %v", err)
-	}
-}
+	require.NoError(t, os.WriteFile(filepath.Join(absDir, "kustomize"), []byte(kustomizeScript), 0o755))
 
-func newKustomizeTestServer(t *testing.T, contexts map[string]string) *Server {
-	t.Helper()
+	kubectlScript := `#!/bin/sh
+cmd="$1"
+shift
+stdin="$(cat)"
+cluster=""
+prev=""
+for arg in "$@"; do
+  if [ "$prev" = "--context" ] || [ "$prev" = "--kube-context" ]; then
+    cluster="$arg"
+  fi
+  prev="$arg"
+done
+if [ -n "$FAKE_KUSTOMIZE_LOG" ]; then
+  {
+    echo "---"
+    echo "bin=kubectl"
+    echo "cmd=$cmd"
+    echo "cluster=$cluster"
+    echo "args=$cmd $*"
+    printf 'stdin=%s\n' "$stdin"
+  } >> "$FAKE_KUSTOMIZE_LOG"
+fi
+case "$cmd" in
+  kustomize)
+    printf '%s' "${FAKE_KUBECTL_KUSTOMIZE_STDOUT:-kind: ConfigMap\n}"
+    ;;
+  apply)
+    if [ "$FAKE_KUBECTL_APPLY_FAIL" = "1" ]; then
+      echo "${FAKE_KUBECTL_APPLY_STDERR:-kubectl apply failed}" >&2
+      exit 1
+    fi
+    printf '%s' "${FAKE_KUBECTL_APPLY_STDOUT:-applied}"
+    ;;
+  delete)
+    if [ "$FAKE_KUBECTL_DELETE_FAIL" = "1" ]; then
+      echo "${FAKE_KUBECTL_DELETE_STDERR:-kubectl delete failed}" >&2
+      exit 1
+    fi
+    printf '%s' "${FAKE_KUBECTL_DELETE_STDOUT:-deleted}"
+    ;;
+  *)
+    echo "unsupported kubectl command: $cmd" >&2
+    exit 1
+    ;;
+esac
+`
+	require.NoError(t, os.WriteFile(filepath.Join(absDir, "kubectl"), []byte(kubectlScript), 0o755))
 
-	if contexts == nil {
-		// Create minimal config for tests that don't need clusters
-		config := clientcmdapi.NewConfig()
-		config.Contexts["default"] = &clientcmdapi.Context{Cluster: "default", AuthInfo: "default"}
-		config.Clusters["default"] = &clientcmdapi.Cluster{Server: "https://localhost:6443"}
-		config.AuthInfos["default"] = &clientcmdapi.AuthInfo{}
-		config.CurrentContext = "default"
-
-		dir, err := os.MkdirTemp(".", "kustomize-kubeconfig-*")
-		if err != nil {
-			t.Fatalf("MkdirTemp() error = %v", err)
-		}
-		t.Cleanup(func() {
-			_ = os.RemoveAll(dir)
-		})
-
-		kubeconfig := filepath.Join(dir, "config")
-		if err := clientcmd.WriteToFile(*config, kubeconfig); err != nil {
-			t.Fatalf("WriteToFile() error = %v", err)
-		}
-
-		manager, err := multicluster.NewClientManager(kubeconfig)
-		if err != nil {
-			t.Fatalf("NewClientManager() error = %v", err)
-		}
-		return &Server{manager: manager}
-	}
-
-	// Use newHelmTestServer for multi-cluster tests (same pattern)
-	return newHelmTestServer(t, contexts)
+	return logFile
 }
 
 func createTestKustomization(t *testing.T, filename string) string {
 	t.Helper()
 
 	dir, err := os.MkdirTemp(".", "kustomization-*")
-	if err != nil {
-		t.Fatalf("MkdirTemp() error = %v", err)
-	}
-	t.Cleanup(func() {
-		_ = os.RemoveAll(dir)
-	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
 
 	content := `apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - deployment.yaml
 `
-	kustomizationPath := filepath.Join(dir, filename)
-	if err := os.WriteFile(kustomizationPath, []byte(content), 0o644); err != nil {
-		t.Fatalf("WriteFile() error = %v", err)
-	}
+	require.NoError(t, os.WriteFile(filepath.Join(dir, filename), []byte(content), 0o644))
 
 	absDir, err := filepath.Abs(dir)
-	if err != nil {
-		t.Fatalf("filepath.Abs() error = %v", err)
-	}
-
+	require.NoError(t, err)
 	return absDir
 }

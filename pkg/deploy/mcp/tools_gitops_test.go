@@ -2,205 +2,208 @@ package mcp
 
 import (
 	"context"
-	"encoding/json"
-	"strings"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"testing"
+
+	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestHandleDetectDriftValidation(t *testing.T) {
-	server := newHelmTestServer(t, nil)
+func TestHandleDetectDriftValidatesArguments(t *testing.T) {
+	server := newHelmTestServer(t, map[string]string{})
 
 	tests := []struct {
 		name    string
-		args    map[string]interface{}
+		args    []byte
 		wantErr string
 	}{
-		{
-			name:    "missing repo",
-			args:    map[string]interface{}{},
-			wantErr: "repo is required",
-		},
-		{
-			name:    "empty repo",
-			args:    map[string]interface{}{"repo": ""},
-			wantErr: "repo is required",
-		},
+		{name: "invalid json", args: []byte(`{invalid`), wantErr: "invalid arguments"},
+		{name: "missing repo", args: []byte(`{}`), wantErr: "repo is required"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			args := mustMarshalJSON(t, tt.args)
-			_, err := server.handleDetectDrift(context.Background(), args)
-			if err == nil {
-				t.Fatalf("handleDetectDrift() expected error containing %q, got nil", tt.wantErr)
-			}
-			if !strings.Contains(err.Error(), tt.wantErr) {
-				t.Fatalf("handleDetectDrift() error = %v, want error containing %q", err, tt.wantErr)
-			}
+			_, err := server.handleDetectDrift(context.Background(), tt.args)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantErr)
 		})
 	}
 }
 
-func TestHandleSyncFromGitValidation(t *testing.T) {
-	server := newHelmTestServer(t, nil)
+func TestHandleDetectDriftReturnsNoManifestsMessage(t *testing.T) {
+	setGitOpsTempDir(t)
+	repo := createGitRepo(t, map[string]string{"README.md": "# demo\n"})
+	server := newHelmTestServer(t, map[string]string{})
+
+	got, err := server.handleDetectDrift(context.Background(), mustMarshalJSON(t, map[string]interface{}{"repo": repo, "path": "."}))
+	require.NoError(t, err)
+
+	result := got.(map[string]interface{})
+	assert.Equal(t, "No manifests found in repository", result["message"])
+	assert.Equal(t, gitops.ManifestSource{Repo: repo, Path: "."}, result["source"])
+}
+
+func TestHandleDetectDriftReturnsFailureForMissingClusterConfig(t *testing.T) {
+	setGitOpsTempDir(t)
+	repo := createGitRepo(t, map[string]string{"manifests/app.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: demo\n"})
+	server := newHelmTestServer(t, map[string]string{})
+
+	got, err := server.handleDetectDrift(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+		"repo":     repo,
+		"path":     "manifests",
+		"clusters": []string{"missing"},
+	}))
+	require.NoError(t, err)
+
+	result := got.(*GitOpsDriftResult)
+	assert.Equal(t, 1, result.ClusterCount)
+	assert.Equal(t, 1, result.TotalDrifts)
+	require.Len(t, result.Drifts, 1)
+	assert.Equal(t, "missing", result.Drifts[0].Cluster)
+	assert.Equal(t, gitops.DriftTypeMissing, result.Drifts[0].DriftType)
+	assert.Contains(t, result.Drifts[0].Differences[0], "Failed to get config")
+}
+
+func TestHandleSyncFromGitValidatesArguments(t *testing.T) {
+	server := newHelmTestServer(t, map[string]string{})
 
 	tests := []struct {
 		name    string
-		args    map[string]interface{}
+		args    []byte
 		wantErr string
 	}{
-		{
-			name:    "missing repo",
-			args:    map[string]interface{}{},
-			wantErr: "repo is required",
-		},
-		{
-			name:    "empty repo",
-			args:    map[string]interface{}{"repo": ""},
-			wantErr: "repo is required",
-		},
+		{name: "invalid json", args: []byte(`{invalid`), wantErr: "invalid arguments"},
+		{name: "missing repo", args: []byte(`{}`), wantErr: "repo is required"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			args := mustMarshalJSON(t, tt.args)
-			_, err := server.handleSyncFromGit(context.Background(), args)
-			if err == nil {
-				t.Fatalf("handleSyncFromGit() expected error containing %q, got nil", tt.wantErr)
-			}
-			if !strings.Contains(err.Error(), tt.wantErr) {
-				t.Fatalf("handleSyncFromGit() error = %v, want error containing %q", err, tt.wantErr)
-			}
+			_, err := server.handleSyncFromGit(context.Background(), tt.args)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantErr)
 		})
 	}
 }
 
-func TestHandleReconcileValidation(t *testing.T) {
-	server := newHelmTestServer(t, nil)
+func TestHandleSyncFromGitReturnsNoManifestsMessage(t *testing.T) {
+	setGitOpsTempDir(t)
+	repo := createGitRepo(t, map[string]string{"notes.txt": "no yaml here\n"})
+	server := newHelmTestServer(t, map[string]string{})
 
-	args := mustMarshalJSON(t, map[string]interface{}{})
+	got, err := server.handleSyncFromGit(context.Background(), mustMarshalJSON(t, map[string]interface{}{"repo": repo, "path": "."}))
+	require.NoError(t, err)
 
-	_, err := server.handleReconcile(context.Background(), args)
-	if err == nil {
-		t.Fatalf("handleReconcile() expected error, got nil")
-	}
-	if !strings.Contains(err.Error(), "repo is required") {
-		t.Fatalf("handleReconcile() error = %v, want error containing 'repo is required'", err)
-	}
+	result := got.(map[string]interface{})
+	assert.Equal(t, "No manifests found in repository", result["message"])
+	assert.Equal(t, gitops.ManifestSource{Repo: repo, Path: "."}, result["source"])
 }
 
-func TestHandlePreviewChangesValidation(t *testing.T) {
-	server := newHelmTestServer(t, nil)
+func TestHandleSyncFromGitReturnsFailedSummaryForMissingClusterConfig(t *testing.T) {
+	setGitOpsTempDir(t)
+	repo := createGitRepo(t, map[string]string{"manifests/app.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: demo\n"})
+	server := newHelmTestServer(t, map[string]string{})
 
-	args := mustMarshalJSON(t, map[string]interface{}{})
-
-	_, err := server.handlePreviewChanges(context.Background(), args)
-	if err == nil {
-		t.Fatalf("handlePreviewChanges() expected error, got nil")
-	}
-	if !strings.Contains(err.Error(), "repo is required") {
-		t.Fatalf("handlePreviewChanges() error = %v, want error containing 'repo is required'", err)
-	}
-}
-
-func TestHandleReconcileDelegation(t *testing.T) {
-	server := newHelmTestServer(t, nil)
-
-	// Test that handleReconcile properly delegates to handleSyncFromGit with dry_run=false
-	args := mustMarshalJSON(t, map[string]interface{}{
-		"repo":      "https://example.com/repo",
+	got, err := server.handleSyncFromGit(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+		"repo":      repo,
 		"path":      "manifests",
-		"branch":    "main",
+		"clusters":  []string{"missing"},
+		"dry_run":   true,
 		"namespace": "apps",
-	})
+		"include":   []string{"ConfigMap"},
+	}))
+	require.NoError(t, err)
 
-	// Both should fail the same way since reconcile delegates to sync
-	_, reconcileErr := server.handleReconcile(context.Background(), args)
-	_, syncErr := server.handleSyncFromGit(context.Background(), args)
-
-	if reconcileErr == nil || syncErr == nil {
-		t.Fatalf("expected both to error (git read would fail)")
-	}
-
-	// Error messages should be similar since reconcile delegates to sync
-	if !strings.Contains(reconcileErr.Error(), "failed to read manifests from git") {
-		t.Fatalf("handleReconcile() error = %v, want error about reading manifests", reconcileErr)
-	}
+	result := got.(*GitOpsSyncResult)
+	assert.True(t, result.DryRun)
+	require.Len(t, result.Summaries, 1)
+	assert.Equal(t, "missing", result.Summaries[0].Cluster)
+	assert.Equal(t, 1, result.Summaries[0].Failed)
+	require.Len(t, result.Summaries[0].Results, 1)
+	assert.Equal(t, gitops.SyncActionFailed, result.Summaries[0].Results[0].Action)
+	assert.Contains(t, result.Summaries[0].Results[0].Message, "Failed to get config")
 }
 
-func TestHandlePreviewChangesDelegation(t *testing.T) {
-	server := newHelmTestServer(t, nil)
+func TestHandleReconcileDelegatesToSyncWithoutDryRun(t *testing.T) {
+	setGitOpsTempDir(t)
+	repo := createGitRepo(t, map[string]string{"manifests/app.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: demo\n"})
+	server := newHelmTestServer(t, map[string]string{})
 
-	// Test that handlePreviewChanges properly delegates to handleSyncFromGit with dry_run=true
-	args := mustMarshalJSON(t, map[string]interface{}{
-		"repo":      "https://example.com/repo",
+	got, err := server.handleReconcile(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+		"repo":      repo,
 		"path":      "manifests",
-		"branch":    "main",
+		"clusters":  []string{"missing"},
 		"namespace": "apps",
-	})
+	}))
+	require.NoError(t, err)
 
-	// Both should fail the same way since preview delegates to sync
-	_, previewErr := server.handlePreviewChanges(context.Background(), args)
-	_, syncErr := server.handleSyncFromGit(context.Background(), args)
-
-	if previewErr == nil || syncErr == nil {
-		t.Fatalf("expected both to error (git read would fail)")
-	}
-
-	// Error messages should be similar since preview delegates to sync
-	if !strings.Contains(previewErr.Error(), "failed to read manifests from git") {
-		t.Fatalf("handlePreviewChanges() error = %v, want error about reading manifests", previewErr)
-	}
+	result := got.(*GitOpsSyncResult)
+	assert.False(t, result.DryRun)
+	require.Len(t, result.Summaries, 1)
+	assert.Equal(t, gitops.SyncActionFailed, result.Summaries[0].Results[0].Action)
 }
 
-func TestHandleSyncFromGitInvalidArguments(t *testing.T) {
-	server := newHelmTestServer(t, nil)
+func TestHandlePreviewChangesDelegatesToSyncWithDryRun(t *testing.T) {
+	setGitOpsTempDir(t)
+	repo := createGitRepo(t, map[string]string{"manifests/app.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: demo\n"})
+	server := newHelmTestServer(t, map[string]string{})
 
-	// Invalid JSON should fail to unmarshal
-	_, err := server.handleSyncFromGit(context.Background(), json.RawMessage(`{invalid json`))
-	if err == nil {
-		t.Fatalf("handleSyncFromGit() expected error for invalid JSON, got nil")
-	}
-	if !strings.Contains(err.Error(), "invalid arguments") {
-		t.Fatalf("handleSyncFromGit() error = %v, want error containing 'invalid arguments'", err)
-	}
+	got, err := server.handlePreviewChanges(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+		"repo":      repo,
+		"path":      "manifests",
+		"clusters":  []string{"missing"},
+		"namespace": "apps",
+	}))
+	require.NoError(t, err)
+
+	result := got.(*GitOpsSyncResult)
+	assert.True(t, result.DryRun)
+	require.Len(t, result.Summaries, 1)
+	assert.Equal(t, gitops.SyncActionFailed, result.Summaries[0].Results[0].Action)
 }
 
-func TestHandleDetectDriftInvalidArguments(t *testing.T) {
-	server := newHelmTestServer(t, nil)
-
-	// Invalid JSON should fail to unmarshal
-	_, err := server.handleDetectDrift(context.Background(), json.RawMessage(`{invalid json`))
-	if err == nil {
-		t.Fatalf("handleDetectDrift() expected error for invalid JSON, got nil")
-	}
-	if !strings.Contains(err.Error(), "invalid arguments") {
-		t.Fatalf("handleDetectDrift() error = %v, want error containing 'invalid arguments'", err)
-	}
+func setGitOpsTempDir(t *testing.T) {
+	t.Helper()
+	dir, err := os.MkdirTemp(".", "gitops-tmp-*")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	absDir, err := filepath.Abs(dir)
+	require.NoError(t, err)
+	t.Setenv("TMPDIR", absDir)
 }
 
-func TestHandleReconcileInvalidArguments(t *testing.T) {
-	server := newHelmTestServer(t, nil)
+func createGitRepo(t *testing.T, files map[string]string) string {
+	t.Helper()
+	dir, err := os.MkdirTemp(".", "gitops-repo-*")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	absDir, err := filepath.Abs(dir)
+	require.NoError(t, err)
 
-	// Invalid JSON should fail to unmarshal
-	_, err := server.handleReconcile(context.Background(), json.RawMessage(`{invalid json`))
-	if err == nil {
-		t.Fatalf("handleReconcile() expected error for invalid JSON, got nil")
+	for name, content := range files {
+		path := filepath.Join(absDir, name)
+		require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+		require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
 	}
-	if !strings.Contains(err.Error(), "invalid arguments") {
-		t.Fatalf("handleReconcile() error = %v, want error containing 'invalid arguments'", err)
-	}
-}
 
-func TestHandlePreviewChangesInvalidArguments(t *testing.T) {
-	server := newHelmTestServer(t, nil)
+	runGit := func(args ...string) {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = absDir
+		output, err := cmd.CombinedOutput()
+		require.NoErrorf(t, err, "git %v failed: %s", args, string(output))
+	}
 
-	// Invalid JSON should fail to unmarshal
-	_, err := server.handlePreviewChanges(context.Background(), json.RawMessage(`{invalid json`))
-	if err == nil {
-		t.Fatalf("handlePreviewChanges() expected error for invalid JSON, got nil")
+	runGit("init", "-b", "main")
+	runGit("config", "user.name", "Copilot Test")
+	runGit("config", "user.email", "copilot@example.com")
+	runGit("add", ".")
+	if len(files) == 0 {
+		runGit("commit", "--allow-empty", "-m", "test repo")
+	} else {
+		runGit("commit", "-m", "test repo")
 	}
-	if !strings.Contains(err.Error(), "invalid arguments") {
-		t.Fatalf("handlePreviewChanges() error = %v, want error containing 'invalid arguments'", err)
-	}
+
+	return absDir
 }
