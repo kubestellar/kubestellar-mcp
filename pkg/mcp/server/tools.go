@@ -2057,7 +2057,7 @@ func (s *Server) toolDetectDrift(ctx context.Context, args map[string]interface{
 		Branch: branch,
 	}
 
-	manifests, err := reader.ReadFromGit(source)
+	manifests, err := reader.ReadFromGit(ctx, source)
 	if err != nil {
 		return fmt.Sprintf("Failed to read manifests from git: %v", err), true
 	}

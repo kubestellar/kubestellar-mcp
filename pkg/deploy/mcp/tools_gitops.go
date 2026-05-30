@@ -49,10 +49,10 @@ func (s *Server) handleDetectDrift(ctx context.Context, args json.RawMessage) (i
 	}
 
 	// Read manifests from git
-	reader := gitops.NewManifestReader()
+	reader := s.getManifestReader()
 	defer reader.Cleanup()
 
-	manifests, err := reader.ReadFromGit(source)
+	manifests, err := reader.ReadFromGit(ctx, source)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read manifests from git: %w", err)
 	}
@@ -168,10 +168,10 @@ func (s *Server) handleSyncFromGit(ctx context.Context, args json.RawMessage) (i
 	}
 
 	// Read manifests from git
-	reader := gitops.NewManifestReader()
+	reader := s.getManifestReader()
 	defer reader.Cleanup()
 
-	manifests, err := reader.ReadFromGit(source)
+	manifests, err := reader.ReadFromGit(ctx, source)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read manifests from git: %w", err)
 	}
