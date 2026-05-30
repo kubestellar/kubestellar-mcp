@@ -1,7 +1,32 @@
-# Contributing to KubeStellar
+# Contributing to kubestellar-mcp
 
-We're thrilled that you're interested in contributing to KubeStellar! Please visit our
-[full contributing guide](https://github.com/kubestellar/kubestellar/blob/main/CONTRIBUTING.md) on our documentation site.
+Thanks for contributing to kubestellar-mcp.
 
-Beside that, what coverns the project and all contributions to it must follow
-the [KubeStellar Project Governance](https://github.com/kubestellar/kubestellar/blob/main/GOVERNANCE.md).
+## Before you start
+
+- Check the open issues and claim the one you want to work on.
+- This repo has two binaries:
+  - `cmd/kubestellar-ops` for diagnostics, RBAC, and security tools
+  - `cmd/kubestellar-deploy` for deployment and GitOps tools
+- Keep docs in sync when tool behavior changes, especially `README.md`, `CONTRIBUTING.md`, and the matching file in `commands/`.
+
+## Local development
+
+- Build the target binary with `go build ./cmd/kubestellar-ops` or `go build ./cmd/kubestellar-deploy`.
+- Run `go test ./...` before opening a PR.
+- Use `git commit -s` so commits are DCO-signed.
+
+## Adding or changing a tool
+
+1. Update the tool registration and handler in the relevant package under `pkg/`.
+2. Add or update the command doc in `commands/`.
+3. Update the README if the tool changes user-facing permissions, examples, or setup steps.
+4. Keep the change focused to the tool and its docs.
+
+## Pull requests
+
+- Reference the related issue in the PR body.
+- Prefer small, reviewable documentation or tool changes.
+
+The project is governed by the
+[KubeStellar Project Governance](https://github.com/kubestellar/kubestellar/blob/main/GOVERNANCE.md).
