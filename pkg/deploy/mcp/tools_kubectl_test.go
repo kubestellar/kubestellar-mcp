@@ -10,26 +10,24 @@ import (
 
 func TestGetGVR(t *testing.T) {
 	tests := []struct {
-		kind     string
-		resource string
-		found    bool
+		kind       string
+		resource   string
+		namespaced bool
 	}{
-		{kind: "Deployment", resource: "deployments", found: true},
-		{kind: "namespaces", resource: "namespaces", found: true},
-		{kind: "hpa", resource: "horizontalpodautoscalers", found: true},
-		{kind: "Widget", found: false},
+		{kind: "Deployment", resource: "deployments", namespaced: true},
+		{kind: "namespaces", resource: "namespaces", namespaced: false},
+		{kind: "hpa", resource: "horizontalpodautoscalers", namespaced: true},
+		{kind: "Widget", resource: "", namespaced: false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.kind, func(t *testing.T) {
-			gvr, found := getGVR(tt.kind)
-			if found != tt.found {
-				t.Fatalf("getGVR(%q) found = %v, want %v", tt.kind, found, tt.found)
+			gvr, namespaced := getGVR(tt.kind)
+			if namespaced != tt.namespaced {
+				t.Fatalf("getGVR(%q) namespaced = %v, want %v", tt.kind, namespaced, tt.namespaced)
 			}
-			if found {
-				if gvr.Resource != tt.resource {
-					t.Fatalf("getGVR(%q) = %#v, want resource=%q", tt.kind, gvr, tt.resource)
-				}
+			if gvr.Resource != tt.resource {
+				t.Fatalf("getGVR(%q) = %#v, want resource=%q", tt.kind, gvr, tt.resource)
 			}
 		})
 	}
