@@ -11,6 +11,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestFormatAge(t *testing.T) {
@@ -136,8 +137,10 @@ func newHelmSecret(t *testing.T, release map[string]interface{}, wrapBase64 bool
 	}
 
 	return &corev1.Secret{
-		Type:      "helm.sh/release.v1",
-		Namespace: "ops",
-		Data:      map[string][]byte{"release": data},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "ops",
+		},
+		Type: "helm.sh/release.v1",
+		Data: map[string][]byte{"release": data},
 	}
 }
