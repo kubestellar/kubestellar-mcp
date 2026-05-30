@@ -10,6 +10,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+const healthCheckTimeout = 10 * time.Second
+
 // ClusterInfo contains information about a discovered cluster
 type ClusterInfo struct {
 	Name    string
@@ -100,7 +102,7 @@ func (d *Discoverer) CheckHealth(cluster ClusterInfo) (*HealthInfo, error) {
 		return nil, fmt.Errorf("failed to build client: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), healthCheckTimeout)
 	defer cancel()
 
 	// Check API server
@@ -167,6 +169,7 @@ func (d *Discoverer) buildClient(contextName string) (*kubernetes.Clientset, err
 		return nil, err
 	}
 
+	restConfig.Timeout = healthCheckTimeout
 	return kubernetes.NewForConfig(restConfig)
 }
 
