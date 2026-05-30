@@ -1,9 +1,14 @@
+<<<<<<< HEAD
 package progress
+=======
+package progress_test
+>>>>>>> 8286331 (test: add unit tests for pkg/progress/bar.go)
 
 import (
 	"bytes"
 	"strings"
 	"testing"
+<<<<<<< HEAD
 )
 
 const (
@@ -368,4 +373,3 @@ func TestHelperRenderFunctions(t *testing.T) {
 			t.Fatalf("RenderFailed() output = %q, want failure rendering", output)
 		}
 	})
-}
