@@ -298,7 +298,11 @@ func newHelmTestServer(t *testing.T, contexts map[string]string) *Server {
 	if err != nil {
 		t.Fatalf("NewClientManager() error = %v", err)
 	}
-	return &Server{manager: manager}
+
+	executor := multicluster.NewExecutor(manager)
+	selector := multicluster.NewSelector(executor)
+
+	return &Server{manager: manager, executor: executor, selector: selector}
 }
 
 func mustMarshalJSON(t *testing.T, v interface{}) json.RawMessage {
