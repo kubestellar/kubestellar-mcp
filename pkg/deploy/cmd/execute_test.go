@@ -29,8 +29,6 @@ func TestDeployRootCommandRunEInvokesMCPServer(t *testing.T) {
 		mcpServer = oldMCPServer
 		runMCPServer = oldRunMCPServer
 	})
-	mcpServer = true
-
 	called := false
 	runMCPServer = func() error {
 		called = true
@@ -38,6 +36,7 @@ func TestDeployRootCommandRunEInvokesMCPServer(t *testing.T) {
 	}
 
 	cmd := NewRootCommand()
+	require.NoError(t, cmd.PersistentFlags().Set("mcp-server", "true"))
 	require.NoError(t, cmd.RunE(cmd, nil))
 	require.True(t, called, "expected MCP server runner to be called")
 }

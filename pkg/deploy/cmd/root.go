@@ -67,7 +67,7 @@ func newVersionCommand() *cobra.Command {
 func Execute() error {
 	rootCmd := newRootCommand()
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(stderr, err)
+		_, _ = fmt.Fprintln(stderr, err)
 		return err
 	}
 	return nil

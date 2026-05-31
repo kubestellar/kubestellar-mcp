@@ -92,7 +92,7 @@ Examples:
 			}()
 
 			if err := srv.Run(ctx); err != nil {
-				fmt.Fprintf(stderr, "MCP server error: %v\n", err)
+				_, _ = fmt.Fprintf(stderr, "MCP server error: %v\n", err)
 				exitFunc(1)
 			}
 			return
@@ -103,14 +103,14 @@ Examples:
 			queryCmd := newQueryCommand(configFlags)
 			queryCmd.SetArgs(args)
 			if err := queryCmd.Execute(); err != nil {
-				fmt.Fprintf(stderr, "Error: %v\n", err)
+				_, _ = fmt.Fprintf(stderr, "Error: %v\n", err)
 				exitFunc(1)
 			}
 			return
 		}
 		// Otherwise show help
 		if err := cmd.Help(); err != nil {
-			fmt.Fprintf(stderr, "Error: %v\n", err)
+			_, _ = fmt.Fprintf(stderr, "Error: %v\n", err)
 			exitFunc(1)
 		}
 	},
