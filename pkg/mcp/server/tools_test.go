@@ -192,6 +192,175 @@ func TestHandleToolsCallUnknownTool(t *testing.T) {
 	}
 }
 
+func TestHandleToolsCallEmptyResultBranches(t *testing.T) {
+	tests := []struct {
+		name     string
+		tool     string
+		args     map[string]interface{}
+		server   *Server
+		wantText []string
+	}{
+		{
+			name:     "list clusters no results",
+			tool:     "list_clusters",
+			args:     map[string]interface{}{"source": "all"},
+			server:   &Server{discoverer: stubDiscoverer{discoverClusters: func(source string) ([]cluster.ClusterInfo, error) { return []cluster.ClusterInfo{}, nil }}},
+			wantText: []string{"No clusters found"},
+		},
+		{
+			name: "get cluster health without current context",
+			tool: "get_cluster_health",
+			server: &Server{discoverer: stubDiscoverer{discoverClusters: func(source string) ([]cluster.ClusterInfo, error) {
+				return []cluster.ClusterInfo{{Name: "alpha", Context: "alpha", Current: false}}, nil
+			}}},
+			wantText: []string{"No current cluster context set"},
+		},
+		{
+			name:     "get services empty",
+			tool:     "get_services",
+			server:   &Server{clientFactory: func(clusterName string) (kubernetes.Interface, error) { return k8sfake.NewSimpleClientset(), nil }},
+			wantText: []string{"No services found"},
+		},
+		{
+			name:     "get nodes empty",
+			tool:     "get_nodes",
+			server:   &Server{clientFactory: func(clusterName string) (kubernetes.Interface, error) { return k8sfake.NewSimpleClientset(), nil }},
+			wantText: []string{"No nodes found"},
+		},
+		{
+			name:     "get events empty",
+			tool:     "get_events",
+			server:   &Server{clientFactory: func(clusterName string) (kubernetes.Interface, error) { return k8sfake.NewSimpleClientset(), nil }},
+			wantText: []string{"No events found"},
+		},
+		{
+			name:     "get roles empty",
+			tool:     "get_roles",
+			server:   &Server{clientFactory: func(clusterName string) (kubernetes.Interface, error) { return k8sfake.NewSimpleClientset(), nil }},
+			wantText: []string{"No roles found"},
+		},
+		{
+			name:     "get cluster roles empty",
+			tool:     "get_cluster_roles",
+			server:   &Server{clientFactory: func(clusterName string) (kubernetes.Interface, error) { return k8sfake.NewSimpleClientset(), nil }},
+			wantText: []string{"No cluster roles found"},
+		},
+		{
+			name:     "get role bindings empty",
+			tool:     "get_role_bindings",
+			server:   &Server{clientFactory: func(clusterName string) (kubernetes.Interface, error) { return k8sfake.NewSimpleClientset(), nil }},
+			wantText: []string{"No role bindings found"},
+		},
+		{
+			name:     "get cluster role bindings empty",
+			tool:     "get_cluster_role_bindings",
+			server:   &Server{clientFactory: func(clusterName string) (kubernetes.Interface, error) { return k8sfake.NewSimpleClientset(), nil }},
+			wantText: []string{"No cluster role bindings found"},
+		},
+		{
+			name:     "check resource limits empty",
+			tool:     "check_resource_limits",
+			server:   &Server{clientFactory: func(clusterName string) (kubernetes.Interface, error) { return k8sfake.NewSimpleClientset(), nil }},
+			wantText: []string{"All pods have resource limits configured"},
+		},
+		{
+			name:     "check security issues empty",
+			tool:     "check_security_issues",
+			server:   &Server{clientFactory: func(clusterName string) (kubernetes.Interface, error) { return k8sfake.NewSimpleClientset(), nil }},
+			wantText: []string{"No obvious security issues found"},
+		},
+		{
+			name:     "warning events empty",
+			tool:     "get_warning_events",
+			server:   &Server{clientFactory: func(clusterName string) (kubernetes.Interface, error) { return k8sfake.NewSimpleClientset(), nil }},
+			wantText: []string{"No warning events found"},
+		},
+		{
+			name:     "helm releases empty",
+			tool:     "check_helm_release_upgrades",
+			server:   &Server{clientFactory: func(clusterName string) (kubernetes.Interface, error) { return k8sfake.NewSimpleClientset(), nil }},
+			wantText: []string{"Helm Releases Found:** 0", "No Helm releases found in the cluster."},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, rpcErr := callTool(t, tt.server, tt.tool, tt.args)
+			if rpcErr != nil {
+				t.Fatalf("handleToolsCall returned RPC error: %v", rpcErr)
+			}
+			if len(result.Content) != 1 {
+				t.Fatalf("content length = %d, want 1", len(result.Content))
+			}
+			for _, want := range tt.wantText {
+				if !strings.Contains(result.Content[0].Text, want) {
+					t.Fatalf("result text %q missing %q", result.Content[0].Text, want)
+				}
+			}
+		})
+	}
+}
+
+func TestHandleToolsCallValidationErrors(t *testing.T) {
+	tests := []struct {
+		name string
+		tool string
+		args map[string]interface{}
+		want string
+	}{
+		{name: "get pod logs requires name", tool: "get_pod_logs", args: map[string]interface{}{"namespace": "apps"}, want: "Pod name is required"},
+		{name: "can i requires verb and resource", tool: "can_i", args: map[string]interface{}{"verb": "", "resource": ""}, want: "verb and resource are required"},
+		{name: "analyze subject permissions requires subject", tool: "analyze_subject_permissions", args: map[string]interface{}{}, want: "subject_kind and subject_name are required"},
+		{name: "describe role requires name", tool: "describe_role", args: map[string]interface{}{}, want: "name is required"},
+		{name: "find resource owners requires namespace", tool: "find_resource_owners", args: map[string]interface{}{}, want: "namespace is required"},
+		{name: "analyze namespace requires namespace", tool: "analyze_namespace", args: map[string]interface{}{}, want: "namespace is required"},
+		{name: "detect drift requires repo url", tool: "detect_drift", args: map[string]interface{}{}, want: "repo_url is required"},
+		{name: "trigger openshift upgrade requires target version", tool: "trigger_openshift_upgrade", args: map[string]interface{}{}, want: "target_version is required"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, rpcErr := callTool(t, &Server{}, tt.tool, tt.args)
+			if rpcErr != nil {
+				t.Fatalf("handleToolsCall returned RPC error: %v", rpcErr)
+			}
+			if !result.IsError {
+				t.Fatalf("expected tool %s to return error content", tt.tool)
+			}
+			if len(result.Content) != 1 {
+				t.Fatalf("content length = %d, want 1", len(result.Content))
+			}
+			if !strings.Contains(result.Content[0].Text, tt.want) {
+				t.Fatalf("result text %q missing %q", result.Content[0].Text, tt.want)
+			}
+		})
+	}
+}
+
+func TestHandleToolsCallGetDeploymentsReturnsJSONList(t *testing.T) {
+	result, rpcErr := callTool(t, &Server{clientFactory: func(clusterName string) (kubernetes.Interface, error) {
+		return k8sfake.NewSimpleClientset(), nil
+	}}, "get_deployments", map[string]interface{}{"namespace": "apps"})
+	if rpcErr != nil {
+		t.Fatalf("handleToolsCall returned RPC error: %v", rpcErr)
+	}
+	if result.IsError {
+		t.Fatalf("expected successful deployment listing, got error content: %q", result.Content[0].Text)
+	}
+
+	var payload map[string]interface{}
+	if err := json.Unmarshal([]byte(result.Content[0].Text), &payload); err != nil {
+		t.Fatalf("failed to decode deployment JSON: %v", err)
+	}
+	items, ok := payload["items"].([]interface{})
+	if !ok {
+		t.Fatalf("expected items array in payload: %#v", payload)
+	}
+	if len(items) != 0 {
+		t.Fatalf("expected empty deployment list, got %#v", items)
+	}
+}
+
 func callTool(t *testing.T, s *Server, tool string, args map[string]interface{}) (CallToolResult, *Error) {
 	t.Helper()
 

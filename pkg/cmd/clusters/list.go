@@ -7,8 +7,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-
-	"github.com/kubestellar/kubestellar-mcp/pkg/cluster"
 )
 
 type listOptions struct {
@@ -61,7 +59,7 @@ func (o *listOptions) run() error {
 	}
 
 	// Discover clusters
-	discoverer := cluster.NewDiscoverer(kubeconfig)
+	discoverer := newDiscoverer(kubeconfig)
 	clusters, err := discoverer.DiscoverClusters(o.source)
 	if err != nil {
 		return fmt.Errorf("failed to discover clusters: %w", err)

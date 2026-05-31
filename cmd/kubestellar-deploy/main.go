@@ -6,8 +6,13 @@ import (
 	deploycmd "github.com/kubestellar/kubestellar-mcp/pkg/deploy/cmd"
 )
 
+var (
+	execute = deploycmd.Execute
+	exit    = os.Exit
+)
+
 func main() {
-	if err := deploycmd.Execute(); err != nil {
-		os.Exit(1)
+	if err := execute(); err != nil {
+		exit(1)
 	}
 }

@@ -62,7 +62,7 @@ func (o *healthOptions) run() error {
 		kubeconfig = *o.configFlags.KubeConfig
 	}
 
-	discoverer := cluster.NewDiscoverer(kubeconfig)
+	discoverer := newDiscoverer(kubeconfig)
 
 	var clustersToCheck []cluster.ClusterInfo
 	var err error

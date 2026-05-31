@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -10,7 +11,10 @@ import (
 )
 
 var (
-	mcpServer bool
+	mcpServer      bool
+	runMCPServer             = mcp.RunMCPServer
+	newRootCommand           = NewRootCommand
+	stderr         io.Writer = os.Stderr
 )
 
 func NewRootCommand() *cobra.Command {
@@ -37,7 +41,7 @@ Examples:
   kubestellar-deploy version`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if mcpServer {
-				return mcp.RunMCPServer()
+				return runMCPServer()
 			}
 			return cmd.Help()
 		},
@@ -61,9 +65,9 @@ func newVersionCommand() *cobra.Command {
 }
 
 func Execute() error {
-	rootCmd := NewRootCommand()
+	rootCmd := newRootCommand()
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		fmt.Fprintln(stderr, err)
 		return err
 	}
 	return nil
