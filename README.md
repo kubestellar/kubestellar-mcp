@@ -297,9 +297,22 @@ kubestellar-deploy --mcp-server
 
 ## Environment Variables
 
-| Variable | Description |
-|----------|-------------|
-| `KUBECONFIG` | Path to kubeconfig file |
+| Variable | Used by | Description |
+|----------|---------|-------------|
+| `KUBECONFIG` | `kubestellar-ops`, `kubestellar-deploy` | Path to the kubeconfig file to use instead of the default Kubernetes client lookup path |
+| `ANTHROPIC_API_KEY` | `kubestellar-ops` | Required for the `query` command and natural-language cluster queries backed by Claude |
+
+### Related runtime flags
+
+`kubestellar-ops` also inherits the standard Kubernetes client flags from `kubectl`, so contributors can override cluster selection and request behavior at runtime without additional environment variables. Common examples include:
+
+- `--context` to select a kubeconfig context
+- `--namespace` to scope namespaced operations
+- `--request-timeout` to override API request timeouts
+- `--cluster`, `--user`, `--server`, `--token`, and TLS flags for advanced auth/connection overrides
+- `--all-clusters`, `--target-cluster`, and `--mcp-server` for KubeStellar-specific behavior
+
+`kubestellar-deploy` currently exposes `--mcp-server` as its runtime flag and does not require any additional environment variables beyond Kubernetes client configuration.
 
 ## Related Projects
 
