@@ -74,20 +74,24 @@ func (o *listOptions) run() error {
 
 	// Print results in table format
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "CURRENT\tNAME\tSOURCE\tSERVER\tSTATUS")
+	if _, err := fmt.Fprintln(w, "CURRENT\tNAME\tSOURCE\tSERVER\tSTATUS"); err != nil {
+		return err
+	}
 
 	for _, c := range clusters {
 		current := ""
 		if c.Current {
 			current = "*"
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
 			current,
 			c.Name,
 			c.Source,
 			truncateString(c.Server, 50),
 			c.Status,
-		)
+		); err != nil {
+			return err
+		}
 	}
 
 	return w.Flush()

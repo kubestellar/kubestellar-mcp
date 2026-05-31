@@ -44,11 +44,11 @@ func (s *Server) toolListClusters(args map[string]interface{}) (string, bool) {
 		if c.Current {
 			current = " (current)"
 		}
-		sb.WriteString(fmt.Sprintf("- %s%s\n", c.Name, current))
-		sb.WriteString(fmt.Sprintf("  Source: %s\n", c.Source))
-		sb.WriteString(fmt.Sprintf("  Server: %s\n", c.Server))
+		_, _ = fmt.Fprintf(&sb, "- %s%s\n", c.Name, current)
+		_, _ = fmt.Fprintf(&sb, "  Source: %s\n", c.Source)
+		_, _ = fmt.Fprintf(&sb, "  Server: %s\n", c.Server)
 		if c.Status != "" {
-			sb.WriteString(fmt.Sprintf("  Status: %s\n", c.Status))
+			_, _ = fmt.Fprintf(&sb, "  Status: %s\n", c.Status)
 		}
 		sb.WriteString("\n")
 	}
@@ -106,12 +106,12 @@ func (s *Server) toolGetClusterHealth(args map[string]interface{}) (string, bool
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Cluster: %s\n", targetCluster.Name))
-	sb.WriteString(fmt.Sprintf("Status: %s\n", health.Status))
-	sb.WriteString(fmt.Sprintf("API Server: %s\n", health.APIServerStatus))
-	sb.WriteString(fmt.Sprintf("Nodes Ready: %s\n", health.NodesReady))
+	_, _ = fmt.Fprintf(&sb, "Cluster: %s\n", targetCluster.Name)
+	_, _ = fmt.Fprintf(&sb, "Status: %s\n", health.Status)
+	_, _ = fmt.Fprintf(&sb, "API Server: %s\n", health.APIServerStatus)
+	_, _ = fmt.Fprintf(&sb, "Nodes Ready: %s\n", health.NodesReady)
 	if health.Error != "" {
-		sb.WriteString(fmt.Sprintf("Error: %s\n", health.Error))
+		_, _ = fmt.Fprintf(&sb, "Error: %s\n", health.Error)
 	}
 
 	return sb.String(), false
@@ -172,7 +172,7 @@ func (s *Server) toolGetPods(ctx context.Context, args map[string]interface{}) (
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Found %d pods:\n\n", len(pods.Items)))
+	_, _ = fmt.Fprintf(&sb, "Found %d pods:\n\n", len(pods.Items))
 
 	for _, pod := range pods.Items {
 		status := string(pod.Status.Phase)
@@ -189,11 +189,11 @@ func (s *Server) toolGetPods(ctx context.Context, args map[string]interface{}) (
 			startTime = pod.Status.StartTime.Format("2006-01-02 15:04:05")
 		}
 
-		sb.WriteString(fmt.Sprintf("%-50s %-12s %d/%d   %s\n",
+		_, _ = fmt.Fprintf(&sb, "%-50s %-12s %d/%d   %s\n",
 			pod.Namespace+"/"+pod.Name,
 			status,
 			ready, total,
-			startTime))
+			startTime)
 	}
 
 	return sb.String(), false
@@ -248,14 +248,14 @@ func (s *Server) toolGetServices(ctx context.Context, args map[string]interface{
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Found %d services:\n\n", len(services.Items)))
+	_, _ = fmt.Fprintf(&sb, "Found %d services:\n\n", len(services.Items))
 
 	for _, svc := range services.Items {
-		sb.WriteString(fmt.Sprintf("%-40s %-15s %-20s %s\n",
+		_, _ = fmt.Fprintf(&sb, "%-40s %-15s %-20s %s\n",
 			svc.Namespace+"/"+svc.Name,
 			string(svc.Spec.Type),
 			svc.Spec.ClusterIP,
-			formatPorts(svc.Spec.Ports)))
+			formatPorts(svc.Spec.Ports))
 	}
 
 	return sb.String(), false
@@ -291,7 +291,7 @@ func (s *Server) toolGetNodes(ctx context.Context, args map[string]interface{}) 
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Found %d nodes:\n\n", len(nodes.Items)))
+	_, _ = fmt.Fprintf(&sb, "Found %d nodes:\n\n", len(nodes.Items))
 
 	for _, node := range nodes.Items {
 		status := "NotReady"
@@ -316,11 +316,11 @@ func (s *Server) toolGetNodes(ctx context.Context, args map[string]interface{}) 
 			roleStr = "<none>"
 		}
 
-		sb.WriteString(fmt.Sprintf("%-40s %-10s %-20s %s\n",
+		_, _ = fmt.Fprintf(&sb, "%-40s %-10s %-20s %s\n",
 			node.Name,
 			status,
 			roleStr,
-			node.Status.NodeInfo.KubeletVersion))
+			node.Status.NodeInfo.KubeletVersion)
 	}
 
 	return sb.String(), false
@@ -359,14 +359,14 @@ func (s *Server) toolGetEvents(ctx context.Context, args map[string]interface{})
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Found %d events:\n\n", len(events.Items)))
+	_, _ = fmt.Fprintf(&sb, "Found %d events:\n\n", len(events.Items))
 
 	for _, event := range events.Items {
-		sb.WriteString(fmt.Sprintf("[%s] %s/%s: %s\n",
+		_, _ = fmt.Fprintf(&sb, "[%s] %s/%s: %s\n",
 			event.Type,
 			event.InvolvedObject.Kind,
 			event.InvolvedObject.Name,
-			event.Message))
+			event.Message)
 	}
 
 	return sb.String(), false
@@ -395,19 +395,19 @@ func (s *Server) toolDescribePod(ctx context.Context, args map[string]interface{
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Name: %s\n", pod.Name))
-	sb.WriteString(fmt.Sprintf("Namespace: %s\n", pod.Namespace))
-	sb.WriteString(fmt.Sprintf("Status: %s\n", pod.Status.Phase))
-	sb.WriteString(fmt.Sprintf("Node: %s\n", pod.Spec.NodeName))
-	sb.WriteString(fmt.Sprintf("IP: %s\n", pod.Status.PodIP))
+	_, _ = fmt.Fprintf(&sb, "Name: %s\n", pod.Name)
+	_, _ = fmt.Fprintf(&sb, "Namespace: %s\n", pod.Namespace)
+	_, _ = fmt.Fprintf(&sb, "Status: %s\n", pod.Status.Phase)
+	_, _ = fmt.Fprintf(&sb, "Node: %s\n", pod.Spec.NodeName)
+	_, _ = fmt.Fprintf(&sb, "IP: %s\n", pod.Status.PodIP)
 
 	if pod.Status.StartTime != nil {
-		sb.WriteString(fmt.Sprintf("Start Time: %s\n", pod.Status.StartTime.Format("2006-01-02 15:04:05")))
+		_, _ = fmt.Fprintf(&sb, "Start Time: %s\n", pod.Status.StartTime.Format("2006-01-02 15:04:05"))
 	}
 
 	sb.WriteString("\nContainers:\n")
 	for _, container := range pod.Spec.Containers {
-		sb.WriteString(fmt.Sprintf("  - %s (image: %s)\n", container.Name, container.Image))
+		_, _ = fmt.Fprintf(&sb, "  - %s (image: %s)\n", container.Name, container.Image)
 	}
 
 	sb.WriteString("\nContainer Statuses:\n")
@@ -416,12 +416,12 @@ func (s *Server) toolDescribePod(ctx context.Context, args map[string]interface{
 		if cs.Ready {
 			ready = "ready"
 		}
-		sb.WriteString(fmt.Sprintf("  - %s: %s, restarts: %d\n", cs.Name, ready, cs.RestartCount))
+		_, _ = fmt.Fprintf(&sb, "  - %s: %s, restarts: %d\n", cs.Name, ready, cs.RestartCount)
 	}
 
 	sb.WriteString("\nConditions:\n")
 	for _, cond := range pod.Status.Conditions {
-		sb.WriteString(fmt.Sprintf("  - %s: %s\n", cond.Type, cond.Status))
+		_, _ = fmt.Fprintf(&sb, "  - %s: %s\n", cond.Type, cond.Status)
 	}
 
 	return sb.String(), false
@@ -492,13 +492,13 @@ func (s *Server) toolGetRoles(ctx context.Context, args map[string]interface{}) 
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Found %d roles:\n\n", len(roles.Items)))
+	_, _ = fmt.Fprintf(&sb, "Found %d roles:\n\n", len(roles.Items))
 
 	for _, role := range roles.Items {
-		sb.WriteString(fmt.Sprintf("%-40s %-20s %d rules\n",
+		_, _ = fmt.Fprintf(&sb, "%-40s %-20s %d rules\n",
 			role.Namespace+"/"+role.Name,
 			role.CreationTimestamp.Format("2006-01-02"),
-			len(role.Rules)))
+			len(role.Rules))
 	}
 
 	return sb.String(), false
@@ -531,7 +531,7 @@ func (s *Server) toolGetClusterRoles(ctx context.Context, args map[string]interf
 		if cr.AggregationRule != nil {
 			aggregationRule = " (aggregated)"
 		}
-		sb.WriteString(fmt.Sprintf("%-50s %d rules%s\n", cr.Name, len(cr.Rules), aggregationRule))
+		_, _ = fmt.Fprintf(&sb, "%-50s %d rules%s\n", cr.Name, len(cr.Rules), aggregationRule)
 	}
 
 	if count == 0 {
@@ -567,15 +567,15 @@ func (s *Server) toolGetRoleBindings(ctx context.Context, args map[string]interf
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Found %d role bindings:\n\n", len(bindings.Items)))
+	_, _ = fmt.Fprintf(&sb, "Found %d role bindings:\n\n", len(bindings.Items))
 
 	for _, rb := range bindings.Items {
 		subjects := formatSubjects(rb.Subjects)
-		sb.WriteString(fmt.Sprintf("%-40s -> %s/%s\n",
+		_, _ = fmt.Fprintf(&sb, "%-40s -> %s/%s\n",
 			rb.Namespace+"/"+rb.Name,
 			rb.RoleRef.Kind,
-			rb.RoleRef.Name))
-		sb.WriteString(fmt.Sprintf("  Subjects: %s\n\n", subjects))
+			rb.RoleRef.Name)
+		_, _ = fmt.Fprintf(&sb, "  Subjects: %s\n\n", subjects)
 	}
 
 	return sb.String(), false
@@ -605,8 +605,8 @@ func (s *Server) toolGetClusterRoleBindings(ctx context.Context, args map[string
 		}
 		count++
 		subjects := formatSubjects(crb.Subjects)
-		sb.WriteString(fmt.Sprintf("%-50s -> %s\n", crb.Name, crb.RoleRef.Name))
-		sb.WriteString(fmt.Sprintf("  Subjects: %s\n\n", subjects))
+		_, _ = fmt.Fprintf(&sb, "%-50s -> %s\n", crb.Name, crb.RoleRef.Name)
+		_, _ = fmt.Fprintf(&sb, "  Subjects: %s\n\n", subjects)
 	}
 
 	if count == 0 {
@@ -670,15 +670,15 @@ func (s *Server) toolCanI(ctx context.Context, args map[string]interface{}) (str
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Can I %s %s", verb, resource))
+	_, _ = fmt.Fprintf(&sb, "Can I %s %s", verb, resource)
 	if subresource != "" {
-		sb.WriteString(fmt.Sprintf("/%s", subresource))
+		_, _ = fmt.Fprintf(&sb, "/%s", subresource)
 	}
 	if namespace != "" {
-		sb.WriteString(fmt.Sprintf(" in namespace %s", namespace))
+		_, _ = fmt.Fprintf(&sb, " in namespace %s", namespace)
 	}
 	if name != "" {
-		sb.WriteString(fmt.Sprintf(" (name: %s)", name))
+		_, _ = fmt.Fprintf(&sb, " (name: %s)", name)
 	}
 	sb.WriteString("?\n\n")
 
@@ -687,7 +687,7 @@ func (s *Server) toolCanI(ctx context.Context, args map[string]interface{}) (str
 	} else {
 		sb.WriteString("✗ No, access is denied")
 		if result.Status.Reason != "" {
-			sb.WriteString(fmt.Sprintf("\nReason: %s", result.Status.Reason))
+			_, _ = fmt.Fprintf(&sb, "\nReason: %s", result.Status.Reason)
 		}
 	}
 
@@ -710,9 +710,9 @@ func (s *Server) toolAnalyzeSubjectPermissions(ctx context.Context, args map[str
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("RBAC Analysis for %s: %s", subjectKind, subjectName))
+	_, _ = fmt.Fprintf(&sb, "RBAC Analysis for %s: %s", subjectKind, subjectName)
 	if subjectKind == "ServiceAccount" && subjectNamespace != "" {
-		sb.WriteString(fmt.Sprintf(" (namespace: %s)", subjectNamespace))
+		_, _ = fmt.Fprintf(&sb, " (namespace: %s)", subjectNamespace)
 	}
 	sb.WriteString("\n\n")
 
@@ -734,14 +734,14 @@ func (s *Server) toolAnalyzeSubjectPermissions(ctx context.Context, args map[str
 		for _, name := range clusterRoleNames {
 			cr, err := client.RbacV1().ClusterRoles().Get(ctx, name, metav1.GetOptions{})
 			if err != nil {
-				sb.WriteString(fmt.Sprintf("  - %s (error fetching: %v)\n", name, err))
+				_, _ = fmt.Fprintf(&sb, "  - %s (error fetching: %v)\n", name, err)
 				continue
 			}
-			sb.WriteString(fmt.Sprintf("  - %s:\n", name))
+			_, _ = fmt.Fprintf(&sb, "  - %s:\n", name)
 			for _, rule := range cr.Rules {
-				sb.WriteString(fmt.Sprintf("      %s on %s\n",
+				_, _ = fmt.Fprintf(&sb, "      %s on %s\n",
 					strings.Join(rule.Verbs, ", "),
-					strings.Join(rule.Resources, ", ")))
+					strings.Join(rule.Resources, ", "))
 			}
 		}
 		sb.WriteString("\n")
@@ -763,7 +763,7 @@ func (s *Server) toolAnalyzeSubjectPermissions(ctx context.Context, args map[str
 	if len(nsRoles) > 0 {
 		sb.WriteString("Namespace-scoped permissions via RoleBindings:\n")
 		for ns, roles := range nsRoles {
-			sb.WriteString(fmt.Sprintf("  Namespace %s: %s\n", ns, strings.Join(roles, ", ")))
+			_, _ = fmt.Fprintf(&sb, "  Namespace %s: %s\n", ns, strings.Join(roles, ", "))
 		}
 	}
 
@@ -811,21 +811,21 @@ func (s *Server) toolDescribeRole(ctx context.Context, args map[string]interface
 			return fmt.Sprintf("Failed to get role: %v", err), true
 		}
 
-		sb.WriteString(fmt.Sprintf("Role: %s/%s\n", role.Namespace, role.Name))
-		sb.WriteString(fmt.Sprintf("Created: %s\n\n", role.CreationTimestamp.Format("2006-01-02 15:04:05")))
+		_, _ = fmt.Fprintf(&sb, "Role: %s/%s\n", role.Namespace, role.Name)
+		_, _ = fmt.Fprintf(&sb, "Created: %s\n\n", role.CreationTimestamp.Format("2006-01-02 15:04:05"))
 		sb.WriteString("Rules:\n")
 		for i, rule := range role.Rules {
-			sb.WriteString(fmt.Sprintf("\n  Rule %d:\n", i+1))
+			_, _ = fmt.Fprintf(&sb, "\n  Rule %d:\n", i+1)
 			if len(rule.APIGroups) > 0 {
-				sb.WriteString(fmt.Sprintf("    API Groups: %s\n", strings.Join(rule.APIGroups, ", ")))
+				_, _ = fmt.Fprintf(&sb, "    API Groups: %s\n", strings.Join(rule.APIGroups, ", "))
 			}
 			if len(rule.Resources) > 0 {
-				sb.WriteString(fmt.Sprintf("    Resources: %s\n", strings.Join(rule.Resources, ", ")))
+				_, _ = fmt.Fprintf(&sb, "    Resources: %s\n", strings.Join(rule.Resources, ", "))
 			}
 			if len(rule.ResourceNames) > 0 {
-				sb.WriteString(fmt.Sprintf("    Resource Names: %s\n", strings.Join(rule.ResourceNames, ", ")))
+				_, _ = fmt.Fprintf(&sb, "    Resource Names: %s\n", strings.Join(rule.ResourceNames, ", "))
 			}
-			sb.WriteString(fmt.Sprintf("    Verbs: %s\n", strings.Join(rule.Verbs, ", ")))
+			_, _ = fmt.Fprintf(&sb, "    Verbs: %s\n", strings.Join(rule.Verbs, ", "))
 		}
 	} else {
 		// Get ClusterRole
@@ -834,14 +834,14 @@ func (s *Server) toolDescribeRole(ctx context.Context, args map[string]interface
 			return fmt.Sprintf("Failed to get cluster role: %v", err), true
 		}
 
-		sb.WriteString(fmt.Sprintf("ClusterRole: %s\n", cr.Name))
-		sb.WriteString(fmt.Sprintf("Created: %s\n", cr.CreationTimestamp.Format("2006-01-02 15:04:05")))
+		_, _ = fmt.Fprintf(&sb, "ClusterRole: %s\n", cr.Name)
+		_, _ = fmt.Fprintf(&sb, "Created: %s\n", cr.CreationTimestamp.Format("2006-01-02 15:04:05"))
 		if cr.AggregationRule != nil && len(cr.AggregationRule.ClusterRoleSelectors) > 0 {
 			sb.WriteString("Aggregation Rule: yes\n")
 		}
 		sb.WriteString("\nRules:\n")
 		for i, rule := range cr.Rules {
-			sb.WriteString(fmt.Sprintf("\n  Rule %d:\n", i+1))
+			_, _ = fmt.Fprintf(&sb, "\n  Rule %d:\n", i+1)
 			if len(rule.APIGroups) > 0 {
 				apiGroups := make([]string, len(rule.APIGroups))
 				for j, g := range rule.APIGroups {
@@ -851,18 +851,18 @@ func (s *Server) toolDescribeRole(ctx context.Context, args map[string]interface
 						apiGroups[j] = g
 					}
 				}
-				sb.WriteString(fmt.Sprintf("    API Groups: %s\n", strings.Join(apiGroups, ", ")))
+				_, _ = fmt.Fprintf(&sb, "    API Groups: %s\n", strings.Join(apiGroups, ", "))
 			}
 			if len(rule.Resources) > 0 {
-				sb.WriteString(fmt.Sprintf("    Resources: %s\n", strings.Join(rule.Resources, ", ")))
+				_, _ = fmt.Fprintf(&sb, "    Resources: %s\n", strings.Join(rule.Resources, ", "))
 			}
 			if len(rule.ResourceNames) > 0 {
-				sb.WriteString(fmt.Sprintf("    Resource Names: %s\n", strings.Join(rule.ResourceNames, ", ")))
+				_, _ = fmt.Fprintf(&sb, "    Resource Names: %s\n", strings.Join(rule.ResourceNames, ", "))
 			}
 			if len(rule.NonResourceURLs) > 0 {
-				sb.WriteString(fmt.Sprintf("    Non-Resource URLs: %s\n", strings.Join(rule.NonResourceURLs, ", ")))
+				_, _ = fmt.Fprintf(&sb, "    Non-Resource URLs: %s\n", strings.Join(rule.NonResourceURLs, ", "))
 			}
-			sb.WriteString(fmt.Sprintf("    Verbs: %s\n", strings.Join(rule.Verbs, ", ")))
+			_, _ = fmt.Fprintf(&sb, "    Verbs: %s\n", strings.Join(rule.Verbs, ", "))
 		}
 	}
 
@@ -1010,8 +1010,8 @@ func (s *Server) toolFindResourceOwners(ctx context.Context, args map[string]int
 
 	// Build output
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("# Resource Ownership in namespace: %s\n\n", namespace))
-	sb.WriteString(fmt.Sprintf("Found %d resources\n\n", len(owners)))
+	_, _ = fmt.Fprintf(&sb, "# Resource Ownership in namespace: %s\n\n", namespace)
+	_, _ = fmt.Fprintf(&sb, "Found %d resources\n\n", len(owners))
 
 	// Group by manager
 	managerGroups := make(map[string][]resourceOwner)
@@ -1025,20 +1025,20 @@ func (s *Server) toolFindResourceOwners(ctx context.Context, args map[string]int
 
 	sb.WriteString("## By Manager/Controller\n\n")
 	for manager, resources := range managerGroups {
-		sb.WriteString(fmt.Sprintf("### %s\n", manager))
+		_, _ = fmt.Fprintf(&sb, "### %s\n", manager)
 		for _, ro := range resources {
-			sb.WriteString(fmt.Sprintf("- **%s/%s**", ro.Kind, ro.Name))
+			_, _ = fmt.Fprintf(&sb, "- **%s/%s**", ro.Kind, ro.Name)
 			if ro.Owner != "" {
-				sb.WriteString(fmt.Sprintf(" (owner: %s)", ro.Owner))
+				_, _ = fmt.Fprintf(&sb, " (owner: %s)", ro.Owner)
 			}
 			if ro.ManagedBy != "" {
-				sb.WriteString(fmt.Sprintf(" [managed-by: %s]", ro.ManagedBy))
+				_, _ = fmt.Fprintf(&sb, " [managed-by: %s]", ro.ManagedBy)
 			}
 			if ro.Team != "" {
-				sb.WriteString(fmt.Sprintf(" [team: %s]", ro.Team))
+				_, _ = fmt.Fprintf(&sb, " [team: %s]", ro.Team)
 			}
 			if ro.CreatedBy != "" {
-				sb.WriteString(fmt.Sprintf(" [created-by: %s]", ro.CreatedBy))
+				_, _ = fmt.Fprintf(&sb, " [created-by: %s]", ro.CreatedBy)
 			}
 			sb.WriteString("\n")
 		}
@@ -1070,8 +1070,8 @@ func (s *Server) toolFindResourceOwners(ctx context.Context, args map[string]int
 		if lastUpdate == "" {
 			lastUpdate = "-"
 		}
-		sb.WriteString(fmt.Sprintf("| %s | %s | %s | %s | %s | %s | %s |\n",
-			ro.Kind, ro.Name, manager, owner, managedBy, team, lastUpdate))
+		_, _ = fmt.Fprintf(&sb, "| %s | %s | %s | %s | %s | %s | %s |\n",
+			ro.Kind, ro.Name, manager, owner, managedBy, team, lastUpdate)
 	}
 
 	return sb.String(), false
@@ -1196,9 +1196,9 @@ func (s *Server) toolAuditKubeconfig(ctx context.Context, args map[string]interf
 		}
 	}
 
-	sb.WriteString(fmt.Sprintf("**Total contexts:** %d\n", len(results)))
-	sb.WriteString(fmt.Sprintf("**Accessible:** %d\n", accessible))
-	sb.WriteString(fmt.Sprintf("**Inaccessible:** %d\n\n", inaccessible))
+	_, _ = fmt.Fprintf(&sb, "**Total contexts:** %d\n", len(results))
+	_, _ = fmt.Fprintf(&sb, "**Accessible:** %d\n", accessible)
+	_, _ = fmt.Fprintf(&sb, "**Inaccessible:** %d\n\n", inaccessible)
 
 	// Accessible clusters
 	if accessible > 0 {
@@ -1209,9 +1209,9 @@ func (s *Server) toolAuditKubeconfig(ctx context.Context, args map[string]interf
 				if r.IsCurrent {
 					current = " **(current)**"
 				}
-				sb.WriteString(fmt.Sprintf("- **%s**%s\n", r.Context, current))
-				sb.WriteString(fmt.Sprintf("  - Server: %s\n", r.Server))
-				sb.WriteString(fmt.Sprintf("  - Version: %s\n", r.ServerInfo))
+				_, _ = fmt.Fprintf(&sb, "- **%s**%s\n", r.Context, current)
+				_, _ = fmt.Fprintf(&sb, "  - Server: %s\n", r.Server)
+				_, _ = fmt.Fprintf(&sb, "  - Version: %s\n", r.ServerInfo)
 			}
 		}
 		sb.WriteString("\n")
@@ -1226,9 +1226,9 @@ func (s *Server) toolAuditKubeconfig(ctx context.Context, args map[string]interf
 				if r.IsCurrent {
 					current = " **(current)**"
 				}
-				sb.WriteString(fmt.Sprintf("- **%s**%s\n", r.Context, current))
-				sb.WriteString(fmt.Sprintf("  - Server: %s\n", r.Server))
-				sb.WriteString(fmt.Sprintf("  - Error: %s\n", r.Error))
+				_, _ = fmt.Fprintf(&sb, "- **%s**%s\n", r.Context, current)
+				_, _ = fmt.Fprintf(&sb, "  - Server: %s\n", r.Server)
+				_, _ = fmt.Fprintf(&sb, "  - Error: %s\n", r.Error)
 			}
 		}
 		sb.WriteString("\n")
@@ -1256,16 +1256,16 @@ func (s *Server) toolAuditKubeconfig(ctx context.Context, args map[string]interf
 		sb.WriteString("The following contexts point to the same cluster and could be consolidated:\n\n")
 		for server, contexts := range serverToContexts {
 			if len(contexts) > 1 {
-				sb.WriteString(fmt.Sprintf("**Server:** `%s`\n", server))
+				_, _ = fmt.Fprintf(&sb, "**Server:** `%s`\n", server)
 				sb.WriteString("- Contexts: ")
 				for i, ctx := range contexts {
 					if i > 0 {
 						sb.WriteString(", ")
 					}
-					sb.WriteString(fmt.Sprintf("`%s`", ctx))
+					_, _ = fmt.Fprintf(&sb, "`%s`", ctx)
 				}
 				sb.WriteString("\n")
-				sb.WriteString(fmt.Sprintf("- Consider keeping one and removing %d duplicate(s)\n\n", len(contexts)-1))
+				_, _ = fmt.Fprintf(&sb, "- Consider keeping one and removing %d duplicate(s)\n\n", len(contexts)-1)
 			}
 		}
 	}
@@ -1277,7 +1277,7 @@ func (s *Server) toolAuditKubeconfig(ctx context.Context, args map[string]interf
 		sb.WriteString("```bash\n")
 		for _, r := range results {
 			if !r.Accessible {
-				sb.WriteString(fmt.Sprintf("kubectl config delete-context %s\n", r.Context))
+				_, _ = fmt.Fprintf(&sb, "kubectl config delete-context %s\n", r.Context)
 			}
 		}
 		sb.WriteString("```\n\n")
@@ -1304,10 +1304,10 @@ func (s *Server) toolAuditKubeconfig(ctx context.Context, args map[string]interf
 			sb.WriteString("Also remove orphaned clusters and users:\n")
 			sb.WriteString("```bash\n")
 			for cluster := range clustersToDelete {
-				sb.WriteString(fmt.Sprintf("kubectl config delete-cluster %s\n", cluster))
+				_, _ = fmt.Fprintf(&sb, "kubectl config delete-cluster %s\n", cluster)
 			}
 			for user := range usersToDelete {
-				sb.WriteString(fmt.Sprintf("kubectl config delete-user %s\n", user))
+				_, _ = fmt.Fprintf(&sb, "kubectl config delete-user %s\n", user)
 			}
 			sb.WriteString("```\n")
 		}
@@ -1410,7 +1410,7 @@ func (s *Server) toolCheckGatekeeper(ctx context.Context, args map[string]interf
 		sb.WriteString("**Status:** Namespace exists but no pods found\n\n")
 	}
 
-	sb.WriteString(fmt.Sprintf("**Pods:** %d/%d running\n\n", runningPods, totalPods))
+	_, _ = fmt.Fprintf(&sb, "**Pods:** %d/%d running\n\n", runningPods, totalPods)
 	for _, status := range podStatuses {
 		sb.WriteString(status + "\n")
 	}
@@ -1432,10 +1432,10 @@ func (s *Server) toolCheckGatekeeper(ctx context.Context, args map[string]interf
 	if err != nil {
 		sb.WriteString("\n**ConstraintTemplates:** Unable to list (may need permissions)\n")
 	} else {
-		sb.WriteString(fmt.Sprintf("\n**ConstraintTemplates:** %d installed\n", len(templates.Items)))
+		_, _ = fmt.Fprintf(&sb, "\n**ConstraintTemplates:** %d installed\n", len(templates.Items))
 		if len(templates.Items) > 0 {
 			for _, t := range templates.Items {
-				sb.WriteString(fmt.Sprintf("- %s\n", t.GetName()))
+				_, _ = fmt.Fprintf(&sb, "- %s\n", t.GetName())
 			}
 		}
 	}
@@ -1443,7 +1443,7 @@ func (s *Server) toolCheckGatekeeper(ctx context.Context, args map[string]interf
 	// Check if ownership policy is installed
 	_, err = dynClient.Resource(ctGVR).Get(ctx, ownershipTemplateName, metav1.GetOptions{})
 	if err == nil {
-		sb.WriteString(fmt.Sprintf("\n**Ownership Policy:** Installed (template: %s)\n", ownershipTemplateName))
+		_, _ = fmt.Fprintf(&sb, "\n**Ownership Policy:** Installed (template: %s)\n", ownershipTemplateName)
 	} else {
 		sb.WriteString("\n**Ownership Policy:** Not installed\n")
 		sb.WriteString("Use `install_ownership_policy` to set up ownership label enforcement.\n")
@@ -1481,7 +1481,7 @@ func (s *Server) toolGetOwnershipPolicyStatus(ctx context.Context, args map[stri
 	// Get template status
 	templateStatus, _, _ := unstructured.NestedMap(template.Object, "status")
 	created, _, _ := unstructured.NestedBool(templateStatus, "created")
-	sb.WriteString(fmt.Sprintf("**Template:** %s (created: %v)\n", ownershipTemplateName, created))
+	_, _ = fmt.Fprintf(&sb, "**Template:** %s (created: %v)\n", ownershipTemplateName, created)
 
 	// Check Constraint
 	constraintGVR := schema.GroupVersionResource{
@@ -1504,28 +1504,28 @@ func (s *Server) toolGetOwnershipPolicyStatus(ctx context.Context, args map[stri
 		enforcementAction = "deny"
 	}
 
-	sb.WriteString(fmt.Sprintf("**Constraint:** %s\n", ownershipConstraintName))
-	sb.WriteString(fmt.Sprintf("**Mode:** %s\n", enforcementAction))
+	_, _ = fmt.Fprintf(&sb, "**Constraint:** %s\n", ownershipConstraintName)
+	_, _ = fmt.Fprintf(&sb, "**Mode:** %s\n", enforcementAction)
 
 	// Get required labels
 	params, _, _ := unstructured.NestedMap(spec, "parameters")
 	labels, _, _ := unstructured.NestedStringSlice(params, "labels")
 	if len(labels) > 0 {
-		sb.WriteString(fmt.Sprintf("**Required Labels:** %s\n", strings.Join(labels, ", ")))
+		_, _ = fmt.Fprintf(&sb, "**Required Labels:** %s\n", strings.Join(labels, ", "))
 	}
 
 	// Get match configuration
 	match, _, _ := unstructured.NestedMap(spec, "match")
 	excludedNS, _, _ := unstructured.NestedStringSlice(match, "excludedNamespaces")
 	if len(excludedNS) > 0 {
-		sb.WriteString(fmt.Sprintf("**Excluded Namespaces:** %s\n", strings.Join(excludedNS, ", ")))
+		_, _ = fmt.Fprintf(&sb, "**Excluded Namespaces:** %s\n", strings.Join(excludedNS, ", "))
 	}
 
 	// Get violation count from status
 	status, _, _ := unstructured.NestedMap(constraint.Object, "status")
 	totalViolations, found, _ := unstructured.NestedInt64(status, "totalViolations")
 	if found {
-		sb.WriteString(fmt.Sprintf("\n**Total Violations:** %d\n", totalViolations))
+		_, _ = fmt.Fprintf(&sb, "\n**Total Violations:** %d\n", totalViolations)
 	}
 
 	return sb.String(), false
@@ -1565,7 +1565,7 @@ func (s *Server) toolListOwnershipViolations(ctx context.Context, args map[strin
 	if enforcementAction == "" {
 		enforcementAction = "deny"
 	}
-	sb.WriteString(fmt.Sprintf("**Mode:** %s\n", enforcementAction))
+	_, _ = fmt.Fprintf(&sb, "**Mode:** %s\n", enforcementAction)
 
 	// Get violations from status
 	status, _, _ := unstructured.NestedMap(constraint.Object, "status")
@@ -1577,7 +1577,7 @@ func (s *Server) toolListOwnershipViolations(ctx context.Context, args map[strin
 	}
 
 	totalViolations, _, _ := unstructured.NestedInt64(status, "totalViolations")
-	sb.WriteString(fmt.Sprintf("**Total Violations:** %d\n\n", totalViolations))
+	_, _ = fmt.Fprintf(&sb, "**Total Violations:** %d\n\n", totalViolations)
 
 	// Group by namespace
 	type violation struct {
@@ -1614,14 +1614,14 @@ func (s *Server) toolListOwnershipViolations(ctx context.Context, args map[strin
 	}
 
 	if len(violationList) == 0 {
-		sb.WriteString(fmt.Sprintf("\nNo violations in namespace `%s`.\n", namespaceFilter))
+		_, _ = fmt.Fprintf(&sb, "\nNo violations in namespace `%s`.\n", namespaceFilter)
 		return sb.String(), false
 	}
 
 	// Show summary by namespace
 	sb.WriteString("## By Namespace\n\n")
 	for ns, count := range namespaceCount {
-		sb.WriteString(fmt.Sprintf("- **%s**: %d violations\n", ns, count))
+		_, _ = fmt.Fprintf(&sb, "- **%s**: %d violations\n", ns, count)
 	}
 
 	// Show details
@@ -1639,12 +1639,12 @@ func (s *Server) toolListOwnershipViolations(ctx context.Context, args map[strin
 		if len(msg) > 50 {
 			msg = msg[:47] + "..."
 		}
-		sb.WriteString(fmt.Sprintf("| %s | %s | %s | %s |\n", v.Namespace, v.Kind, v.Name, msg))
+		_, _ = fmt.Fprintf(&sb, "| %s | %s | %s | %s |\n", v.Namespace, v.Kind, v.Name, msg)
 		shown++
 	}
 
 	if int64(len(violationList)) > limit {
-		sb.WriteString(fmt.Sprintf("\n*Showing %d of %d violations. Use `limit` parameter to see more.*\n", limit, len(violationList)))
+		_, _ = fmt.Fprintf(&sb, "\n*Showing %d of %d violations. Use `limit` parameter to see more.*\n", limit, len(violationList))
 	}
 
 	return sb.String(), false
@@ -1863,25 +1863,26 @@ violation[{"msg": msg, "details": {"missing_labels": missing}}] {
 		sb.WriteString("**Constraint:** Created ✓\n")
 	}
 
-	sb.WriteString(fmt.Sprintf("\n**Mode:** %s\n", mode))
-	sb.WriteString(fmt.Sprintf("**Required Labels:** %s\n", strings.Join(labels, ", ")))
-	sb.WriteString(fmt.Sprintf("**Excluded Namespaces:** %d namespaces\n", len(excludeNamespaces)))
+	_, _ = fmt.Fprintf(&sb, "\n**Mode:** %s\n", mode)
+	_, _ = fmt.Fprintf(&sb, "**Required Labels:** %s\n", strings.Join(labels, ", "))
+	_, _ = fmt.Fprintf(&sb, "**Excluded Namespaces:** %d namespaces\n", len(excludeNamespaces))
 
 	sb.WriteString("\n## Next Steps\n\n")
-	if mode == "dryrun" {
+	switch mode {
+	case "dryrun":
 		sb.WriteString("The policy is in **dryrun** mode. Violations are logged but resources are NOT blocked.\n\n")
 		sb.WriteString("1. Use `list_ownership_violations` to see current violations\n")
 		sb.WriteString("2. Fix violations by adding required labels to resources\n")
 		sb.WriteString("3. Use `set_ownership_policy_mode` with mode=`warn` or `enforce` when ready\n")
-	} else if mode == "warn" {
+	case "warn":
 		sb.WriteString("The policy is in **warn** mode. Users will see warnings but resources are NOT blocked.\n\n")
 		sb.WriteString("1. Use `list_ownership_violations` to see current violations\n")
 		sb.WriteString("2. Use `set_ownership_policy_mode` with mode=`enforce` to start blocking\n")
-	} else {
+	default:
 		sb.WriteString("The policy is in **enforce** mode. Resources without required labels will be **BLOCKED**.\n\n")
 		sb.WriteString("⚠️ Users must add these labels to all new resources:\n")
 		for _, l := range labels {
-			sb.WriteString(fmt.Sprintf("- `%s`\n", l))
+			_, _ = fmt.Fprintf(&sb, "- `%s`\n", l)
 		}
 	}
 
@@ -1940,8 +1941,8 @@ func (s *Server) toolSetOwnershipPolicyMode(ctx context.Context, args map[string
 
 	var sb strings.Builder
 	sb.WriteString("# Ownership Policy Mode Updated\n\n")
-	sb.WriteString(fmt.Sprintf("**Previous Mode:** %s\n", currentMode))
-	sb.WriteString(fmt.Sprintf("**New Mode:** %s\n\n", mode))
+	_, _ = fmt.Fprintf(&sb, "**Previous Mode:** %s\n", currentMode)
+	_, _ = fmt.Fprintf(&sb, "**New Mode:** %s\n\n", mode)
 
 	switch mode {
 	case "dryrun":
@@ -2092,15 +2093,15 @@ func (s *Server) toolDetectDrift(ctx context.Context, args map[string]interface{
 	// Build response
 	var sb strings.Builder
 	sb.WriteString("# GitOps Drift Detection\n\n")
-	sb.WriteString(fmt.Sprintf("**Repository:** %s\n", repoURL))
+	_, _ = fmt.Fprintf(&sb, "**Repository:** %s\n", repoURL)
 	if path != "" {
-		sb.WriteString(fmt.Sprintf("**Path:** %s\n", path))
+		_, _ = fmt.Fprintf(&sb, "**Path:** %s\n", path)
 	}
 	if branch != "" {
-		sb.WriteString(fmt.Sprintf("**Branch:** %s\n", branch))
+		_, _ = fmt.Fprintf(&sb, "**Branch:** %s\n", branch)
 	}
-	sb.WriteString(fmt.Sprintf("**Cluster:** %s\n", clusterName))
-	sb.WriteString(fmt.Sprintf("**Manifests Found:** %d\n\n", len(manifests)))
+	_, _ = fmt.Fprintf(&sb, "**Cluster:** %s\n", clusterName)
+	_, _ = fmt.Fprintf(&sb, "**Manifests Found:** %d\n\n", len(manifests))
 
 	if len(drifts) == 0 {
 		sb.WriteString("✅ **No drift detected** - cluster state matches Git manifests\n")
@@ -2137,10 +2138,10 @@ func (s *Server) toolDetectDrift(ctx context.Context, args map[string]interface{
 		}
 	}
 
-	sb.WriteString(fmt.Sprintf("⚠️ **Drift detected**: %d resource(s) out of sync\n\n", len(drifts)))
+	_, _ = fmt.Fprintf(&sb, "⚠️ **Drift detected**: %d resource(s) out of sync\n\n", len(drifts))
 	sb.WriteString("## Summary\n\n")
-	sb.WriteString(fmt.Sprintf("- Missing from cluster: %d\n", missing))
-	sb.WriteString(fmt.Sprintf("- Modified in cluster: %d\n", modified))
+	_, _ = fmt.Fprintf(&sb, "- Missing from cluster: %d\n", missing)
+	_, _ = fmt.Fprintf(&sb, "- Modified in cluster: %d\n", modified)
 	sb.WriteString("\n## Details\n\n")
 
 	// Build JSON resources array
@@ -2152,16 +2153,16 @@ func (s *Server) toolDetectDrift(ctx context.Context, args map[string]interface{
 			icon = "❌"
 		}
 
-		sb.WriteString(fmt.Sprintf("### %s %s/%s\n", icon, d.Kind, d.Name))
+		_, _ = fmt.Fprintf(&sb, "### %s %s/%s\n", icon, d.Kind, d.Name)
 		if d.Namespace != "" {
-			sb.WriteString(fmt.Sprintf("**Namespace:** %s\n", d.Namespace))
+			_, _ = fmt.Fprintf(&sb, "**Namespace:** %s\n", d.Namespace)
 		}
-		sb.WriteString(fmt.Sprintf("**Type:** %s\n", d.DriftType))
+		_, _ = fmt.Fprintf(&sb, "**Type:** %s\n", d.DriftType)
 
 		if len(d.Differences) > 0 {
 			sb.WriteString("**Differences:**\n")
 			for _, diff := range d.Differences {
-				sb.WriteString(fmt.Sprintf("- %s\n", diff))
+				_, _ = fmt.Fprintf(&sb, "- %s\n", diff)
 			}
 		}
 		sb.WriteString("\n")

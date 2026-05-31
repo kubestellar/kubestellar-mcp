@@ -80,7 +80,7 @@ func (b *Bar) Done() {
 	b.current = b.total
 	b.done = true
 	b.render()
-	fmt.Fprintln(b.writer) // Move to next line
+	_, _ = fmt.Fprintln(b.writer) // Move to next line
 }
 
 // Failed marks the progress bar as failed
@@ -90,7 +90,7 @@ func (b *Bar) Failed(msg string) {
 	b.done = true
 	b.description = msg
 	b.render()
-	fmt.Fprintln(b.writer) // Move to next line
+	_, _ = fmt.Fprintln(b.writer) // Move to next line
 }
 
 // render draws the progress bar (must be called with lock held)
@@ -124,7 +124,7 @@ func (b *Bar) render() {
 	}
 
 	// Use \r to overwrite line, \033[K to clear to end of line
-	fmt.Fprintf(b.writer, "\r\033[K[%s] %3.0f%% (%d/%d) %s%s",
+	_, _ = fmt.Fprintf(b.writer, "\r\033[K[%s] %3.0f%% (%d/%d) %s%s",
 		bar, percent, b.current, b.total, b.description, eta)
 
 	b.lastUpdate = time.Now()
@@ -198,7 +198,7 @@ func (m *MultiBar) SetStatus(name string, status string) {
 func (m *MultiBar) render() {
 	// Move cursor up N lines and clear
 	if len(m.bars) > 1 {
-		fmt.Fprintf(m.writer, "\033[%dA", len(m.bars)-1)
+		_, _ = fmt.Fprintf(m.writer, "\033[%dA", len(m.bars)-1)
 	}
 
 	for _, bar := range m.bars {
@@ -222,7 +222,7 @@ func (m *MultiBar) render() {
 		}
 		barStr := strings.Repeat("#", filled) + strings.Repeat("-", width-filled)
 
-		fmt.Fprintf(m.writer, "\r\033[K%s %-20s [%s] %3.0f%% %s\n",
+		_, _ = fmt.Fprintf(m.writer, "\r\033[K%s %-20s [%s] %3.0f%% %s\n",
 			statusIcon, bar.Name, barStr, percent, bar.Description)
 	}
 }
@@ -236,14 +236,14 @@ func (m *MultiBar) Done() {
 
 // Status represents the current status of a progress operation
 type Status struct {
-	Label      string  // e.g., "4.18.30" or "Building"
-	Percent    int     // 0-100
-	Done       int     // Completed items
-	Total      int     // Total items
-	Current    string  // Current item being processed
-	Complete   bool    // Whether operation is complete
-	Failed     bool    // Whether operation failed
-	FailReason string  // Reason for failure
+	Label      string // e.g., "4.18.30" or "Building"
+	Percent    int    // 0-100
+	Done       int    // Completed items
+	Total      int    // Total items
+	Current    string // Current item being processed
+	Complete   bool   // Whether operation is complete
+	Failed     bool   // Whether operation failed
+	FailReason string // Reason for failure
 }
 
 // LiveBar renders a self-overwriting progress bar to the terminal
@@ -312,12 +312,12 @@ func (b *LiveBar) Render(s Status) bool {
 	}
 
 	// Use \r to return to start, \033[K to clear to end of line
-	fmt.Fprintf(b.writer, "\r\033[K%s %s [%s] %3d%% %s%s",
+	_, _ = fmt.Fprintf(b.writer, "\r\033[K%s %s [%s] %3d%% %s%s",
 		icon, s.Label, bar, pct, counts, suffix)
 
 	// Add newline if complete or failed
 	if s.Complete || s.Failed {
-		fmt.Fprintln(b.writer)
+		_, _ = fmt.Fprintln(b.writer)
 	}
 
 	return true

@@ -97,9 +97,9 @@ func (s *Server) toolFindPodIssues(ctx context.Context, args map[string]interfac
 
 		if len(issues) > 0 {
 			issueCount++
-			sb.WriteString(fmt.Sprintf("\n📛 %s/%s\n", pod.Namespace, pod.Name))
+			_, _ = fmt.Fprintf(&sb, "\n📛 %s/%s\n", pod.Namespace, pod.Name)
 			for _, issue := range issues {
-				sb.WriteString(fmt.Sprintf("   - %s\n", issue))
+				_, _ = fmt.Fprintf(&sb, "   - %s\n", issue)
 			}
 		}
 	}
@@ -196,9 +196,9 @@ func (s *Server) toolFindDeploymentIssues(ctx context.Context, args map[string]i
 
 		if len(issues) > 0 {
 			issueCount++
-			sb.WriteString(fmt.Sprintf("\n📛 %s/%s\n", deploy.Namespace, deploy.Name))
+			_, _ = fmt.Fprintf(&sb, "\n📛 %s/%s\n", deploy.Namespace, deploy.Name)
 			for _, issue := range issues {
-				sb.WriteString(fmt.Sprintf("   - %s\n", issue))
+				_, _ = fmt.Fprintf(&sb, "   - %s\n", issue)
 			}
 		}
 	}
@@ -266,9 +266,9 @@ func (s *Server) toolCheckResourceLimits(ctx context.Context, args map[string]in
 
 		if len(containerIssues) > 0 {
 			issueCount++
-			sb.WriteString(fmt.Sprintf("\n⚠️  %s/%s\n", pod.Namespace, pod.Name))
+			_, _ = fmt.Fprintf(&sb, "\n⚠️  %s/%s\n", pod.Namespace, pod.Name)
 			for _, issue := range containerIssues {
-				sb.WriteString(fmt.Sprintf("   - %s\n", issue))
+				_, _ = fmt.Fprintf(&sb, "   - %s\n", issue)
 			}
 		}
 	}
@@ -358,9 +358,9 @@ func (s *Server) toolCheckSecurityIssues(ctx context.Context, args map[string]in
 
 		if len(issues) > 0 {
 			issueCount++
-			sb.WriteString(fmt.Sprintf("\n🔓 %s/%s\n", pod.Namespace, pod.Name))
+			_, _ = fmt.Fprintf(&sb, "\n🔓 %s/%s\n", pod.Namespace, pod.Name)
 			for _, issue := range issues {
-				sb.WriteString(fmt.Sprintf("   - %s\n", issue))
+				_, _ = fmt.Fprintf(&sb, "   - %s\n", issue)
 			}
 		}
 	}
@@ -387,7 +387,7 @@ func (s *Server) toolAnalyzeNamespace(ctx context.Context, args map[string]inter
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("📊 Namespace Analysis: %s\n\n", namespace))
+	_, _ = fmt.Fprintf(&sb, "📊 Namespace Analysis: %s\n\n", namespace)
 
 	// Get namespace
 	ns, err := client.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
@@ -395,18 +395,18 @@ func (s *Server) toolAnalyzeNamespace(ctx context.Context, args map[string]inter
 		return fmt.Sprintf("Failed to get namespace: %v", err), true
 	}
 
-	sb.WriteString(fmt.Sprintf("Status: %s\n", ns.Status.Phase))
-	sb.WriteString(fmt.Sprintf("Created: %s\n\n", ns.CreationTimestamp.Format("2006-01-02 15:04:05")))
+	_, _ = fmt.Fprintf(&sb, "Status: %s\n", ns.Status.Phase)
+	_, _ = fmt.Fprintf(&sb, "Created: %s\n\n", ns.CreationTimestamp.Format("2006-01-02 15:04:05"))
 
 	// Get resource quotas
 	quotas, _ := client.CoreV1().ResourceQuotas(namespace).List(ctx, metav1.ListOptions{})
 	if len(quotas.Items) > 0 {
 		sb.WriteString("📋 Resource Quotas:\n")
 		for _, quota := range quotas.Items {
-			sb.WriteString(fmt.Sprintf("  %s:\n", quota.Name))
+			_, _ = fmt.Fprintf(&sb, "  %s:\n", quota.Name)
 			for resource, hard := range quota.Status.Hard {
 				used := quota.Status.Used[resource]
-				sb.WriteString(fmt.Sprintf("    %s: %s / %s\n", resource, used.String(), hard.String()))
+				_, _ = fmt.Fprintf(&sb, "    %s: %s / %s\n", resource, used.String(), hard.String())
 			}
 		}
 		sb.WriteString("\n")
@@ -417,7 +417,7 @@ func (s *Server) toolAnalyzeNamespace(ctx context.Context, args map[string]inter
 	if len(limitRanges.Items) > 0 {
 		sb.WriteString("📏 Limit Ranges:\n")
 		for _, lr := range limitRanges.Items {
-			sb.WriteString(fmt.Sprintf("  %s\n", lr.Name))
+			_, _ = fmt.Fprintf(&sb, "  %s\n", lr.Name)
 		}
 		sb.WriteString("\n")
 	}
@@ -447,16 +447,16 @@ func (s *Server) toolAnalyzeNamespace(ctx context.Context, args map[string]inter
 	}
 
 	sb.WriteString("📦 Pods:\n")
-	sb.WriteString(fmt.Sprintf("  Total: %d\n", len(pods.Items)))
-	sb.WriteString(fmt.Sprintf("  Running: %d\n", runningPods))
+	_, _ = fmt.Fprintf(&sb, "  Total: %d\n", len(pods.Items))
+	_, _ = fmt.Fprintf(&sb, "  Running: %d\n", runningPods)
 	if pendingPods > 0 {
-		sb.WriteString(fmt.Sprintf("  Pending: %d ⚠️\n", pendingPods))
+		_, _ = fmt.Fprintf(&sb, "  Pending: %d ⚠️\n", pendingPods)
 	}
 	if failedPods > 0 {
-		sb.WriteString(fmt.Sprintf("  Failed: %d ❌\n", failedPods))
+		_, _ = fmt.Fprintf(&sb, "  Failed: %d ❌\n", failedPods)
 	}
 	if crashingPods > 0 {
-		sb.WriteString(fmt.Sprintf("  Crashing/Restarting: %d 🔄\n", crashingPods))
+		_, _ = fmt.Fprintf(&sb, "  Crashing/Restarting: %d 🔄\n", crashingPods)
 	}
 	sb.WriteString("\n")
 
@@ -468,15 +468,15 @@ func (s *Server) toolAnalyzeNamespace(ctx context.Context, args map[string]inter
 			unhealthyDeploys++
 		}
 	}
-	sb.WriteString(fmt.Sprintf("🚀 Deployments: %d", len(deployments.Items)))
+	_, _ = fmt.Fprintf(&sb, "🚀 Deployments: %d", len(deployments.Items))
 	if unhealthyDeploys > 0 {
-		sb.WriteString(fmt.Sprintf(" (%d unhealthy ⚠️)", unhealthyDeploys))
+		_, _ = fmt.Fprintf(&sb, " (%d unhealthy ⚠️)", unhealthyDeploys)
 	}
 	sb.WriteString("\n")
 
 	// Get services
 	services, _ := client.CoreV1().Services(namespace).List(ctx, metav1.ListOptions{})
-	sb.WriteString(fmt.Sprintf("🌐 Services: %d\n", len(services.Items)))
+	_, _ = fmt.Fprintf(&sb, "🌐 Services: %d\n", len(services.Items))
 
 	// Get PVCs and check status
 	pvcs, _ := client.CoreV1().PersistentVolumeClaims(namespace).List(ctx, metav1.ListOptions{})
@@ -486,24 +486,24 @@ func (s *Server) toolAnalyzeNamespace(ctx context.Context, args map[string]inter
 			pendingPVCs++
 		}
 	}
-	sb.WriteString(fmt.Sprintf("💾 PVCs: %d", len(pvcs.Items)))
+	_, _ = fmt.Fprintf(&sb, "💾 PVCs: %d", len(pvcs.Items))
 	if pendingPVCs > 0 {
-		sb.WriteString(fmt.Sprintf(" (%d pending ⚠️)", pendingPVCs))
+		_, _ = fmt.Fprintf(&sb, " (%d pending ⚠️)", pendingPVCs)
 	}
 	sb.WriteString("\n")
 
 	// Get configmaps and secrets
 	configMaps, _ := client.CoreV1().ConfigMaps(namespace).List(ctx, metav1.ListOptions{})
 	secrets, _ := client.CoreV1().Secrets(namespace).List(ctx, metav1.ListOptions{})
-	sb.WriteString(fmt.Sprintf("📄 ConfigMaps: %d\n", len(configMaps.Items)))
-	sb.WriteString(fmt.Sprintf("🔐 Secrets: %d\n", len(secrets.Items)))
+	_, _ = fmt.Fprintf(&sb, "📄 ConfigMaps: %d\n", len(configMaps.Items))
+	_, _ = fmt.Fprintf(&sb, "🔐 Secrets: %d\n", len(secrets.Items))
 
 	// Check for warning events
 	events, _ := client.CoreV1().Events(namespace).List(ctx, metav1.ListOptions{
 		FieldSelector: "type=Warning",
 	})
 	if len(events.Items) > 0 {
-		sb.WriteString(fmt.Sprintf("\n⚠️  Recent Warnings: %d events\n", len(events.Items)))
+		_, _ = fmt.Fprintf(&sb, "\n⚠️  Recent Warnings: %d events\n", len(events.Items))
 	}
 
 	return sb.String(), false
@@ -556,10 +556,10 @@ func (s *Server) toolGetWarningEvents(ctx context.Context, args map[string]inter
 			age = formatAge(event.LastTimestamp.Time)
 		}
 
-		sb.WriteString(fmt.Sprintf("⚠️  [%s] %s/%s\n", age, event.InvolvedObject.Kind, event.InvolvedObject.Name))
-		sb.WriteString(fmt.Sprintf("   %s: %s\n", event.Reason, event.Message))
+		_, _ = fmt.Fprintf(&sb, "⚠️  [%s] %s/%s\n", age, event.InvolvedObject.Kind, event.InvolvedObject.Name)
+		_, _ = fmt.Fprintf(&sb, "   %s: %s\n", event.Reason, event.Message)
 		if event.Count > 1 {
-			sb.WriteString(fmt.Sprintf("   (occurred %d times)\n", event.Count))
+			_, _ = fmt.Fprintf(&sb, "   (occurred %d times)\n", event.Count)
 		}
 		sb.WriteString("\n")
 	}

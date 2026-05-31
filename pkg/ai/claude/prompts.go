@@ -40,15 +40,15 @@ You help users with:
 	sb.WriteString("## Current Context\n")
 
 	if ctx.CurrentCluster != "" {
-		sb.WriteString(fmt.Sprintf("- Current cluster: %s\n", ctx.CurrentCluster))
+		_, _ = fmt.Fprintf(&sb, "- Current cluster: %s\n", ctx.CurrentCluster)
 	}
 
 	if ctx.CurrentNamespace != "" {
-		sb.WriteString(fmt.Sprintf("- Current namespace: %s\n", ctx.CurrentNamespace))
+		_, _ = fmt.Fprintf(&sb, "- Current namespace: %s\n", ctx.CurrentNamespace)
 	}
 
 	if len(ctx.Clusters) > 0 {
-		sb.WriteString(fmt.Sprintf("- Available clusters: %s\n", strings.Join(ctx.Clusters, ", ")))
+		_, _ = fmt.Fprintf(&sb, "- Available clusters: %s\n", strings.Join(ctx.Clusters, ", "))
 	}
 
 	sb.WriteString("\n")

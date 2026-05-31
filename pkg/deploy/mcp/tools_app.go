@@ -18,25 +18,25 @@ import (
 
 // AppInstance represents an app instance in a cluster
 type AppInstance struct {
-	Cluster      string `json:"cluster"`
-	Namespace    string `json:"namespace"`
-	Name         string `json:"name"`
-	Kind         string `json:"kind"` // Deployment, StatefulSet, DaemonSet
-	Replicas     int32  `json:"replicas"`
-	ReadyReplicas int32 `json:"readyReplicas"`
-	Status       string `json:"status"` // healthy, degraded, failed
+	Cluster       string `json:"cluster"`
+	Namespace     string `json:"namespace"`
+	Name          string `json:"name"`
+	Kind          string `json:"kind"` // Deployment, StatefulSet, DaemonSet
+	Replicas      int32  `json:"replicas"`
+	ReadyReplicas int32  `json:"readyReplicas"`
+	Status        string `json:"status"` // healthy, degraded, failed
 }
 
 // AppStatus represents unified status of an app
 type AppStatus struct {
-	App            string        `json:"app"`
-	TotalClusters  int           `json:"totalClusters"`
-	HealthyClusters int          `json:"healthyClusters"`
-	TotalReplicas  int32         `json:"totalReplicas"`
-	ReadyReplicas  int32         `json:"readyReplicas"`
-	OverallStatus  string        `json:"overallStatus"` // healthy, degraded, failed
-	Instances      []AppInstance `json:"instances"`
-	Issues         []string      `json:"issues,omitempty"`
+	App             string        `json:"app"`
+	TotalClusters   int           `json:"totalClusters"`
+	HealthyClusters int           `json:"healthyClusters"`
+	TotalReplicas   int32         `json:"totalReplicas"`
+	ReadyReplicas   int32         `json:"readyReplicas"`
+	OverallStatus   string        `json:"overallStatus"` // healthy, degraded, failed
+	Instances       []AppInstance `json:"instances"`
+	Issues          []string      `json:"issues,omitempty"`
 }
 
 // LogEntry represents a log line with cluster context
@@ -299,7 +299,9 @@ func (s *Server) getLogsFromCluster(ctx context.Context, client *kubernetes.Clie
 				if err != nil {
 					return
 				}
-				defer stream.Close()
+				defer func() {
+					_ = stream.Close()
+				}()
 
 				buf := new(bytes.Buffer)
 				_, err = io.Copy(buf, stream)

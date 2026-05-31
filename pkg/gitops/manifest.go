@@ -202,7 +202,9 @@ func (r *ManifestReader) ReadFromFile(filePath string) ([]Manifest, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 
 	return r.ReadFromReader(file)
 }
@@ -238,7 +240,7 @@ func (r *ManifestReader) ReadFromReader(reader io.Reader) ([]Manifest, error) {
 // Cleanup removes temporary files
 func (r *ManifestReader) Cleanup() {
 	if r.tempDir != "" {
-		os.RemoveAll(r.tempDir)
+		_ = os.RemoveAll(r.tempDir)
 	}
 }
 

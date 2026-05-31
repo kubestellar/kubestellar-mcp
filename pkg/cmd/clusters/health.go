@@ -12,9 +12,9 @@ import (
 )
 
 type healthOptions struct {
-	configFlags   *genericclioptions.ConfigFlags
-	clusterName   string
-	allClusters   bool
+	configFlags *genericclioptions.ConfigFlags
+	clusterName string
+	allClusters bool
 }
 
 func newHealthCommand(configFlags *genericclioptions.ConfigFlags) *cobra.Command {
@@ -111,28 +111,34 @@ func (o *healthOptions) run() error {
 
 	// Check health of each cluster
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "CLUSTER\tSTATUS\tNODES\tAPI SERVER\tMESSAGE")
+	if _, err := fmt.Fprintln(w, "CLUSTER\tSTATUS\tNODES\tAPI SERVER\tMESSAGE"); err != nil {
+		return err
+	}
 
 	for _, c := range clustersToCheck {
 		health, err := discoverer.CheckHealth(c)
 		if err != nil {
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+			if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
 				c.Name,
 				"Error",
 				"-",
 				"-",
 				err.Error(),
-			)
+			); err != nil {
+				return err
+			}
 			continue
 		}
 
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
 			c.Name,
 			health.Status,
 			health.NodesReady,
 			health.APIServerStatus,
 			health.Message,
-		)
+		); err != nil {
+			return err
+		}
 	}
 
 	return w.Flush()
