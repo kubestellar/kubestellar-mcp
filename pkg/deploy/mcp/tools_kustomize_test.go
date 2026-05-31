@@ -19,9 +19,7 @@ func TestHandleKustomizeBuildValidatesPath(t *testing.T) {
 		wantErr string
 	}{
 		{name: "missing path", args: map[string]interface{}{}, wantErr: "path is required"},
-		{name: "absolute path", args: map[string]interface{}{"path": t.TempDir()}, wantErr: "absolute paths not allowed"},
-		{name: "path traversal", args: map[string]interface{}{"path": "../outside"}, wantErr: "path traversal not allowed"},
-		{name: "missing kustomization file", args: map[string]interface{}{"path": "."}, wantErr: "no kustomization.yaml or kustomization.yml found"},
+		{name: "missing kustomization file", args: map[string]interface{}{"path": t.TempDir()}, wantErr: "no kustomization.yaml or kustomization.yml found"},
 	}
 
 	for _, tt := range tests {
@@ -31,6 +29,27 @@ func TestHandleKustomizeBuildValidatesPath(t *testing.T) {
 			assert.Contains(t, err.Error(), tt.wantErr)
 		})
 	}
+}
+
+func TestHandleKustomizeBuildRejectsResolvedPathOutsideAllowedDirectories(t *testing.T) {
+	server := newHelmTestServer(t, map[string]string{})
+
+	workingDir, err := os.Getwd()
+	require.NoError(t, err)
+
+	outsideDir, err := os.MkdirTemp(filepath.Dir(workingDir), "outside-kustomization-*")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(outsideDir) })
+
+	require.NoError(t, os.WriteFile(filepath.Join(outsideDir, "kustomization.yaml"), []byte("resources: []\n"), 0o644))
+
+	linkPath := filepath.Join(workingDir, "outside-kustomization-link")
+	require.NoError(t, os.Symlink(outsideDir, linkPath))
+	t.Cleanup(func() { _ = os.Remove(linkPath) })
+
+	_, err = server.handleKustomizeBuild(context.Background(), mustMarshalJSON(t, map[string]interface{}{"path": linkPath}))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "outside allowed directories")
 }
 
 func TestParseKustomizeBuildResultValidatesTypes(t *testing.T) {
@@ -287,5 +306,7 @@ resources:
 `
 	require.NoError(t, os.WriteFile(filepath.Join(dir, filename), []byte(content), 0o644))
 
-	return filepath.Clean(dir)
+	absDir, err := filepath.Abs(dir)
+	require.NoError(t, err)
+	return absDir
 }

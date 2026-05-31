@@ -31,7 +31,7 @@ func (s *Server) handleListClusterCapabilities(ctx context.Context, args json.Ra
 	}
 	if args != nil {
 		if err := json.Unmarshal(args, &params); err != nil {
-			return nil, fmt.Errorf("invalid arguments: %w", err)
+			return nil, fmt.Errorf("invalid parameters: %w", err)
 		}
 	}
 

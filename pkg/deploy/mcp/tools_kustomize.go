@@ -20,15 +20,42 @@ type KustomizeResult struct {
 	Message   string `json:"message,omitempty"`
 }
 
-func validateRelativePath(path string) (string, error) {
+func resolveKustomizePath(path string) (string, error) {
 	cleanedPath := filepath.Clean(path)
-	if filepath.IsAbs(cleanedPath) {
-		return "", fmt.Errorf("absolute paths not allowed: %q", path)
+	absPath, err := filepath.Abs(cleanedPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve path %q: %w", path, err)
 	}
-	if cleanedPath == ".." || strings.HasPrefix(cleanedPath, ".."+string(filepath.Separator)) {
-		return "", fmt.Errorf("path traversal not allowed: %q", path)
+
+	resolvedPath, err := filepath.EvalSymlinks(absPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve path %q: %w", path, err)
 	}
-	return cleanedPath, nil
+
+	workingDir, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("failed to determine working directory: %w", err)
+	}
+
+	resolvedWorkingDir, err := filepath.EvalSymlinks(workingDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve working directory: %w", err)
+	}
+
+	resolvedTempDir, err := filepath.EvalSymlinks(os.TempDir())
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve temp directory: %w", err)
+	}
+
+	allowedBases := []string{resolvedWorkingDir, resolvedTempDir}
+	for _, base := range allowedBases {
+		relPath, err := filepath.Rel(base, resolvedPath)
+		if err == nil && relPath != ".." && !strings.HasPrefix(relPath, ".."+string(filepath.Separator)) {
+			return resolvedPath, nil
+		}
+	}
+
+	return "", fmt.Errorf("path %q resolves outside allowed directories", path)
 }
 
 func parseKustomizeBuildResult(buildResult interface{}) (string, int, error) {
@@ -63,11 +90,11 @@ func (s *Server) handleKustomizeBuild(ctx context.Context, args json.RawMessage)
 		return nil, fmt.Errorf("path is required")
 	}
 
-	cleanedPath, err := validateRelativePath(params.Path)
+	resolvedPath, err := resolveKustomizePath(params.Path)
 	if err != nil {
 		return nil, err
 	}
-	params.Path = cleanedPath
+	params.Path = resolvedPath
 
 	// Verify path exists and contains kustomization.yaml
 	if _, err := os.Stat(filepath.Join(params.Path, "kustomization.yaml")); os.IsNotExist(err) {
@@ -119,11 +146,11 @@ func (s *Server) handleKustomizeApply(ctx context.Context, args json.RawMessage)
 		return nil, fmt.Errorf("path is required")
 	}
 
-	cleanedPath, err := validateRelativePath(params.Path)
+	resolvedPath, err := resolveKustomizePath(params.Path)
 	if err != nil {
 		return nil, err
 	}
-	params.Path = cleanedPath
+	params.Path = resolvedPath
 
 	// Build kustomize output first
 	buildResult, err := s.handleKustomizeBuild(ctx, args)
@@ -224,11 +251,11 @@ func (s *Server) handleKustomizeDelete(ctx context.Context, args json.RawMessage
 		return nil, fmt.Errorf("path is required")
 	}
 
-	cleanedPath, err := validateRelativePath(params.Path)
+	resolvedPath, err := resolveKustomizePath(params.Path)
 	if err != nil {
 		return nil, err
 	}
-	params.Path = cleanedPath
+	params.Path = resolvedPath
 
 	// Build kustomize output first
 	buildResult, err := s.handleKustomizeBuild(ctx, args)
