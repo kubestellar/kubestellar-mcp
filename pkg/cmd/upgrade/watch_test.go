@@ -79,6 +79,14 @@ func TestParseProgressMessage(t *testing.T) {
 			wantWaitOn: "",
 		},
 		{
+			name:       "trims waiting target before trailing details",
+			message:    "Working towards 4.18.30: 168 of 906 done (18% complete), waiting on cloud-controller-manager, node drains pending",
+			wantPct:    18,
+			wantDone:   168,
+			wantTotal:  906,
+			wantWaitOn: "cloud-controller-manager",
+		},
+		{
 			name:       "returns zero values when format does not match",
 			message:    "upgrade has not started",
 			wantPct:    0,
