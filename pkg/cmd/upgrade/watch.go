@@ -197,7 +197,7 @@ func parseProgressMessage(msg string) (pct int, done int, total int, waiting str
 		for start > 0 && msg[start-1] >= '0' && msg[start-1] <= '9' {
 			start--
 		}
-		fmt.Sscanf(msg[start:idx], "%d", &pct)
+		_, _ = fmt.Sscanf(msg[start:idx], "%d", &pct)
 	}
 
 	// Extract done/total: "(\d+) of (\d+) done"
@@ -207,12 +207,12 @@ func parseProgressMessage(msg string) (pct int, done int, total int, waiting str
 		for start > 0 && msg[start-1] >= '0' && msg[start-1] <= '9' {
 			start--
 		}
-		fmt.Sscanf(msg[start:idx], "%d", &done)
+		_, _ = fmt.Sscanf(msg[start:idx], "%d", &done)
 
 		// Find total number (after " of ")
 		endIdx := strings.Index(msg[idx+4:], " ")
 		if endIdx > 0 {
-			fmt.Sscanf(msg[idx+4:idx+4+endIdx], "%d", &total)
+			_, _ = fmt.Sscanf(msg[idx+4:idx+4+endIdx], "%d", &total)
 		}
 	}
 

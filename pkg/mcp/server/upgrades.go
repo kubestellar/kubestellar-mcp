@@ -46,11 +46,6 @@ var (
 		Version:  "v1alpha1",
 		Resource: "subscriptions",
 	}
-	csvGVR = schema.GroupVersionResource{
-		Group:    "operators.coreos.com",
-		Version:  "v1alpha1",
-		Resource: "clusterserviceversions",
-	}
 	machineConfigPoolGVR = schema.GroupVersionResource{
 		Group:    "machineconfiguration.openshift.io",
 		Version:  "v1",
@@ -80,12 +75,12 @@ func (s *Server) toolDetectClusterType(ctx context.Context, args map[string]inte
 	if err != nil {
 		return fmt.Sprintf("Failed to get server version: %v", err), true
 	}
-	sb.WriteString(fmt.Sprintf("**Kubernetes Version:** %s\n", version.GitVersion))
+	_, _ = fmt.Fprintf(&sb, "**Kubernetes Version:** %s\n", version.GitVersion)
 
 	// Check for OpenShift first (ClusterVersion CRD)
 	_, err = dynClient.Resource(clusterVersionGVR).Get(ctx, "version", metav1.GetOptions{})
 	if err == nil {
-		sb.WriteString(fmt.Sprintf("**Cluster Type:** %s\n", ClusterTypeOpenShift))
+		_, _ = fmt.Fprintf(&sb, "**Cluster Type:** %s\n", ClusterTypeOpenShift)
 		sb.WriteString("**Detection Method:** ClusterVersion CRD found (config.openshift.io/v1)\n")
 		return sb.String(), false
 	}
@@ -93,13 +88,13 @@ func (s *Server) toolDetectClusterType(ctx context.Context, args map[string]inte
 	// Get nodes to check labels
 	nodes, err := client.CoreV1().Nodes().List(ctx, metav1.ListOptions{Limit: 1})
 	if err != nil {
-		sb.WriteString(fmt.Sprintf("**Cluster Type:** %s\n", ClusterTypeUnknown))
-		sb.WriteString(fmt.Sprintf("**Note:** Unable to list nodes: %v\n", err))
+		_, _ = fmt.Fprintf(&sb, "**Cluster Type:** %s\n", ClusterTypeUnknown)
+		_, _ = fmt.Fprintf(&sb, "**Note:** Unable to list nodes: %v\n", err)
 		return sb.String(), false
 	}
 
 	if len(nodes.Items) == 0 {
-		sb.WriteString(fmt.Sprintf("**Cluster Type:** %s\n", ClusterTypeUnknown))
+		_, _ = fmt.Fprintf(&sb, "**Cluster Type:** %s\n", ClusterTypeUnknown)
 		sb.WriteString("**Note:** No nodes found\n")
 		return sb.String(), false
 	}
@@ -113,9 +108,9 @@ func (s *Server) toolDetectClusterType(ctx context.Context, args map[string]inte
 	if strings.Contains(providerID, "aws") {
 		for label := range labels {
 			if strings.Contains(label, "eks.amazonaws.com") {
-				sb.WriteString(fmt.Sprintf("**Cluster Type:** %s\n", ClusterTypeEKS))
+				_, _ = fmt.Fprintf(&sb, "**Cluster Type:** %s\n", ClusterTypeEKS)
 				sb.WriteString("**Detection Method:** Node labels contain eks.amazonaws.com\n")
-				sb.WriteString(fmt.Sprintf("**Provider ID:** %s\n", providerID))
+				_, _ = fmt.Fprintf(&sb, "**Provider ID:** %s\n", providerID)
 				return sb.String(), false
 			}
 		}
@@ -125,16 +120,16 @@ func (s *Server) toolDetectClusterType(ctx context.Context, args map[string]inte
 	if strings.Contains(providerID, "gce") {
 		for label := range labels {
 			if strings.Contains(label, "cloud.google.com/gke") {
-				sb.WriteString(fmt.Sprintf("**Cluster Type:** %s\n", ClusterTypeGKE))
+				_, _ = fmt.Fprintf(&sb, "**Cluster Type:** %s\n", ClusterTypeGKE)
 				sb.WriteString("**Detection Method:** Node labels contain cloud.google.com/gke\n")
-				sb.WriteString(fmt.Sprintf("**Provider ID:** %s\n", providerID))
+				_, _ = fmt.Fprintf(&sb, "**Provider ID:** %s\n", providerID)
 				return sb.String(), false
 			}
 		}
 		// GKE might not have specific labels but has gce provider
-		sb.WriteString(fmt.Sprintf("**Cluster Type:** %s\n", ClusterTypeGKE))
+		_, _ = fmt.Fprintf(&sb, "**Cluster Type:** %s\n", ClusterTypeGKE)
 		sb.WriteString("**Detection Method:** Provider ID contains gce://\n")
-		sb.WriteString(fmt.Sprintf("**Provider ID:** %s\n", providerID))
+		_, _ = fmt.Fprintf(&sb, "**Provider ID:** %s\n", providerID)
 		return sb.String(), false
 	}
 
@@ -142,9 +137,9 @@ func (s *Server) toolDetectClusterType(ctx context.Context, args map[string]inte
 	if strings.Contains(providerID, "azure") {
 		for label := range labels {
 			if strings.Contains(label, "kubernetes.azure.com") {
-				sb.WriteString(fmt.Sprintf("**Cluster Type:** %s\n", ClusterTypeAKS))
+				_, _ = fmt.Fprintf(&sb, "**Cluster Type:** %s\n", ClusterTypeAKS)
 				sb.WriteString("**Detection Method:** Node labels contain kubernetes.azure.com\n")
-				sb.WriteString(fmt.Sprintf("**Provider ID:** %s\n", providerID))
+				_, _ = fmt.Fprintf(&sb, "**Provider ID:** %s\n", providerID)
 				return sb.String(), false
 			}
 		}
@@ -153,7 +148,7 @@ func (s *Server) toolDetectClusterType(ctx context.Context, args map[string]inte
 	// Check for kind
 	for label := range labels {
 		if strings.Contains(label, "io.x-k8s.kind") {
-			sb.WriteString(fmt.Sprintf("**Cluster Type:** %s\n", ClusterTypeKind))
+			_, _ = fmt.Fprintf(&sb, "**Cluster Type:** %s\n", ClusterTypeKind)
 			sb.WriteString("**Detection Method:** Node labels contain io.x-k8s.kind\n")
 			return sb.String(), false
 		}
@@ -162,7 +157,7 @@ func (s *Server) toolDetectClusterType(ctx context.Context, args map[string]inte
 	// Check for minikube
 	for label := range labels {
 		if strings.Contains(label, "minikube.k8s.io") {
-			sb.WriteString(fmt.Sprintf("**Cluster Type:** %s\n", ClusterTypeMinikube))
+			_, _ = fmt.Fprintf(&sb, "**Cluster Type:** %s\n", ClusterTypeMinikube)
 			sb.WriteString("**Detection Method:** Node labels contain minikube.k8s.io\n")
 			return sb.String(), false
 		}
@@ -170,24 +165,22 @@ func (s *Server) toolDetectClusterType(ctx context.Context, args map[string]inte
 
 	// Check for k3s
 	if strings.Contains(version.GitVersion, "k3s") {
-		sb.WriteString(fmt.Sprintf("**Cluster Type:** %s\n", ClusterTypeK3s))
+		_, _ = fmt.Fprintf(&sb, "**Cluster Type:** %s\n", ClusterTypeK3s)
 		sb.WriteString("**Detection Method:** Server version contains k3s\n")
 		return sb.String(), false
 	}
 
 	// Check for kubeadm
-	if annotations != nil {
-		for key := range annotations {
-			if strings.Contains(key, "kubeadm") {
-				sb.WriteString(fmt.Sprintf("**Cluster Type:** %s\n", ClusterTypeKubeadm))
-				sb.WriteString("**Detection Method:** Node annotations contain kubeadm\n")
-				return sb.String(), false
-			}
+	for key := range annotations {
+		if strings.Contains(key, "kubeadm") {
+			_, _ = fmt.Fprintf(&sb, "**Cluster Type:** %s\n", ClusterTypeKubeadm)
+			sb.WriteString("**Detection Method:** Node annotations contain kubeadm\n")
+			return sb.String(), false
 		}
 	}
 
 	// Default to unknown
-	sb.WriteString(fmt.Sprintf("**Cluster Type:** %s\n", ClusterTypeUnknown))
+	_, _ = fmt.Fprintf(&sb, "**Cluster Type:** %s\n", ClusterTypeUnknown)
 	sb.WriteString("**Detection Method:** No specific distribution markers found\n")
 	sb.WriteString("**Note:** This appears to be a vanilla Kubernetes cluster\n")
 
@@ -226,9 +219,9 @@ func (s *Server) toolGetClusterVersionInfo(ctx context.Context, args map[string]
 
 	// Vanilla Kubernetes
 	sb.WriteString("**Cluster Type:** Kubernetes\n")
-	sb.WriteString(fmt.Sprintf("**Current Version:** %s\n", version.GitVersion))
-	sb.WriteString(fmt.Sprintf("**Platform:** %s\n", version.Platform))
-	sb.WriteString(fmt.Sprintf("**Build Date:** %s\n\n", version.BuildDate))
+	_, _ = fmt.Fprintf(&sb, "**Current Version:** %s\n", version.GitVersion)
+	_, _ = fmt.Fprintf(&sb, "**Platform:** %s\n", version.Platform)
+	_, _ = fmt.Fprintf(&sb, "**Build Date:** %s\n\n", version.BuildDate)
 
 	// Check node versions
 	nodes, err := client.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
@@ -245,10 +238,10 @@ func (s *Server) toolGetClusterVersionInfo(ctx context.Context, args map[string]
 					break
 				}
 			}
-			sb.WriteString(fmt.Sprintf("| %s | %s | %s |\n",
+			_, _ = fmt.Fprintf(&sb, "| %s | %s | %s |\n",
 				node.Name,
 				node.Status.NodeInfo.KubeletVersion,
-				status))
+				status)
 		}
 	}
 
@@ -267,16 +260,16 @@ func (s *Server) getOpenShiftVersionInfo(ctx context.Context, cv *unstructured.U
 
 	// Get current version
 	desiredVersion, _, _ := unstructured.NestedString(cv.Object, "status", "desired", "version")
-	sb.WriteString(fmt.Sprintf("**Current Version:** %s\n", desiredVersion))
+	_, _ = fmt.Fprintf(sb, "**Current Version:** %s\n", desiredVersion)
 
 	// Get channel
 	channel, _, _ := unstructured.NestedString(cv.Object, "spec", "channel")
-	sb.WriteString(fmt.Sprintf("**Update Channel:** %s\n", channel))
+	_, _ = fmt.Fprintf(sb, "**Update Channel:** %s\n", channel)
 
 	// Get cluster ID
 	clusterID, _, _ := unstructured.NestedString(cv.Object, "spec", "clusterID")
 	if clusterID != "" {
-		sb.WriteString(fmt.Sprintf("**Cluster ID:** %s\n", clusterID))
+		_, _ = fmt.Fprintf(sb, "**Cluster ID:** %s\n", clusterID)
 	}
 
 	// Get upgrade status
@@ -290,8 +283,8 @@ func (s *Server) getOpenShiftVersionInfo(ctx context.Context, cv *unstructured.U
 		condStatus, _, _ := unstructured.NestedString(condMap, "status")
 		if condType == "Progressing" && condStatus == "True" {
 			message, _, _ := unstructured.NestedString(condMap, "message")
-			sb.WriteString(fmt.Sprintf("\n**Upgrade Status:** In Progress\n"))
-			sb.WriteString(fmt.Sprintf("**Progress:** %s\n", message))
+			sb.WriteString("\n**Upgrade Status:** In Progress\n")
+			_, _ = fmt.Fprintf(sb, "**Progress:** %s\n", message)
 		}
 	}
 
@@ -313,7 +306,7 @@ func (s *Server) getOpenShiftVersionInfo(ctx context.Context, cv *unstructured.U
 			if len(image) > 60 {
 				image = image[:57] + "..."
 			}
-			sb.WriteString(fmt.Sprintf("| %s | %s |\n", ver, image))
+			_, _ = fmt.Fprintf(sb, "| %s | %s |\n", ver, image)
 		}
 	} else {
 		sb.WriteString("\n**Available Updates:** None (cluster is at latest version for this channel)\n")
@@ -342,7 +335,7 @@ func (s *Server) getOpenShiftVersionInfo(ctx context.Context, cv *unstructured.U
 			if completionTime == "" {
 				completionTime = "In progress"
 			}
-			sb.WriteString(fmt.Sprintf("| %s | %s | %s |\n", ver, state, completionTime))
+			_, _ = fmt.Fprintf(sb, "| %s | %s | %s |\n", ver, state, completionTime)
 		}
 	}
 
@@ -390,7 +383,7 @@ func (s *Server) toolCheckOLMOperatorUpgrades(ctx context.Context, args map[stri
 	}
 
 	sb.WriteString("**OLM Status:** Installed\n")
-	sb.WriteString(fmt.Sprintf("**Subscriptions Found:** %d\n\n", len(subscriptions.Items)))
+	_, _ = fmt.Fprintf(&sb, "**Subscriptions Found:** %d\n\n", len(subscriptions.Items))
 
 	sb.WriteString("| Operator | Namespace | Current CSV | Channel | Auto-Update | Status |\n")
 	sb.WriteString("|----------|-----------|-------------|---------|-------------|--------|\n")
@@ -428,13 +421,13 @@ func (s *Server) toolCheckOLMOperatorUpgrades(ctx context.Context, args map[stri
 			autoUpdateStr = "Auto"
 		}
 
-		sb.WriteString(fmt.Sprintf("| %s | %s | %s | %s | %s | %s |\n",
-			name, ns, currentCSV, channel, autoUpdateStr, statusEmoji))
+		_, _ = fmt.Fprintf(&sb, "| %s | %s | %s | %s | %s | %s |\n",
+			name, ns, currentCSV, channel, autoUpdateStr, statusEmoji)
 	}
 
 	sb.WriteString("\n")
 	if upgradesPending > 0 {
-		sb.WriteString(fmt.Sprintf("**Upgrades Available:** %d operator(s) have pending upgrades\n", upgradesPending))
+		_, _ = fmt.Fprintf(&sb, "**Upgrades Available:** %d operator(s) have pending upgrades\n", upgradesPending)
 	} else {
 		sb.WriteString("**Upgrades Available:** All operators are at their latest known version\n")
 	}
@@ -504,14 +497,14 @@ func (s *Server) toolCheckHelmReleaseUpgrades(ctx context.Context, args map[stri
 		}
 	}
 
-	sb.WriteString(fmt.Sprintf("**Helm Releases Found:** %d\n\n", len(releases)))
+	_, _ = fmt.Fprintf(&sb, "**Helm Releases Found:** %d\n\n", len(releases))
 
 	sb.WriteString("| Release | Namespace | Chart | Version | App Version | Status |\n")
 	sb.WriteString("|---------|-----------|-------|---------|-------------|--------|\n")
 
 	for _, rel := range releases {
-		sb.WriteString(fmt.Sprintf("| %s | %s | %s | %s | %s | %s |\n",
-			rel.Name, rel.Namespace, rel.Chart, rel.Version, rel.AppVer, rel.Status))
+		_, _ = fmt.Fprintf(&sb, "| %s | %s | %s | %s | %s | %s |\n",
+			rel.Name, rel.Namespace, rel.Chart, rel.Version, rel.AppVer, rel.Status)
 	}
 
 	sb.WriteString("\n## Checking for Updates\n\n")
@@ -546,7 +539,9 @@ func (s *Server) parseHelmSecret(secret *corev1.Secret) *HelmRelease {
 	if err != nil {
 		return nil
 	}
-	defer reader.Close()
+	defer func() {
+		_ = reader.Close()
+	}()
 
 	decompressed, err := io.ReadAll(reader)
 	if err != nil {
@@ -618,7 +613,7 @@ func (s *Server) toolGetUpgradePrerequisites(ctx context.Context, args map[strin
 	sb.WriteString("## Node Health\n\n")
 	nodes, err := client.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 	if err != nil {
-		sb.WriteString(fmt.Sprintf("- [ ] Unable to check nodes: %v\n", err))
+		_, _ = fmt.Fprintf(&sb, "- [ ] Unable to check nodes: %v\n", err)
 		failed++
 	} else {
 		readyNodes := 0
@@ -639,11 +634,11 @@ func (s *Server) toolGetUpgradePrerequisites(ctx context.Context, args map[strin
 		}
 
 		if len(notReadyNodes) == 0 {
-			sb.WriteString(fmt.Sprintf("- [x] All nodes ready (%d/%d)\n", readyNodes, len(nodes.Items)))
+			_, _ = fmt.Fprintf(&sb, "- [x] All nodes ready (%d/%d)\n", readyNodes, len(nodes.Items))
 			passed++
 		} else {
-			sb.WriteString(fmt.Sprintf("- [ ] Some nodes not ready (%d/%d)\n", readyNodes, len(nodes.Items)))
-			sb.WriteString(fmt.Sprintf("  - Not ready: %s\n", strings.Join(notReadyNodes, ", ")))
+			_, _ = fmt.Fprintf(&sb, "- [ ] Some nodes not ready (%d/%d)\n", readyNodes, len(nodes.Items))
+			_, _ = fmt.Fprintf(&sb, "  - Not ready: %s\n", strings.Join(notReadyNodes, ", "))
 			failed++
 		}
 	}
@@ -652,7 +647,7 @@ func (s *Server) toolGetUpgradePrerequisites(ctx context.Context, args map[strin
 	sb.WriteString("\n## Pod Health\n\n")
 	pods, err := client.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
 	if err != nil {
-		sb.WriteString(fmt.Sprintf("- [ ] Unable to check pods: %v\n", err))
+		_, _ = fmt.Fprintf(&sb, "- [ ] Unable to check pods: %v\n", err)
 		failed++
 	} else {
 		crashingPods := []string{}
@@ -672,9 +667,10 @@ func (s *Server) toolGetUpgradePrerequisites(ctx context.Context, args map[strin
 			for _, cs := range pod.Status.ContainerStatuses {
 				if cs.State.Waiting != nil {
 					reason := cs.State.Waiting.Reason
-					if reason == "CrashLoopBackOff" {
+					switch reason {
+					case "CrashLoopBackOff":
 						crashingPods = append(crashingPods, pod.Namespace+"/"+pod.Name)
-					} else if reason == "ImagePullBackOff" || reason == "ErrImagePull" {
+					case "ImagePullBackOff", "ErrImagePull":
 						imagePullPods = append(imagePullPods, pod.Namespace+"/"+pod.Name)
 					}
 				}
@@ -685,12 +681,12 @@ func (s *Server) toolGetUpgradePrerequisites(ctx context.Context, args map[strin
 			sb.WriteString("- [x] No pods in CrashLoopBackOff\n")
 			passed++
 		} else {
-			sb.WriteString(fmt.Sprintf("- [ ] %d pods in CrashLoopBackOff\n", len(crashingPods)))
+			_, _ = fmt.Fprintf(&sb, "- [ ] %d pods in CrashLoopBackOff\n", len(crashingPods))
 			for _, p := range crashingPods[:min(5, len(crashingPods))] {
-				sb.WriteString(fmt.Sprintf("  - %s\n", p))
+				_, _ = fmt.Fprintf(&sb, "  - %s\n", p)
 			}
 			if len(crashingPods) > 5 {
-				sb.WriteString(fmt.Sprintf("  - ... and %d more\n", len(crashingPods)-5))
+				_, _ = fmt.Fprintf(&sb, "  - ... and %d more\n", len(crashingPods)-5)
 			}
 			failed++
 		}
@@ -699,18 +695,18 @@ func (s *Server) toolGetUpgradePrerequisites(ctx context.Context, args map[strin
 			sb.WriteString("- [x] No pods with image pull errors\n")
 			passed++
 		} else {
-			sb.WriteString(fmt.Sprintf("- [ ] %d pods with image pull errors\n", len(imagePullPods)))
+			_, _ = fmt.Fprintf(&sb, "- [ ] %d pods with image pull errors\n", len(imagePullPods))
 			for _, p := range imagePullPods[:min(5, len(imagePullPods))] {
-				sb.WriteString(fmt.Sprintf("  - %s\n", p))
+				_, _ = fmt.Fprintf(&sb, "  - %s\n", p)
 			}
 			warnings++
 		}
 
 		if len(pendingPods) <= 5 {
-			sb.WriteString(fmt.Sprintf("- [x] Few pending pods (%d)\n", len(pendingPods)))
+			_, _ = fmt.Fprintf(&sb, "- [x] Few pending pods (%d)\n", len(pendingPods))
 			passed++
 		} else {
-			sb.WriteString(fmt.Sprintf("- [ ] Many pending pods (%d)\n", len(pendingPods)))
+			_, _ = fmt.Fprintf(&sb, "- [ ] Many pending pods (%d)\n", len(pendingPods))
 			warnings++
 		}
 	}
@@ -723,7 +719,7 @@ func (s *Server) toolGetUpgradePrerequisites(ctx context.Context, args map[strin
 		// Check ClusterOperators
 		cos, err := dynClient.Resource(clusterOperatorGVR).List(ctx, metav1.ListOptions{})
 		if err != nil {
-			sb.WriteString(fmt.Sprintf("- [ ] Unable to check ClusterOperators: %v\n", err))
+			_, _ = fmt.Fprintf(&sb, "- [ ] Unable to check ClusterOperators: %v\n", err)
 			failed++
 		} else {
 			degradedOps := []string{}
@@ -761,7 +757,7 @@ func (s *Server) toolGetUpgradePrerequisites(ctx context.Context, args map[strin
 				sb.WriteString("- [x] No degraded ClusterOperators\n")
 				passed++
 			} else {
-				sb.WriteString(fmt.Sprintf("- [ ] %d degraded ClusterOperators: %s\n", len(degradedOps), strings.Join(degradedOps, ", ")))
+				_, _ = fmt.Fprintf(&sb, "- [ ] %d degraded ClusterOperators: %s\n", len(degradedOps), strings.Join(degradedOps, ", "))
 				failed++
 			}
 
@@ -769,7 +765,7 @@ func (s *Server) toolGetUpgradePrerequisites(ctx context.Context, args map[strin
 				sb.WriteString("- [x] All ClusterOperators available\n")
 				passed++
 			} else {
-				sb.WriteString(fmt.Sprintf("- [ ] %d unavailable ClusterOperators: %s\n", len(unavailableOps), strings.Join(unavailableOps, ", ")))
+				_, _ = fmt.Fprintf(&sb, "- [ ] %d unavailable ClusterOperators: %s\n", len(unavailableOps), strings.Join(unavailableOps, ", "))
 				failed++
 			}
 
@@ -777,7 +773,7 @@ func (s *Server) toolGetUpgradePrerequisites(ctx context.Context, args map[strin
 				sb.WriteString("- [x] No ClusterOperators progressing\n")
 				passed++
 			} else {
-				sb.WriteString(fmt.Sprintf("- [ ] %d ClusterOperators progressing: %s\n", len(progressingOps), strings.Join(progressingOps, ", ")))
+				_, _ = fmt.Fprintf(&sb, "- [ ] %d ClusterOperators progressing: %s\n", len(progressingOps), strings.Join(progressingOps, ", "))
 				warnings++
 			}
 		}
@@ -811,7 +807,7 @@ func (s *Server) toolGetUpgradePrerequisites(ctx context.Context, args map[strin
 				sb.WriteString("- [x] No MachineConfigPools updating\n")
 				passed++
 			} else {
-				sb.WriteString(fmt.Sprintf("- [ ] %d MachineConfigPools updating: %s\n", len(updatingPools), strings.Join(updatingPools, ", ")))
+				_, _ = fmt.Fprintf(&sb, "- [ ] %d MachineConfigPools updating: %s\n", len(updatingPools), strings.Join(updatingPools, ", "))
 				sb.WriteString("  - Wait for current updates to complete before upgrading\n")
 				failed++
 			}
@@ -820,7 +816,7 @@ func (s *Server) toolGetUpgradePrerequisites(ctx context.Context, args map[strin
 				sb.WriteString("- [x] No MachineConfigPools degraded\n")
 				passed++
 			} else {
-				sb.WriteString(fmt.Sprintf("- [ ] %d MachineConfigPools degraded: %s\n", len(degradedPools), strings.Join(degradedPools, ", ")))
+				_, _ = fmt.Fprintf(&sb, "- [ ] %d MachineConfigPools degraded: %s\n", len(degradedPools), strings.Join(degradedPools, ", "))
 				failed++
 			}
 		}
@@ -828,9 +824,9 @@ func (s *Server) toolGetUpgradePrerequisites(ctx context.Context, args map[strin
 
 	// Summary
 	sb.WriteString("\n## Summary\n\n")
-	sb.WriteString(fmt.Sprintf("- **Passed:** %d\n", passed))
-	sb.WriteString(fmt.Sprintf("- **Failed:** %d\n", failed))
-	sb.WriteString(fmt.Sprintf("- **Warnings:** %d\n\n", warnings))
+	_, _ = fmt.Fprintf(&sb, "- **Passed:** %d\n", passed)
+	_, _ = fmt.Fprintf(&sb, "- **Failed:** %d\n", failed)
+	_, _ = fmt.Fprintf(&sb, "- **Warnings:** %d\n\n", warnings)
 
 	if failed > 0 {
 		sb.WriteString("**Recommendation:** Fix the failed checks before proceeding with the upgrade.\n")
@@ -899,7 +895,7 @@ func (s *Server) toolTriggerOpenShiftUpgrade(ctx context.Context, args map[strin
 	if !validVersion {
 		var sb strings.Builder
 		sb.WriteString("# Invalid Target Version\n\n")
-		sb.WriteString(fmt.Sprintf("Version `%s` is not in the list of available updates.\n\n", targetVersion))
+		_, _ = fmt.Fprintf(&sb, "Version `%s` is not in the list of available updates.\n\n", targetVersion)
 		sb.WriteString("**Available versions:**\n")
 		for _, update := range availableUpdates {
 			updateMap, ok := update.(map[string]interface{})
@@ -907,7 +903,7 @@ func (s *Server) toolTriggerOpenShiftUpgrade(ctx context.Context, args map[strin
 				continue
 			}
 			ver, _, _ := unstructured.NestedString(updateMap, "version")
-			sb.WriteString(fmt.Sprintf("- %s\n", ver))
+			_, _ = fmt.Fprintf(&sb, "- %s\n", ver)
 		}
 		if len(availableUpdates) == 0 {
 			sb.WriteString("- (none available - cluster may be at latest version)\n")
@@ -929,7 +925,7 @@ func (s *Server) toolTriggerOpenShiftUpgrade(ctx context.Context, args map[strin
 
 	var sb strings.Builder
 	sb.WriteString("# Upgrade Initiated\n\n")
-	sb.WriteString(fmt.Sprintf("**Target Version:** %s\n", targetVersion))
+	_, _ = fmt.Fprintf(&sb, "**Target Version:** %s\n", targetVersion)
 	sb.WriteString("**Status:** Upgrade has been triggered\n\n")
 	sb.WriteString("The cluster will now begin the upgrade process. This typically takes:\n")
 	sb.WriteString("- 30-60 minutes for control plane\n")
@@ -983,10 +979,10 @@ func (s *Server) toolGetUpgradeStatus(ctx context.Context, args map[string]inter
 					break
 				}
 			}
-			sb.WriteString(fmt.Sprintf("| %s | %s | %s |\n",
+			_, _ = fmt.Fprintf(&sb, "| %s | %s | %s |\n",
 				node.Name,
 				node.Status.NodeInfo.KubeletVersion,
-				status))
+				status)
 		}
 
 		sb.WriteString("\n**Note:** For non-OpenShift clusters, detailed upgrade progress tracking\n")
@@ -999,7 +995,7 @@ func (s *Server) toolGetUpgradeStatus(ctx context.Context, args map[string]inter
 
 	// Get version info
 	desiredVersion, _, _ := unstructured.NestedString(cv.Object, "status", "desired", "version")
-	sb.WriteString(fmt.Sprintf("**Target Version:** %s\n", desiredVersion))
+	_, _ = fmt.Fprintf(&sb, "**Target Version:** %s\n", desiredVersion)
 
 	// Check conditions for progress
 	conditions, _, _ := unstructured.NestedSlice(cv.Object, "status", "conditions")
@@ -1025,7 +1021,7 @@ func (s *Server) toolGetUpgradeStatus(ctx context.Context, args map[string]inter
 
 	if isProgressing {
 		sb.WriteString("**Status:** Upgrade in progress\n")
-		sb.WriteString(fmt.Sprintf("**Progress:** %s\n\n", progressMessage))
+		_, _ = fmt.Fprintf(&sb, "**Progress:** %s\n\n", progressMessage)
 	} else {
 		sb.WriteString("**Status:** Not currently upgrading\n\n")
 	}
@@ -1061,8 +1057,8 @@ func (s *Server) toolGetUpgradeStatus(ctx context.Context, args map[string]inter
 				}
 			}
 
-			sb.WriteString(fmt.Sprintf("| %s | %s | %s | %s |\n",
-				co.GetName(), available, progressing, degraded))
+			_, _ = fmt.Fprintf(&sb, "| %s | %s | %s | %s |\n",
+				co.GetName(), available, progressing, degraded)
 		}
 	}
 
@@ -1099,8 +1095,8 @@ func (s *Server) toolGetUpgradeStatus(ctx context.Context, args map[string]inter
 				}
 			}
 
-			sb.WriteString(fmt.Sprintf("| %s | %d/%d | %d/%d | %s | %s |\n",
-				mcp.GetName(), readyCount, machineCount, updatedCount, machineCount, updating, degraded))
+			_, _ = fmt.Fprintf(&sb, "| %s | %d/%d | %d/%d | %s | %s |\n",
+				mcp.GetName(), readyCount, machineCount, updatedCount, machineCount, updating, degraded)
 		}
 	}
 
@@ -1129,7 +1125,7 @@ func (s *Server) toolGetUpgradeStatus(ctx context.Context, args map[string]inter
 				completionTime = "In progress"
 			}
 
-			sb.WriteString(fmt.Sprintf("| %s | %s | %s | %s |\n", ver, state, startTime, completionTime))
+			_, _ = fmt.Fprintf(&sb, "| %s | %s | %s | %s |\n", ver, state, startTime, completionTime)
 		}
 	}
 

@@ -98,7 +98,10 @@ Examples:
 			return
 		}
 		// Otherwise show help
-		cmd.Help()
+		if err := cmd.Help(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
 	},
 }
 

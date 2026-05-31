@@ -60,6 +60,10 @@ Ask Claude:
 
 ---
 
+## Developer Documentation
+
+- [Architecture and Developer Guide](./ARCHITECTURE.md)
+
 ## Installation
 
 ### Homebrew (Recommended)

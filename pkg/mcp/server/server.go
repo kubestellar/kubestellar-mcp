@@ -1047,5 +1047,5 @@ func (s *Server) send(resp Response) {
 		log.Printf("Failed to marshal MCP response: %v", err)
 		return
 	}
-	fmt.Fprintf(s.writer, "%s\n", data)
+	_, _ = fmt.Fprintf(s.writer, "%s\n", data)
 }
