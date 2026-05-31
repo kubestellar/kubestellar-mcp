@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"strings"
@@ -18,6 +19,10 @@ import (
 	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/server"
 )
 
+type mcpServerRunner interface {
+	Run(ctx context.Context) error
+}
+
 var (
 	// Global flags
 	kubeconfig    string
@@ -27,6 +32,12 @@ var (
 
 	// Kubernetes config flags
 	configFlags *genericclioptions.ConfigFlags
+
+	newQueryCommand           = ai.NewQueryCommand
+	newMCPServer              = func(kubeconfig string) mcpServerRunner { return server.NewServer(kubeconfig) }
+	signalNotify              = signal.Notify
+	stderr          io.Writer = os.Stderr
+	exitFunc                  = os.Exit
 )
 
 // rootCmd represents the base command
@@ -66,14 +77,14 @@ Examples:
 				kubeconfig = *configFlags.KubeConfig
 			}
 
-			srv := server.NewServer(kubeconfig)
+			srv := newMCPServer(kubeconfig)
 
 			// Handle shutdown gracefully
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
 			sigCh := make(chan os.Signal, 1)
-			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+			signalNotify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
 			go func() {
 				<-sigCh
@@ -81,26 +92,26 @@ Examples:
 			}()
 
 			if err := srv.Run(ctx); err != nil {
-				fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
-				os.Exit(1)
+				_, _ = fmt.Fprintf(stderr, "MCP server error: %v\n", err)
+				exitFunc(1)
 			}
 			return
 		}
 
 		if len(args) > 0 && isNaturalLanguageQuery(args) {
 			// Treat as natural language query - run the query subcommand
-			queryCmd := ai.NewQueryCommand(configFlags)
+			queryCmd := newQueryCommand(configFlags)
 			queryCmd.SetArgs(args)
 			if err := queryCmd.Execute(); err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				os.Exit(1)
+				_, _ = fmt.Fprintf(stderr, "Error: %v\n", err)
+				exitFunc(1)
 			}
 			return
 		}
 		// Otherwise show help
 		if err := cmd.Help(); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
+			_, _ = fmt.Fprintf(stderr, "Error: %v\n", err)
+			exitFunc(1)
 		}
 	},
 }
