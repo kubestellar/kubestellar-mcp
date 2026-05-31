@@ -10,6 +10,7 @@ import (
 	"os"
 	"sync"
 
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/cluster"
@@ -28,12 +29,13 @@ type discoverer interface {
 
 // Server implements an MCP server over stdio
 type Server struct {
-	kubeconfig    string
-	discoverer    discoverer
-	clientFactory func(clusterName string) (kubernetes.Interface, error)
-	reader        *bufio.Reader
-	writer        io.Writer
-	mu            sync.Mutex
+	kubeconfig           string
+	discoverer           discoverer
+	clientFactory        func(clusterName string) (kubernetes.Interface, error)
+	dynamicClientFactory func(clusterName string) (dynamic.Interface, error)
+	reader               *bufio.Reader
+	writer               io.Writer
+	mu                   sync.Mutex
 }
 
 // JSON-RPC types

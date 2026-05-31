@@ -1333,6 +1333,10 @@ const (
 )
 
 func (s *Server) getDynamicClientForCluster(clusterName string) (dynamic.Interface, error) {
+	if s.dynamicClientFactory != nil {
+		return s.dynamicClientFactory(clusterName)
+	}
+
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	if s.kubeconfig != "" {
 		loadingRules.ExplicitPath = s.kubeconfig
