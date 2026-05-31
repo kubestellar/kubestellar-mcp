@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -19,6 +20,8 @@ var allowedRepoSchemes = map[string]bool{
 	"https": true,
 	"http":  true,
 }
+
+var validGitBranchPattern = regexp.MustCompile(`^[a-zA-Z0-9._/-]+$`)
 
 // ValidateRepoURL ensures the repository URL uses an allowed scheme
 // to prevent SSRF, local file reads, and arbitrary SSH connections.
@@ -44,6 +47,16 @@ func validateRepoURLWithSchemes(repo string, schemes map[string]bool) error {
 	// file:// URLs don't have a host — skip host check for file scheme
 	if u.Scheme != "file" && u.Host == "" {
 		return fmt.Errorf("repo URL must include a host; got %q", repo)
+	}
+	return nil
+}
+
+func validateBranchName(branch string) error {
+	if branch == "" {
+		return nil
+	}
+	if strings.HasPrefix(branch, "-") || !validGitBranchPattern.MatchString(branch) {
+		return fmt.Errorf("invalid git branch name %q: only letters, numbers, dots, underscores, slashes, and hyphens are allowed", branch)
 	}
 	return nil
 }
@@ -133,8 +146,11 @@ func (r *ManifestReader) ReadFromGit(ctx context.Context, source ManifestSource)
 	if branch == "" {
 		branch = "main"
 	}
+	if err := validateBranchName(branch); err != nil {
+		return nil, err
+	}
 
-	cmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1", "--branch", branch, source.Repo, tempDir)
+	cmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1", "--branch", branch, "--", source.Repo, tempDir)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("failed to clone repo: %w\n%s", err, output)

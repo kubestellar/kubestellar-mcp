@@ -28,6 +28,14 @@ func TestHandleListClusterCapabilitiesReturnsErrorForUnknownCluster(t *testing.T
 	assert.Contains(t, err.Error(), "failed to get capabilities for cluster missing")
 }
 
+func TestHandleListClusterCapabilitiesValidatesArguments(t *testing.T) {
+	server := newHelmTestServer(t, map[string]string{})
+
+	_, err := server.handleListClusterCapabilities(context.Background(), []byte(`{invalid`))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid parameters")
+}
+
 func TestHandleFindClustersForWorkloadValidatesArguments(t *testing.T) {
 	server := newHelmTestServer(t, map[string]string{})
 

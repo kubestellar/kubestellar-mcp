@@ -30,7 +30,9 @@ func (s *Server) handleListClusterCapabilities(ctx context.Context, args json.Ra
 		Cluster string `json:"cluster"`
 	}
 	if args != nil {
-		json.Unmarshal(args, &params)
+		if err := json.Unmarshal(args, &params); err != nil {
+			return nil, fmt.Errorf("invalid parameters: %w", err)
+		}
 	}
 
 	if params.Cluster != "" {
@@ -79,8 +81,8 @@ func (s *Server) handleFindClustersForWorkload(ctx context.Context, args json.Ra
 
 	return map[string]interface{}{
 		"matchingClusters": clusters,
-		"count":           len(clusters),
-		"requirements":    req,
+		"count":            len(clusters),
+		"requirements":     req,
 	}, nil
 }
 
@@ -438,10 +440,10 @@ func (s *Server) scaleAppInCluster(ctx context.Context, client *kubernetes.Clien
 				return nil, err
 			}
 			return map[string]interface{}{
-				"cluster":      clusterName,
-				"deployment":   d.Name,
-				"oldReplicas":  *scale,
-				"newReplicas":  replicas,
+				"cluster":     clusterName,
+				"deployment":  d.Name,
+				"oldReplicas": *scale,
+				"newReplicas": replicas,
 			}, nil
 		}
 	}

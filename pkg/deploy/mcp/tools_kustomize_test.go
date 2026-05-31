@@ -31,6 +31,37 @@ func TestHandleKustomizeBuildValidatesPath(t *testing.T) {
 	}
 }
 
+func TestHandleKustomizeBuildRejectsResolvedPathOutsideAllowedDirectories(t *testing.T) {
+	server := newHelmTestServer(t, map[string]string{})
+
+	workingDir, err := os.Getwd()
+	require.NoError(t, err)
+
+	outsideDir, err := os.MkdirTemp(filepath.Dir(workingDir), "outside-kustomization-*")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(outsideDir) })
+
+	require.NoError(t, os.WriteFile(filepath.Join(outsideDir, "kustomization.yaml"), []byte("resources: []\n"), 0o644))
+
+	linkPath := filepath.Join(workingDir, "outside-kustomization-link")
+	require.NoError(t, os.Symlink(outsideDir, linkPath))
+	t.Cleanup(func() { _ = os.Remove(linkPath) })
+
+	_, err = server.handleKustomizeBuild(context.Background(), mustMarshalJSON(t, map[string]interface{}{"path": linkPath}))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "outside allowed directories")
+}
+
+func TestParseKustomizeBuildResultValidatesTypes(t *testing.T) {
+	_, _, err := parseKustomizeBuildResult("bad-result")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unexpected kustomize build result type")
+
+	_, _, err = parseKustomizeBuildResult(map[string]interface{}{"output": 1, "resources": 2})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unexpected kustomize build output type")
+}
+
 func TestHandleKustomizeBuildCountsResources(t *testing.T) {
 	logFile := setupFakeKustomize(t)
 	server := newHelmTestServer(t, map[string]string{})
