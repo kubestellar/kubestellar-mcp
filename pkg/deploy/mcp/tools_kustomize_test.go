@@ -19,7 +19,9 @@ func TestHandleKustomizeBuildValidatesPath(t *testing.T) {
 		wantErr string
 	}{
 		{name: "missing path", args: map[string]interface{}{}, wantErr: "path is required"},
-		{name: "missing kustomization file", args: map[string]interface{}{"path": t.TempDir()}, wantErr: "no kustomization.yaml or kustomization.yml found"},
+		{name: "absolute path", args: map[string]interface{}{"path": t.TempDir()}, wantErr: "absolute paths not allowed"},
+		{name: "path traversal", args: map[string]interface{}{"path": "../outside"}, wantErr: "path traversal not allowed"},
+		{name: "missing kustomization file", args: map[string]interface{}{"path": "."}, wantErr: "no kustomization.yaml or kustomization.yml found"},
 	}
 
 	for _, tt := range tests {
@@ -29,6 +31,16 @@ func TestHandleKustomizeBuildValidatesPath(t *testing.T) {
 			assert.Contains(t, err.Error(), tt.wantErr)
 		})
 	}
+}
+
+func TestParseKustomizeBuildResultValidatesTypes(t *testing.T) {
+	_, _, err := parseKustomizeBuildResult("bad-result")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unexpected kustomize build result type")
+
+	_, _, err = parseKustomizeBuildResult(map[string]interface{}{"output": 1, "resources": 2})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unexpected kustomize build output type")
 }
 
 func TestHandleKustomizeBuildCountsResources(t *testing.T) {
@@ -275,7 +287,5 @@ resources:
 `
 	require.NoError(t, os.WriteFile(filepath.Join(dir, filename), []byte(content), 0o644))
 
-	absDir, err := filepath.Abs(dir)
-	require.NoError(t, err)
-	return absDir
+	return filepath.Clean(dir)
 }

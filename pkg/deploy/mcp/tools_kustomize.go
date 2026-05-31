@@ -13,11 +13,41 @@ import (
 
 // KustomizeResult represents the result of a kustomize operation
 type KustomizeResult struct {
-	Cluster  string `json:"cluster"`
-	Path     string `json:"path"`
-	Status   string `json:"status"` // applied, failed, would-apply
+	Cluster   string `json:"cluster"`
+	Path      string `json:"path"`
+	Status    string `json:"status"` // applied, failed, would-apply
 	Resources int    `json:"resources"`
-	Message  string `json:"message,omitempty"`
+	Message   string `json:"message,omitempty"`
+}
+
+func validateRelativePath(path string) (string, error) {
+	cleanedPath := filepath.Clean(path)
+	if filepath.IsAbs(cleanedPath) {
+		return "", fmt.Errorf("absolute paths not allowed: %q", path)
+	}
+	if cleanedPath == ".." || strings.HasPrefix(cleanedPath, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("path traversal not allowed: %q", path)
+	}
+	return cleanedPath, nil
+}
+
+func parseKustomizeBuildResult(buildResult interface{}) (string, int, error) {
+	buildMap, ok := buildResult.(map[string]interface{})
+	if !ok {
+		return "", 0, fmt.Errorf("unexpected kustomize build result type: %T", buildResult)
+	}
+
+	manifest, ok := buildMap["output"].(string)
+	if !ok {
+		return "", 0, fmt.Errorf("unexpected kustomize build output type: %T", buildMap["output"])
+	}
+
+	resourceCount, ok := buildMap["resources"].(int)
+	if !ok {
+		return "", 0, fmt.Errorf("unexpected kustomize build resources type: %T", buildMap["resources"])
+	}
+
+	return manifest, resourceCount, nil
 }
 
 // handleKustomizeBuild builds kustomize output without applying
@@ -32,6 +62,12 @@ func (s *Server) handleKustomizeBuild(ctx context.Context, args json.RawMessage)
 	if params.Path == "" {
 		return nil, fmt.Errorf("path is required")
 	}
+
+	cleanedPath, err := validateRelativePath(params.Path)
+	if err != nil {
+		return nil, err
+	}
+	params.Path = cleanedPath
 
 	// Verify path exists and contains kustomization.yaml
 	if _, err := os.Stat(filepath.Join(params.Path, "kustomization.yaml")); os.IsNotExist(err) {
@@ -83,15 +119,22 @@ func (s *Server) handleKustomizeApply(ctx context.Context, args json.RawMessage)
 		return nil, fmt.Errorf("path is required")
 	}
 
+	cleanedPath, err := validateRelativePath(params.Path)
+	if err != nil {
+		return nil, err
+	}
+	params.Path = cleanedPath
+
 	// Build kustomize output first
 	buildResult, err := s.handleKustomizeBuild(ctx, args)
 	if err != nil {
 		return nil, fmt.Errorf("kustomize build failed: %w", err)
 	}
 
-	buildMap := buildResult.(map[string]interface{})
-	manifest := buildMap["output"].(string)
-	resourceCount := buildMap["resources"].(int)
+	manifest, resourceCount, err := parseKustomizeBuildResult(buildResult)
+	if err != nil {
+		return nil, err
+	}
 
 	// Get target clusters
 	targetClusters := params.Clusters
@@ -181,15 +224,22 @@ func (s *Server) handleKustomizeDelete(ctx context.Context, args json.RawMessage
 		return nil, fmt.Errorf("path is required")
 	}
 
+	cleanedPath, err := validateRelativePath(params.Path)
+	if err != nil {
+		return nil, err
+	}
+	params.Path = cleanedPath
+
 	// Build kustomize output first
 	buildResult, err := s.handleKustomizeBuild(ctx, args)
 	if err != nil {
 		return nil, fmt.Errorf("kustomize build failed: %w", err)
 	}
 
-	buildMap := buildResult.(map[string]interface{})
-	manifest := buildMap["output"].(string)
-	resourceCount := buildMap["resources"].(int)
+	manifest, resourceCount, err := parseKustomizeBuildResult(buildResult)
+	if err != nil {
+		return nil, err
+	}
 
 	// Get target clusters
 	targetClusters := params.Clusters
