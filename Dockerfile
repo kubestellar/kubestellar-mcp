@@ -15,4 +15,8 @@ RUN apk add --no-cache ca-certificates
 
 COPY --from=builder /kubestellar-ops /usr/local/bin/kubestellar-ops
 
+# Create non-root user (CIS Docker Benchmark 4.1)
+RUN addgroup -g 1001 -S appgroup && adduser -u 1001 -S appuser -G appgroup
+USER appuser
+
 ENTRYPOINT ["kubestellar-ops", "--mcp-server"]
