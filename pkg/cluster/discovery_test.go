@@ -62,6 +62,20 @@ func TestDiscoverClustersInvalidKubeconfig(t *testing.T) {
 	}
 }
 
+func TestDiscoverClustersKubeStellarNotImplemented(t *testing.T) {
+	_, err := NewDiscoverer("").DiscoverClusters("kubestellar")
+	if err == nil || !strings.Contains(err.Error(), "not yet implemented") {
+		t.Fatalf("DiscoverClusters() error = %v, want not yet implemented", err)
+	}
+}
+
+func TestDiscoverClustersRejectsUnsupportedSource(t *testing.T) {
+	_, err := NewDiscoverer("").DiscoverClusters("invalid")
+	if err == nil || !strings.Contains(err.Error(), "unsupported discovery source") {
+		t.Fatalf("DiscoverClusters() error = %v, want unsupported source", err)
+	}
+}
+
 func TestCheckHealthByContext(t *testing.T) {
 	tests := []struct {
 		name                string

@@ -68,7 +68,7 @@ func TestExecuteSingleClusterVariants(t *testing.T) {
 func TestExecuteAllAggregatesResultsAndErrors(t *testing.T) {
 	s := &Server{
 		discoverer: stubDiscoverer{discoverClusters: func(source string) ([]cluster.ClusterInfo, error) {
-			require.Equal(t, "kubeconfig", source)
+			require.Equal(t, "all", source)
 			return []cluster.ClusterInfo{{Name: "alpha"}, {Name: "beta"}, {Name: "gamma"}}, nil
 		}},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
@@ -110,10 +110,11 @@ func TestExecuteAllDiscoveryFailures(t *testing.T) {
 		},
 		{
 			name: "no clusters found",
-			discover: func(string) ([]cluster.ClusterInfo, error) {
+			discover: func(source string) ([]cluster.ClusterInfo, error) {
+				require.Equal(t, "all", source)
 				return []cluster.ClusterInfo{}, nil
 			},
-			wantError: "no clusters found in kubeconfig",
+			wantError: "no clusters found from any discovery source",
 		},
 	}
 
