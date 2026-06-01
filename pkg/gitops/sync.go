@@ -110,14 +110,12 @@ func (s *Syncer) Sync(ctx context.Context, manifests []Manifest, clusterName str
 			continue
 		}
 
-		namespace := manifest.Metadata.Namespace
+		var namespace string
 		if !mapping.ClusterScoped {
 			namespace = manifest.GetNamespace()
 			if opts.Namespace != "" {
 				namespace = opts.Namespace
 			}
-		} else {
-			namespace = ""
 		}
 
 		result, err := s.syncResource(ctx, manifest, mapping, namespace, opts.DryRun)

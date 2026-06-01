@@ -107,10 +107,8 @@ func (d *DriftDetector) checkResource(ctx context.Context, manifest Manifest, cl
 		return nil, err
 	}
 
-	namespace := manifest.Metadata.Namespace
-	if mapping.ClusterScoped {
-		namespace = ""
-	} else {
+	var namespace string
+	if !mapping.ClusterScoped {
 		namespace = manifest.GetNamespace()
 	}
 
