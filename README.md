@@ -11,6 +11,15 @@ AI-powered multi-cluster Kubernetes tools for Claude Code.
 | **kubestellar-ops** | Multi-cluster diagnostics, RBAC analysis, security checks |
 | **kubestellar-deploy** | App-centric deployment, GitOps, smart workload placement |
 
+## Documentation
+
+Additional documentation lives in [`docs/`](docs/):
+
+- [`docs/index.md`](docs/index.md) - expanded setup, plugin workflow, CLI usage, and operational guidance
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) - architecture overview and contributor guide for the two MCP servers, request lifecycle, and how to add new tools
+
+If you are contributing new MCP capabilities, start with [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md); it is the best guide to how the servers are organized and where new tools should be added.
+
 ## Installation
 
 ### Homebrew (Recommended)
