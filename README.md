@@ -99,6 +99,79 @@ Or run in Claude Code:
 /allowed-tools add mcp__plugin_kubestellar-deploy_kubestellar-deploy__*
 ```
 
+
+## Other AI Clients / MCP Clients
+
+The MCP servers can be used with any MCP-capable AI coding tool — not just Claude Code. Both `kubestellar-ops` and `kubestellar-deploy` support the MCP stdio transport when invoked directly.
+
+### VS Code (GitHub Copilot)
+
+Create `.vscode/mcp.json` in your workspace root:
+
+```json
+{
+  "servers": {
+    "kubestellar-ops": {
+      "command": "kubestellar-ops",
+      "args": ["--mcp-server"]
+    },
+    "kubestellar-deploy": {
+      "command": "kubestellar-deploy",
+      "args": ["--mcp-server"]
+    }
+  }
+}
+```
+
+### Cursor
+
+Add to `.cursor/mcp.json` in your project root (or `~/.cursor/mcp.json` for global access):
+
+```json
+{
+  "mcpServers": {
+    "kubestellar-ops": {
+      "command": "kubestellar-ops",
+      "args": ["--mcp-server"]
+    },
+    "kubestellar-deploy": {
+      "command": "kubestellar-deploy",
+      "args": ["--mcp-server"]
+    }
+  }
+}
+```
+
+### Windsurf
+
+Add to `~/.codeium/windsurf/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "kubestellar-ops": {
+      "command": "kubestellar-ops",
+      "args": ["--mcp-server"]
+    },
+    "kubestellar-deploy": {
+      "command": "kubestellar-deploy",
+      "args": ["--mcp-server"]
+    }
+  }
+}
+```
+
+### Generic MCP Client (stdio)
+
+Any MCP-capable client can connect over stdio:
+
+```bash
+kubestellar-ops --mcp-server
+kubestellar-deploy --mcp-server
+```
+
+The binaries speak the [Model Context Protocol](https://modelcontextprotocol.io/) over stdin/stdout. Pass `--mcp-server` to start in MCP server mode instead of the default CLI mode.
+
 ## Kubernetes RBAC
 
 The MCP binaries use your active kubeconfig by default. If you run them in-cluster, bind the same permissions to the pod ServiceAccount.
