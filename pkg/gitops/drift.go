@@ -8,16 +8,13 @@ import (
 	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/restmapper"
-	"k8s.io/klog/v2"
 )
 
 // DriftType indicates the type of drift detected
@@ -30,15 +27,15 @@ const (
 
 // DriftResult represents a detected drift
 type DriftResult struct {
-	Cluster      string            `json:"cluster"`
-	ResourceKey  string            `json:"resourceKey"`
-	Kind         string            `json:"kind"`
-	Namespace    string            `json:"namespace"`
-	Name         string            `json:"name"`
-	DriftType    DriftType         `json:"driftType"`
-	Differences  []string          `json:"differences,omitempty"`
-	GitValue     interface{}       `json:"gitValue,omitempty"`
-	ClusterValue interface{}       `json:"clusterValue,omitempty"`
+	Cluster      string      `json:"cluster"`
+	ResourceKey  string      `json:"resourceKey"`
+	Kind         string      `json:"kind"`
+	Namespace    string      `json:"namespace"`
+	Name         string      `json:"name"`
+	DriftType    DriftType   `json:"driftType"`
+	Differences  []string    `json:"differences,omitempty"`
+	GitValue     interface{} `json:"gitValue,omitempty"`
+	ClusterValue interface{} `json:"clusterValue,omitempty"`
 }
 
 // DriftDetector detects drift between git manifests and cluster state
@@ -60,25 +57,10 @@ func NewDriftDetector(config *rest.Config) (*DriftDetector, error) {
 		return nil, err
 	}
 
-	// Build a RESTMapper via discovery so Kind→GVR resolution works for CRDs
-	// and resources with non-standard plural forms.
-	var mapper meta.RESTMapper
-	dc, err := discovery.NewDiscoveryClientForConfig(config)
-	if err != nil {
-		klog.Warningf("could not create discovery client for RESTMapper: %v; falling back to static mapping", err)
-	} else {
-		gr, err := restmapper.GetAPIGroupResources(dc)
-		if err != nil {
-			klog.Warningf("could not fetch API group resources for RESTMapper: %v; falling back to static mapping", err)
-		} else {
-			mapper = restmapper.NewDiscoveryRESTMapper(gr)
-		}
-	}
-
 	return &DriftDetector{
 		client:     client,
 		dynClient:  dynClient,
-		restMapper: mapper,
+		restMapper: newRESTMapper(config),
 	}, nil
 }
 
@@ -120,19 +102,21 @@ func (d *DriftDetector) DetectDrift(ctx context.Context, manifests []Manifest, c
 
 // checkResource checks a single resource for drift
 func (d *DriftDetector) checkResource(ctx context.Context, manifest Manifest, clusterName string) (*DriftResult, error) {
-	gvr, err := d.getGVR(manifest)
+	mapping, err := resolveManifestResource(manifest, d.restMapper)
 	if err != nil {
 		return nil, err
 	}
 
-	namespace := manifest.GetNamespace()
+	var namespace string
+	if !mapping.ClusterScoped {
+		namespace = manifest.GetNamespace()
+	}
 
-	// Get current state from cluster
 	var current *unstructured.Unstructured
-	if namespace != "" && !IsClusterScoped(manifest.Kind) {
-		current, err = d.dynClient.Resource(gvr).Namespace(namespace).Get(ctx, manifest.Metadata.Name, metav1.GetOptions{})
+	if mapping.ClusterScoped {
+		current, err = d.dynClient.Resource(mapping.GVR).Get(ctx, manifest.Metadata.Name, metav1.GetOptions{})
 	} else {
-		current, err = d.dynClient.Resource(gvr).Get(ctx, manifest.Metadata.Name, metav1.GetOptions{})
+		current, err = d.dynClient.Resource(mapping.GVR).Namespace(namespace).Get(ctx, manifest.Metadata.Name, metav1.GetOptions{})
 	}
 
 	if err != nil {
@@ -255,62 +239,47 @@ func compareObjects(path string, expected, actual map[string]interface{}) []stri
 }
 
 // getGVR returns the GroupVersionResource for a manifest.
-// It first attempts a dynamic lookup via the RESTMapper (which correctly handles
-// CRDs and resources with non-standard plural forms) and falls back to the
-// static kindToResource() map when the mapper is unavailable or the Kind is
-// not yet registered.
 func (d *DriftDetector) getGVR(manifest Manifest) (schema.GroupVersionResource, error) {
-	gv, err := schema.ParseGroupVersion(manifest.APIVersion)
+	mapping, err := resolveManifestResource(manifest, d.restMapper)
 	if err != nil {
 		return schema.GroupVersionResource{}, err
 	}
+	return mapping.GVR, nil
+}
 
-	if d.restMapper != nil {
-		mapping, err := d.restMapper.RESTMapping(
-			schema.GroupKind{Group: gv.Group, Kind: manifest.Kind},
-			gv.Version,
-		)
-		if err == nil {
-			return mapping.Resource, nil
-		}
-		klog.V(2).Infof("RESTMapper lookup failed for kind=%s group=%s version=%s: %v; falling back to static mapping",
-			manifest.Kind, gv.Group, gv.Version, err)
+// IsManifestClusterScoped resolves manifest scope via the RESTMapper when available.
+func (d *DriftDetector) IsManifestClusterScoped(manifest Manifest) bool {
+	mapping, err := resolveManifestResource(manifest, d.restMapper)
+	if err != nil {
+		return IsClusterScoped(manifest.Kind)
 	}
-
-	// Static fallback: keeps behaviour correct for well-known built-in types
-	// even when the cluster is unreachable during mapper initialisation.
-	resource := kindToResource(manifest.Kind)
-	return schema.GroupVersionResource{
-		Group:    gv.Group,
-		Version:  gv.Version,
-		Resource: resource,
-	}, nil
+	return mapping.ClusterScoped
 }
 
 // kindToResource converts Kind to resource name
 func kindToResource(kind string) string {
 	// Common mappings
 	mappings := map[string]string{
-		"Deployment":            "deployments",
-		"Service":               "services",
-		"ConfigMap":             "configmaps",
-		"Secret":                "secrets",
-		"Pod":                   "pods",
-		"StatefulSet":           "statefulsets",
-		"DaemonSet":             "daemonsets",
-		"ReplicaSet":            "replicasets",
-		"Job":                   "jobs",
-		"CronJob":               "cronjobs",
-		"Ingress":               "ingresses",
-		"ServiceAccount":        "serviceaccounts",
-		"Role":                  "roles",
-		"RoleBinding":           "rolebindings",
-		"ClusterRole":           "clusterroles",
-		"ClusterRoleBinding":    "clusterrolebindings",
-		"PersistentVolumeClaim": "persistentvolumeclaims",
-		"PersistentVolume":      "persistentvolumes",
-		"Namespace":             "namespaces",
-		"NetworkPolicy":         "networkpolicies",
+		"Deployment":              "deployments",
+		"Service":                 "services",
+		"ConfigMap":               "configmaps",
+		"Secret":                  "secrets",
+		"Pod":                     "pods",
+		"StatefulSet":             "statefulsets",
+		"DaemonSet":               "daemonsets",
+		"ReplicaSet":              "replicasets",
+		"Job":                     "jobs",
+		"CronJob":                 "cronjobs",
+		"Ingress":                 "ingresses",
+		"ServiceAccount":          "serviceaccounts",
+		"Role":                    "roles",
+		"RoleBinding":             "rolebindings",
+		"ClusterRole":             "clusterroles",
+		"ClusterRoleBinding":      "clusterrolebindings",
+		"PersistentVolumeClaim":   "persistentvolumeclaims",
+		"PersistentVolume":        "persistentvolumes",
+		"Namespace":               "namespaces",
+		"NetworkPolicy":           "networkpolicies",
 		"HorizontalPodAutoscaler": "horizontalpodautoscalers",
 	}
 
@@ -325,14 +294,14 @@ func kindToResource(kind string) string {
 // IsClusterScoped returns true if the kind is cluster-scoped
 func IsClusterScoped(kind string) bool {
 	clusterScoped := map[string]bool{
-		"Namespace":             true,
-		"Node":                  true,
-		"PersistentVolume":      true,
-		"ClusterRole":           true,
-		"ClusterRoleBinding":    true,
+		"Namespace":                true,
+		"Node":                     true,
+		"PersistentVolume":         true,
+		"ClusterRole":              true,
+		"ClusterRoleBinding":       true,
 		"CustomResourceDefinition": true,
-		"StorageClass":          true,
-		"PriorityClass":         true,
+		"StorageClass":             true,
+		"PriorityClass":            true,
 	}
 	return clusterScoped[kind]
 }
@@ -340,19 +309,19 @@ func IsClusterScoped(kind string) bool {
 // isSystemManagedField returns true if the field is managed by Kubernetes
 func isSystemManagedField(field string) bool {
 	systemFields := map[string]bool{
-		"resourceVersion":     true,
-		"uid":                 true,
-		"creationTimestamp":   true,
-		"generation":          true,
-		"managedFields":       true,
-		"selfLink":            true,
-		"status":              true,
-		"clusterIP":           true,
-		"clusterIPs":          true,
-		"nodeName":            true,
-		"podIP":               true,
-		"podIPs":              true,
-		"hostIP":              true,
+		"resourceVersion":   true,
+		"uid":               true,
+		"creationTimestamp": true,
+		"generation":        true,
+		"managedFields":     true,
+		"selfLink":          true,
+		"status":            true,
+		"clusterIP":         true,
+		"clusterIPs":        true,
+		"nodeName":          true,
+		"podIP":             true,
+		"podIPs":            true,
+		"hostIP":            true,
 	}
 	return systemFields[field]
 }

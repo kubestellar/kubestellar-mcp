@@ -4,7 +4,9 @@ import (
 	"strings"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func TestCompareObjects(t *testing.T) {
@@ -100,6 +102,37 @@ func TestKindToResourceAndClusterScope(t *testing.T) {
 		if got := IsClusterScoped(tt.kind); got != tt.clustered {
 			t.Fatalf("IsClusterScoped(%q) = %v, want %v", tt.kind, got, tt.clustered)
 		}
+	}
+}
+
+func TestResolveManifestResourceUsesRESTMapper(t *testing.T) {
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "example.io", Version: "v1alpha1"}})
+	mapper.AddSpecific(
+		schema.GroupVersionKind{Group: "example.io", Version: "v1alpha1", Kind: "Widget"},
+		schema.GroupVersionResource{Group: "example.io", Version: "v1alpha1", Resource: "widgetz"},
+		schema.GroupVersionResource{Group: "example.io", Version: "v1alpha1", Resource: "widget"},
+		meta.RESTScopeRoot,
+	)
+
+	mapping, err := resolveManifestResource(Manifest{APIVersion: "example.io/v1alpha1", Kind: "Widget"}, mapper)
+	if err != nil {
+		t.Fatalf("resolveManifestResource() unexpected error: %v", err)
+	}
+	if mapping.GVR.Resource != "widgetz" {
+		t.Fatalf("resolveManifestResource() resource = %q, want widgetz", mapping.GVR.Resource)
+	}
+	if !mapping.ClusterScoped {
+		t.Fatal("resolveManifestResource() cluster scope = false, want true")
+	}
+}
+
+func TestDriftDetectorIsManifestClusterScopedFallsBackToStaticList(t *testing.T) {
+	d := &DriftDetector{}
+	if !d.IsManifestClusterScoped(Manifest{APIVersion: "rbac.authorization.k8s.io/v1", Kind: "ClusterRole"}) {
+		t.Fatal("ClusterRole should be cluster-scoped")
+	}
+	if d.IsManifestClusterScoped(Manifest{APIVersion: "v1", Kind: "ConfigMap"}) {
+		t.Fatal("ConfigMap should be namespaced")
 	}
 }
 

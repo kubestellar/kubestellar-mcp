@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -121,6 +122,63 @@ func TestShouldSyncHonorsIncludeAndExclude(t *testing.T) {
 	}
 	if syncer.shouldSync("Secret", SyncOptions{Include: []string{"ConfigMap"}}) {
 		t.Fatal("expected non-included kind to be skipped")
+	}
+}
+
+func TestSyncerGetGVRUsesRESTMapper(t *testing.T) {
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "example.io", Version: "v1alpha1"}})
+	mapper.AddSpecific(
+		schema.GroupVersionKind{Group: "example.io", Version: "v1alpha1", Kind: "Widget"},
+		schema.GroupVersionResource{Group: "example.io", Version: "v1alpha1", Resource: "widgetz"},
+		schema.GroupVersionResource{Group: "example.io", Version: "v1alpha1", Resource: "widget"},
+		meta.RESTScopeRoot,
+	)
+
+	syncer := &Syncer{restMapper: mapper}
+	gvr, err := syncer.getGVR(Manifest{APIVersion: "example.io/v1alpha1", Kind: "Widget"})
+	if err != nil {
+		t.Fatalf("getGVR() unexpected error: %v", err)
+	}
+	if gvr.Resource != "widgetz" {
+		t.Fatalf("getGVR() resource = %q, want widgetz", gvr.Resource)
+	}
+}
+
+func TestSyncIgnoresNamespaceOverrideForClusterScopedMapping(t *testing.T) {
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "example.io", Version: "v1alpha1"}})
+	mapper.AddSpecific(
+		schema.GroupVersionKind{Group: "example.io", Version: "v1alpha1", Kind: "Widget"},
+		schema.GroupVersionResource{Group: "example.io", Version: "v1alpha1", Resource: "widgetz"},
+		schema.GroupVersionResource{Group: "example.io", Version: "v1alpha1", Resource: "widget"},
+		meta.RESTScopeRoot,
+	)
+
+	syncer := &Syncer{
+		dynClient:  dynamicfake.NewSimpleDynamicClient(runtime.NewScheme()),
+		restMapper: mapper,
+	}
+	manifest := Manifest{
+		APIVersion: "example.io/v1alpha1",
+		Kind:       "Widget",
+		Metadata:   ManifestMetadata{Name: "demo"},
+		Raw: map[string]interface{}{
+			"apiVersion": "example.io/v1alpha1",
+			"kind":       "Widget",
+			"metadata": map[string]interface{}{
+				"name": "demo",
+			},
+		},
+	}
+
+	summary, err := syncer.Sync(context.Background(), []Manifest{manifest}, "alpha", SyncOptions{DryRun: true, Namespace: "overridden"})
+	if err != nil {
+		t.Fatalf("Sync() error = %v", err)
+	}
+	if len(summary.Results) != 1 {
+		t.Fatalf("result count = %d, want 1", len(summary.Results))
+	}
+	if summary.Results[0].Namespace != "" {
+		t.Fatalf("result namespace = %q, want empty for cluster-scoped resource", summary.Results[0].Namespace)
 	}
 }
 

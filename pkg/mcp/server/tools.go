@@ -2067,21 +2067,21 @@ func (s *Server) toolDetectDrift(ctx context.Context, args map[string]interface{
 		return fmt.Sprintf("No manifests found in %s (path: %s)", repoURL, path), false
 	}
 
-	// Filter manifests by namespace if specified
-	if namespace != "" {
-		var filtered []gitops.Manifest
-		for _, m := range manifests {
-			if m.GetNamespace() == namespace || gitops.IsClusterScoped(m.Kind) {
-				filtered = append(filtered, m)
-			}
-		}
-		manifests = filtered
-	}
-
 	// Create drift detector
 	detector, err := gitops.NewDriftDetector(restConfig)
 	if err != nil {
 		return fmt.Sprintf("Failed to create drift detector: %v", err), true
+	}
+
+	// Filter manifests by namespace if specified
+	if namespace != "" {
+		var filtered []gitops.Manifest
+		for _, m := range manifests {
+			if m.GetNamespace() == namespace || detector.IsManifestClusterScoped(m) {
+				filtered = append(filtered, m)
+			}
+		}
+		manifests = filtered
 	}
 
 	// Detect drift

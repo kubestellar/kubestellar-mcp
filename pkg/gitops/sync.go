@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -27,12 +28,12 @@ const (
 
 // SyncResult represents the result of syncing a single resource
 type SyncResult struct {
-	Cluster  string     `json:"cluster"`
-	Kind     string     `json:"kind"`
-	Name     string     `json:"name"`
-	Namespace string    `json:"namespace,omitempty"`
-	Action   SyncAction `json:"action"`
-	Message  string     `json:"message,omitempty"`
+	Cluster   string     `json:"cluster"`
+	Kind      string     `json:"kind"`
+	Name      string     `json:"name"`
+	Namespace string     `json:"namespace,omitempty"`
+	Action    SyncAction `json:"action"`
+	Message   string     `json:"message,omitempty"`
 }
 
 // SyncSummary provides an overview of sync operation
@@ -48,7 +49,8 @@ type SyncSummary struct {
 
 // Syncer synchronizes manifests to clusters
 type Syncer struct {
-	dynClient dynamic.Interface
+	dynClient  dynamic.Interface
+	restMapper meta.RESTMapper
 }
 
 // NewSyncer creates a new syncer
@@ -59,7 +61,8 @@ func NewSyncer(config *rest.Config) (*Syncer, error) {
 	}
 
 	return &Syncer{
-		dynClient: dynClient,
+		dynClient:  dynClient,
+		restMapper: newRESTMapper(config),
 	}, nil
 }
 
@@ -93,13 +96,29 @@ func (s *Syncer) Sync(ctx context.Context, manifests []Manifest, clusterName str
 			continue
 		}
 
-		// Override namespace if specified
-		namespace := manifest.GetNamespace()
-		if opts.Namespace != "" && !IsClusterScoped(manifest.Kind) {
-			namespace = opts.Namespace
+		mapping, err := resolveManifestResource(manifest, s.restMapper)
+		if err != nil {
+			summary.Failed++
+			summary.Results = append(summary.Results, SyncResult{
+				Cluster:   clusterName,
+				Kind:      manifest.Kind,
+				Name:      manifest.Metadata.Name,
+				Namespace: manifest.Metadata.Namespace,
+				Action:    SyncActionFailed,
+				Message:   fmt.Sprintf("failed to resolve resource mapping: %v", err),
+			})
+			continue
 		}
 
-		result, err := s.syncResource(ctx, manifest, namespace, opts.DryRun)
+		var namespace string
+		if !mapping.ClusterScoped {
+			namespace = manifest.GetNamespace()
+			if opts.Namespace != "" {
+				namespace = opts.Namespace
+			}
+		}
+
+		result, err := s.syncResource(ctx, manifest, mapping, namespace, opts.DryRun)
 		if err != nil {
 			summary.Failed++
 			summary.Results = append(summary.Results, SyncResult{
@@ -130,17 +149,11 @@ func (s *Syncer) Sync(ctx context.Context, manifests []Manifest, clusterName str
 }
 
 // syncResource syncs a single resource
-func (s *Syncer) syncResource(ctx context.Context, manifest Manifest, namespace string, dryRun bool) (*SyncResult, error) {
-	gvr, err := s.getGVR(manifest)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get GVR: %w", err)
-	}
-
+func (s *Syncer) syncResource(ctx context.Context, manifest Manifest, mapping resourceMapping, namespace string, dryRun bool) (*SyncResult, error) {
 	// Create unstructured object from manifest
 	obj := &unstructured.Unstructured{Object: manifest.Raw}
 
-	// Set namespace if not cluster-scoped
-	if !IsClusterScoped(manifest.Kind) && namespace != "" {
+	if !mapping.ClusterScoped && namespace != "" {
 		obj.SetNamespace(namespace)
 	}
 
@@ -150,12 +163,14 @@ func (s *Syncer) syncResource(ctx context.Context, manifest Manifest, namespace 
 		Namespace: namespace,
 	}
 
-	// Check if resource exists
-	var existing *unstructured.Unstructured
-	if IsClusterScoped(manifest.Kind) {
-		existing, err = s.dynClient.Resource(gvr).Get(ctx, manifest.Metadata.Name, metav1.GetOptions{})
+	var (
+		existing *unstructured.Unstructured
+		err      error
+	)
+	if mapping.ClusterScoped {
+		existing, err = s.dynClient.Resource(mapping.GVR).Get(ctx, manifest.Metadata.Name, metav1.GetOptions{})
 	} else {
-		existing, err = s.dynClient.Resource(gvr).Namespace(namespace).Get(ctx, manifest.Metadata.Name, metav1.GetOptions{})
+		existing, err = s.dynClient.Resource(mapping.GVR).Namespace(namespace).Get(ctx, manifest.Metadata.Name, metav1.GetOptions{})
 	}
 
 	if err != nil {
@@ -172,10 +187,10 @@ func (s *Syncer) syncResource(ctx context.Context, manifest Manifest, namespace 
 		}
 
 		var created *unstructured.Unstructured
-		if IsClusterScoped(manifest.Kind) {
-			created, err = s.dynClient.Resource(gvr).Create(ctx, obj, metav1.CreateOptions{})
+		if mapping.ClusterScoped {
+			created, err = s.dynClient.Resource(mapping.GVR).Create(ctx, obj, metav1.CreateOptions{})
 		} else {
-			created, err = s.dynClient.Resource(gvr).Namespace(namespace).Create(ctx, obj, metav1.CreateOptions{})
+			created, err = s.dynClient.Resource(mapping.GVR).Namespace(namespace).Create(ctx, obj, metav1.CreateOptions{})
 		}
 
 		if err != nil {
@@ -201,14 +216,14 @@ func (s *Syncer) syncResource(ctx context.Context, manifest Manifest, namespace 
 	}
 
 	var updated *unstructured.Unstructured
-	if IsClusterScoped(manifest.Kind) {
-		updated, err = s.dynClient.Resource(gvr).Patch(ctx, manifest.Metadata.Name,
+	if mapping.ClusterScoped {
+		updated, err = s.dynClient.Resource(mapping.GVR).Patch(ctx, manifest.Metadata.Name,
 			types.ApplyPatchType, data, metav1.PatchOptions{
 				FieldManager: "kubestellar-deploy",
 				Force:        boolPtr(true),
 			})
 	} else {
-		updated, err = s.dynClient.Resource(gvr).Namespace(namespace).Patch(ctx, manifest.Metadata.Name,
+		updated, err = s.dynClient.Resource(mapping.GVR).Namespace(namespace).Patch(ctx, manifest.Metadata.Name,
 			types.ApplyPatchType, data, metav1.PatchOptions{
 				FieldManager: "kubestellar-deploy",
 				Force:        boolPtr(true),
@@ -253,20 +268,13 @@ func (s *Syncer) shouldSync(kind string, opts SyncOptions) bool {
 	return true
 }
 
-// getGVR returns the GroupVersionResource for a manifest
+// getGVR returns the GroupVersionResource for a manifest.
 func (s *Syncer) getGVR(manifest Manifest) (schema.GroupVersionResource, error) {
-	gv, err := schema.ParseGroupVersion(manifest.APIVersion)
+	mapping, err := resolveManifestResource(manifest, s.restMapper)
 	if err != nil {
 		return schema.GroupVersionResource{}, err
 	}
-
-	resource := kindToResource(manifest.Kind)
-
-	return schema.GroupVersionResource{
-		Group:    gv.Group,
-		Version:  gv.Version,
-		Resource: resource,
-	}, nil
+	return mapping.GVR, nil
 }
 
 func boolPtr(b bool) *bool {
