@@ -101,7 +101,7 @@ func (s *Server) findAppInCluster(ctx context.Context, client *kubernetes.Client
 					Namespace:     d.Namespace,
 					Name:          d.Name,
 					Kind:          "Deployment",
-					Replicas:      *d.Spec.Replicas,
+					Replicas:      replicasOrDefault(d.Spec.Replicas),
 					ReadyReplicas: d.Status.ReadyReplicas,
 					Status:        getDeploymentStatus(&d),
 				})
@@ -119,7 +119,7 @@ func (s *Server) findAppInCluster(ctx context.Context, client *kubernetes.Client
 					Namespace:     s.Namespace,
 					Name:          s.Name,
 					Kind:          "StatefulSet",
-					Replicas:      *s.Spec.Replicas,
+					Replicas:      replicasOrDefault(s.Spec.Replicas),
 					ReadyReplicas: s.Status.ReadyReplicas,
 					Status:        getStatefulSetStatus(&s),
 				})
@@ -343,9 +343,17 @@ func matchesApp(name string, labels map[string]string, appName string) bool {
 	return strings.Contains(name, appName)
 }
 
+func replicasOrDefault(replicas *int32) int32 {
+	const defaultReplicas int32 = 1
+	if replicas == nil {
+		return defaultReplicas
+	}
+	return *replicas
+}
+
 // getDeploymentStatus returns status for a deployment
 func getDeploymentStatus(d *appsv1.Deployment) string {
-	if d.Status.ReadyReplicas == *d.Spec.Replicas {
+	if d.Status.ReadyReplicas == replicasOrDefault(d.Spec.Replicas) {
 		return "healthy"
 	}
 	if d.Status.ReadyReplicas > 0 {
@@ -356,7 +364,7 @@ func getDeploymentStatus(d *appsv1.Deployment) string {
 
 // getStatefulSetStatus returns status for a statefulset
 func getStatefulSetStatus(s *appsv1.StatefulSet) string {
-	if s.Status.ReadyReplicas == *s.Spec.Replicas {
+	if s.Status.ReadyReplicas == replicasOrDefault(s.Spec.Replicas) {
 		return "healthy"
 	}
 	if s.Status.ReadyReplicas > 0 {
