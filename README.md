@@ -202,6 +202,30 @@ rules:
 
 For write workflows, add `create`, `update`, `patch`, and `delete` to the resource rules you actually need.
 
+## Troubleshooting
+
+### Plugin not showing
+- Restart Claude Code, VS Code, Cursor, or Windsurf after installing or upgrading the binary.
+- Verify the binary is on your PATH with `which kubestellar-ops`.
+- If it is not found, reinstall it or move it into a directory already on your PATH.
+
+### Permission / RBAC errors
+- Run `kubectl auth can-i --list` to see what your current identity can access.
+- Compare the output with the permissions described in the [Kubernetes RBAC](#kubernetes-rbac) section above.
+- If needed, update your Role, ClusterRole, or binding before retrying the MCP client.
+
+### kubeconfig problems
+- Confirm the active context with `kubectl config current-context`.
+- Check whether `KUBECONFIG` is set and points to the kubeconfig file you expect.
+- If the wrong cluster is selected, switch contexts or update the environment variable and retry.
+
+### Manual smoke test
+- You can verify the MCP server starts without opening an AI client.
+- Run the initialize request below and confirm you get a JSON-RPC response back.
+```bash
+echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}' | ./bin/kubestellar-ops --mcp-server
+```
+
 ### Updating
 
 Update the CLI tools via Homebrew:
