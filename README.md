@@ -100,23 +100,19 @@ Or run in Claude Code:
 ```
 
 
-## Other AI Clients / MCP Clients
+## Other AI Clients (VS Code, Cursor, Windsurf)
 
-The MCP servers can be used with any MCP-capable AI coding tool — not just Claude Code. Both `kubestellar-ops` and `kubestellar-deploy` support the MCP stdio transport when invoked directly.
+You can run either binary as a generic MCP stdio server with `kubestellar-ops --mcp-server` or `kubestellar-deploy --mcp-server`. Any MCP-compatible client can use the binary over stdio.
 
 ### VS Code (GitHub Copilot)
 
-Create `.vscode/mcp.json` in your workspace root:
+Create `.vscode/mcp.json`:
 
 ```json
 {
   "servers": {
     "kubestellar-ops": {
       "command": "kubestellar-ops",
-      "args": ["--mcp-server"]
-    },
-    "kubestellar-deploy": {
-      "command": "kubestellar-deploy",
       "args": ["--mcp-server"]
     }
   }
@@ -125,17 +121,13 @@ Create `.vscode/mcp.json` in your workspace root:
 
 ### Cursor
 
-Add to `.cursor/mcp.json` in your project root (or `~/.cursor/mcp.json` for global access):
+Create `.cursor/mcp.json`:
 
 ```json
 {
   "mcpServers": {
     "kubestellar-ops": {
       "command": "kubestellar-ops",
-      "args": ["--mcp-server"]
-    },
-    "kubestellar-deploy": {
-      "command": "kubestellar-deploy",
       "args": ["--mcp-server"]
     }
   }
@@ -152,10 +144,6 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
     "kubestellar-ops": {
       "command": "kubestellar-ops",
       "args": ["--mcp-server"]
-    },
-    "kubestellar-deploy": {
-      "command": "kubestellar-deploy",
-      "args": ["--mcp-server"]
     }
   }
 }
@@ -163,14 +151,10 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 
 ### Generic MCP Client (stdio)
 
-Any MCP-capable client can connect over stdio:
-
 ```bash
 kubestellar-ops --mcp-server
 kubestellar-deploy --mcp-server
 ```
-
-The binaries speak the [Model Context Protocol](https://modelcontextprotocol.io/) over stdin/stdout. Pass `--mcp-server` to start in MCP server mode instead of the default CLI mode.
 
 ## Kubernetes RBAC
 
