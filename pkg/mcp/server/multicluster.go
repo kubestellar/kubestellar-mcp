@@ -21,7 +21,7 @@ type ExecuteFunc func(ctx context.Context, client kubernetes.Interface, clusterN
 
 // executeMultiCluster runs an operation across clusters
 // If clusterName is specified, runs on that cluster only
-// If clusterName is empty, runs across ALL clusters in kubeconfig
+// If clusterName is empty, runs across all discovered clusters
 func (s *Server) executeMultiCluster(ctx context.Context, clusterName string, fn ExecuteFunc) ([]ClusterResult, error) {
 	if clusterName != "" {
 		// Single cluster mode
@@ -56,15 +56,15 @@ func (s *Server) executeSingle(ctx context.Context, clusterName string, fn Execu
 	}}, nil
 }
 
-// executeAll runs the operation across all clusters in parallel
+// executeAll runs the operation across all discovered clusters in parallel
 func (s *Server) executeAll(ctx context.Context, fn ExecuteFunc) ([]ClusterResult, error) {
-	clusters, err := s.discoverer.DiscoverClusters("kubeconfig")
+	clusters, err := s.discoverer.DiscoverClusters("all")
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover clusters: %w", err)
 	}
 
 	if len(clusters) == 0 {
-		return nil, fmt.Errorf("no clusters found in kubeconfig")
+		return nil, fmt.Errorf("no clusters found from any discovery source")
 	}
 
 	var results []ClusterResult

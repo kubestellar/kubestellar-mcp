@@ -197,7 +197,7 @@ func (s *Server) handleToolsList(req *Request) {
 				Properties: map[string]Property{
 					"source": {
 						Type:        "string",
-						Description: "Discovery source: all, kubeconfig, or kubestellar",
+						Description: "Discovery source: all, kubeconfig, or kubestellar (not yet implemented)",
 						Enum:        []string{"all", "kubeconfig", "kubestellar"},
 					},
 				},

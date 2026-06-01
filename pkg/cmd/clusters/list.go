@@ -22,8 +22,10 @@ func newListCommand(configFlags *genericclioptions.ConfigFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List all discovered clusters",
-		Long: `List all Kubernetes clusters discovered from kubeconfig contexts
-and optionally from KubeStellar ManagedCluster resources.
+		Long: `List all Kubernetes clusters discovered from kubeconfig contexts.
+
+KubeStellar ManagedCluster discovery is not yet implemented. Using
+--source=kubestellar returns an explicit error until that support lands.
 
 The output shows:
   - Cluster name
@@ -39,14 +41,14 @@ Examples:
   # List only kubeconfig clusters
   kubestellar-ops clusters list --source=kubeconfig
 
-  # List only KubeStellar managed clusters
+  # Check whether KubeStellar discovery is available yet
   kubestellar-ops clusters list --source=kubestellar`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return o.run()
 		},
 	}
 
-	cmd.Flags().StringVar(&o.source, "source", "all", "Discovery source: all, kubeconfig, kubestellar")
+	cmd.Flags().StringVar(&o.source, "source", "all", "Discovery source: all, kubeconfig, kubestellar (not yet implemented)")
 
 	return cmd
 }

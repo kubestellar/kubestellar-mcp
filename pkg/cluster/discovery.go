@@ -48,12 +48,22 @@ func (d *Discoverer) DiscoverClusters(source string) ([]ClusterInfo, error) {
 	var clusters []ClusterInfo
 
 	switch source {
-	case "kubeconfig", "all":
+	case "kubeconfig":
 		kubeconfigClusters, err := d.discoverFromKubeconfig()
 		if err != nil {
 			return nil, fmt.Errorf("kubeconfig discovery failed: %w", err)
 		}
 		clusters = append(clusters, kubeconfigClusters...)
+	case "kubestellar":
+		return nil, fmt.Errorf("kubestellar cluster discovery is not yet implemented")
+	case "all":
+		kubeconfigClusters, err := d.discoverFromKubeconfig()
+		if err != nil {
+			return nil, fmt.Errorf("kubeconfig discovery failed: %w", err)
+		}
+		clusters = append(clusters, kubeconfigClusters...)
+	default:
+		return nil, fmt.Errorf("unsupported discovery source %q", source)
 	}
 
 	// TODO: Add KubeStellar discovery when source is "kubestellar" or "all"
