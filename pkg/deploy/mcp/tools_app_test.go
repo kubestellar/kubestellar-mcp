@@ -40,8 +40,11 @@ func TestWorkloadStatusHelpers(t *testing.T) {
 		{name: "deployment healthy", want: "healthy", got: getDeploymentStatus(&appsv1.Deployment{Spec: appsv1.DeploymentSpec{Replicas: &replicas}, Status: appsv1.DeploymentStatus{ReadyReplicas: 3}})},
 		{name: "deployment degraded", want: "degraded", got: getDeploymentStatus(&appsv1.Deployment{Spec: appsv1.DeploymentSpec{Replicas: &replicas}, Status: appsv1.DeploymentStatus{ReadyReplicas: 1}})},
 		{name: "deployment failed", want: "failed", got: getDeploymentStatus(&appsv1.Deployment{Spec: appsv1.DeploymentSpec{Replicas: &replicas}, Status: appsv1.DeploymentStatus{ReadyReplicas: 0}})},
+		{name: "deployment nil replicas healthy", want: "healthy", got: getDeploymentStatus(&appsv1.Deployment{Spec: appsv1.DeploymentSpec{Replicas: nil}, Status: appsv1.DeploymentStatus{ReadyReplicas: 1}})},
+		{name: "deployment nil replicas failed", want: "failed", got: getDeploymentStatus(&appsv1.Deployment{Spec: appsv1.DeploymentSpec{Replicas: nil}, Status: appsv1.DeploymentStatus{ReadyReplicas: 0}})},
 		{name: "statefulset healthy", want: "healthy", got: getStatefulSetStatus(&appsv1.StatefulSet{Spec: appsv1.StatefulSetSpec{Replicas: &replicas}, Status: appsv1.StatefulSetStatus{ReadyReplicas: 3}})},
 		{name: "statefulset degraded", want: "degraded", got: getStatefulSetStatus(&appsv1.StatefulSet{Spec: appsv1.StatefulSetSpec{Replicas: &replicas}, Status: appsv1.StatefulSetStatus{ReadyReplicas: 1}})},
+		{name: "statefulset nil replicas healthy", want: "healthy", got: getStatefulSetStatus(&appsv1.StatefulSet{Spec: appsv1.StatefulSetSpec{Replicas: nil}, Status: appsv1.StatefulSetStatus{ReadyReplicas: 1}})},
 		{name: "daemonset healthy", want: "healthy", got: getDaemonSetStatus(&appsv1.DaemonSet{Status: appsv1.DaemonSetStatus{DesiredNumberScheduled: 4, NumberReady: 4}})},
 		{name: "daemonset degraded", want: "degraded", got: getDaemonSetStatus(&appsv1.DaemonSet{Status: appsv1.DaemonSetStatus{DesiredNumberScheduled: 4, NumberReady: 2}})},
 		{name: "daemonset failed", want: "failed", got: getDaemonSetStatus(&appsv1.DaemonSet{Status: appsv1.DaemonSetStatus{DesiredNumberScheduled: 4, NumberReady: 0}})},
@@ -54,4 +57,28 @@ func TestWorkloadStatusHelpers(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestReplicasOrDefault(t *testing.T) {
+	tests := []struct {
+		name     string
+		replicas *int32
+		want     int32
+	}{
+		{name: "nil returns default 1", replicas: nil, want: 1},
+		{name: "non-nil returns value", replicas: int32Ptr(3), want: 3},
+		{name: "zero value returns 0", replicas: int32Ptr(0), want: 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := replicasOrDefault(tt.replicas); got != tt.want {
+				t.Fatalf("replicasOrDefault() = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
+
+func int32Ptr(i int32) *int32 {
+	return &i
 }
