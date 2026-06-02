@@ -381,9 +381,17 @@ kubestellar-ops clusters health
 ### kubestellar-deploy
 
 ```bash
-# Run as MCP server (for Claude Code)
+# Run as MCP server (deployment, GitOps, Helm, kubectl, and kustomize tools)
 kubestellar-deploy --mcp-server
+
+# Show version information
+kubestellar-deploy version
+
+# Generate shell completion
+kubestellar-deploy completion bash
 ```
+
+`kubestellar-deploy` does not currently expose standalone deployment subcommands. Outside MCP server mode, the CLI only provides informational commands such as `version`, `completion`, and `help`. App deployment, GitOps, Helm, kubectl, kustomize, and labeling workflows are available through the MCP tool server started with `--mcp-server`. To target a different Kubernetes environment, point `KUBECONFIG` at the desired kubeconfig (or switch the active context in that kubeconfig) before starting the binary.
 
 ## Environment Variables
 
