@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -202,40 +203,45 @@ func (s *Syncer) syncResource(ctx context.Context, manifest Manifest, mapping re
 		return result, nil
 	}
 
-	// Resource exists - update it using server-side apply
-	if dryRun {
-		result.Action = SyncActionUpdated
-		result.Message = "Would update (dry-run)"
-		return result, nil
-	}
-
 	// Use server-side apply for updates
 	data, err := json.Marshal(obj.Object)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal: %w", err)
 	}
 
+	patchOpts := metav1.PatchOptions{
+		FieldManager: "kubestellar-deploy",
+		Force:        boolPtr(true),
+	}
+	if dryRun {
+		patchOpts.DryRun = []string{metav1.DryRunAll}
+	}
+
 	var updated *unstructured.Unstructured
 	if mapping.ClusterScoped {
 		updated, err = s.dynClient.Resource(mapping.GVR).Patch(ctx, manifest.Metadata.Name,
-			types.ApplyPatchType, data, metav1.PatchOptions{
-				FieldManager: "kubestellar-deploy",
-				Force:        boolPtr(true),
-			})
+			types.ApplyPatchType, data, patchOpts)
 	} else {
 		updated, err = s.dynClient.Resource(mapping.GVR).Namespace(namespace).Patch(ctx, manifest.Metadata.Name,
-			types.ApplyPatchType, data, metav1.PatchOptions{
-				FieldManager: "kubestellar-deploy",
-				Force:        boolPtr(true),
-			})
+			types.ApplyPatchType, data, patchOpts)
 	}
 
 	if err != nil {
+		if dryRun {
+			return nil, fmt.Errorf("failed to dry-run update: %w", err)
+		}
 		return nil, fmt.Errorf("failed to update: %w", err)
 	}
 
-	// Check if anything actually changed
-	if existing.GetResourceVersion() == updated.GetResourceVersion() {
+	// Dry-run apply is not persisted, so resourceVersion cannot reliably signal
+	// whether the apply would change the live object.
+	if dryRun && syncObjectsEqual(existing.Object, updated.Object) {
+		result.Action = SyncActionUnchanged
+		result.Message = "No changes (dry-run)"
+	} else if dryRun {
+		result.Action = SyncActionUpdated
+		result.Message = "Would update (dry-run)"
+	} else if existing.GetResourceVersion() == updated.GetResourceVersion() {
 		result.Action = SyncActionUnchanged
 		result.Message = "No changes"
 	} else {
@@ -244,6 +250,57 @@ func (s *Syncer) syncResource(ctx context.Context, manifest Manifest, mapping re
 	}
 
 	return result, nil
+}
+
+func syncObjectsEqual(a, b map[string]interface{}) bool {
+	return apiequality.Semantic.DeepEqual(normalizeSyncObject(a, nil), normalizeSyncObject(b, nil))
+}
+
+func normalizeSyncObject(value interface{}, path []string) interface{} {
+	switch typed := value.(type) {
+	case map[string]interface{}:
+		normalized := make(map[string]interface{}, len(typed))
+		for key, val := range typed {
+			if shouldIgnoreSyncField(path, key) {
+				continue
+			}
+			nextPath := make([]string, len(path)+1)
+			copy(nextPath, path)
+			nextPath[len(path)] = key
+			normalized[key] = normalizeSyncObject(val, nextPath)
+		}
+		return normalized
+	case []interface{}:
+		normalized := make([]interface{}, len(typed))
+		for i, val := range typed {
+			normalized[i] = normalizeSyncObject(val, path)
+		}
+		return normalized
+	default:
+		return typed
+	}
+}
+
+func shouldIgnoreSyncField(path []string, key string) bool {
+	if len(path) == 0 && key == "status" {
+		return true
+	}
+
+	if len(path) == 1 && path[0] == "metadata" {
+		switch key {
+		case "resourceVersion", "uid", "creationTimestamp", "generation", "managedFields", "selfLink":
+			return true
+		}
+	}
+
+	if len(path) == 1 && path[0] == "spec" {
+		switch key {
+		case "clusterIP", "clusterIPs":
+			return true
+		}
+	}
+
+	return false
 }
 
 // shouldSync checks if a kind should be synced
