@@ -1,61 +1,44 @@
 > [!NOTE]
 > This file is a template for contributors. It is not a real command reference.
 
-# <Command Title>
+# [Command Name]
 
-One-line summary of what the command does.
-
-## Description
-
-Briefly explain when to use this command and what outcome the user should expect.
+[One-sentence summary of what the command helps the user do.]
 
 ## Usage
 
-Describe the natural-language request or command pattern this document supports.
-
-## Flags
-
-| Flag | Type | Required | Description |
-| --- | --- | --- | --- |
-| `example_flag` | string | No | Describe what this option controls. |
-| `another_flag` | boolean | No | Describe any optional behavior. |
+[Describe how a user would ask for this command in natural language and what context they should provide.]
 
 ## Examples
 
-- "Example request using this command"
-- "Another example with more detail"
-- "Example using a flag or alternate target"
+- "[Example request 1]"
+- "[Example request 2]"
+- "[Example request 3]"
 
 ## What it does
 
-1. Describe the first step the command performs.
-2. Describe the next step.
-3. Describe the final result returned to the user.
+1. [Step 1]
+2. [Step 2]
+3. [Step 3]
 
-> If the command is read-only, you can rename this section to `## What it shows`.
+> If the command is primarily read-only output, you can rename this section to `## What it shows`.
 
 ## MCP Tools Used
 
-- `tool_name` - Short explanation of why this tool is used
-- `tool_name_2` - Short explanation of why this tool is used
+- `[tool_name]` - [Why this tool is used]
+- `[tool_name]` - [Optional secondary tool]
 
 ## Implementation
 
-Document the expected tool inputs, key parameters, and any defaults or special behavior.
+Use the `[primary_tool_name]` tool with:
+- `[parameter]`: [What it controls]
+- `[parameter]`: [What it controls]
+- `[parameter]`: [Optional parameter behavior]
 
-## Examples of Tool Calls
+## Author Notes
 
-```json
-{
-  "example": "value"
-}
-```
-
-## See Also
-
-- [Related Command](./related-command.md)
-- [Another Related Command](./another-command.md)
-
-## Notes
-
-Add any command-specific details here, such as prerequisites, supported resource types, or special behaviors.
+- Keep the title concise and user-focused.
+- Start with a short summary sentence under the title.
+- Prefer natural-language examples that reflect how users actually ask for help.
+- Document the MCP tools and key parameters contributors should wire up.
+- Add extra sections only when they clarify behavior (for example, `## Smart Placement`, `## Supported Resource Types`, or `## Examples of Tool Calls`).
