@@ -434,6 +434,11 @@ func (s *Server) scaleAppInCluster(ctx context.Context, client *kubernetes.Clien
 	for _, d := range deployments.Items {
 		if matchesApp(d.Name, d.Labels, appName) {
 			scale := d.Spec.Replicas
+			// Handle nil Spec.Replicas (Kubernetes implicit default is 1)
+			oldReplicas := int32(1)
+			if scale != nil {
+				oldReplicas = *scale
+			}
 			d.Spec.Replicas = &replicas
 			_, err := client.AppsV1().Deployments(ns).Update(ctx, &d, metav1.UpdateOptions{})
 			if err != nil {
@@ -442,7 +447,7 @@ func (s *Server) scaleAppInCluster(ctx context.Context, client *kubernetes.Clien
 			return map[string]interface{}{
 				"cluster":     clusterName,
 				"deployment":  d.Name,
-				"oldReplicas": *scale,
+				"oldReplicas": oldReplicas,
 				"newReplicas": replicas,
 			}, nil
 		}

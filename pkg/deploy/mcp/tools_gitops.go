@@ -86,10 +86,16 @@ func (s *Server) handleDetectDrift(ctx context.Context, args json.RawMessage) (i
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
+	// Limit concurrent goroutines to prevent resource exhaustion
+	const maxConcurrency = 20
+	sem := make(chan struct{}, maxConcurrency)
+
 	for _, clusterName := range targetClusters {
 		wg.Add(1)
 		go func(cluster string) {
 			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
 
 			config, err := s.manager.GetConfig(cluster)
 			if err != nil {
@@ -212,10 +218,16 @@ func (s *Server) handleSyncFromGit(ctx context.Context, args json.RawMessage) (i
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
+	// Limit concurrent goroutines to prevent resource exhaustion
+	const maxConcurrency = 20
+	sem := make(chan struct{}, maxConcurrency)
+
 	for _, clusterName := range targetClusters {
 		wg.Add(1)
 		go func(cluster string) {
 			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
 
 			config, err := s.manager.GetConfig(cluster)
 			if err != nil {

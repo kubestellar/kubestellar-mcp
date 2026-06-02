@@ -77,10 +77,16 @@ func (e *Executor) executeAll(ctx context.Context, fn ExecuteFunc) ([]ClusterRes
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 
+	// Limit concurrent goroutines to prevent resource exhaustion
+	const maxConcurrency = 20
+	sem := make(chan struct{}, maxConcurrency)
+
 	for _, cluster := range clusters {
 		wg.Add(1)
 		go func(clusterName string) {
 			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
 
 			client, err := e.manager.GetClient(clusterName)
 			if err != nil {
@@ -120,10 +126,16 @@ func (e *Executor) ExecuteOnSelected(ctx context.Context, clusterNames []string,
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 
+	// Limit concurrent goroutines to prevent resource exhaustion
+	const maxConcurrency = 20
+	sem := make(chan struct{}, maxConcurrency)
+
 	for _, clusterName := range clusterNames {
 		wg.Add(1)
 		go func(name string) {
 			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
 
 			client, err := e.manager.GetClient(name)
 			if err != nil {
