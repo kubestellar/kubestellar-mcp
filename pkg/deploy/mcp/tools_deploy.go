@@ -4,16 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 
+	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
+	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes"
-
-	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 )
 
 // DeployResult represents the result of a deployment operation
@@ -22,6 +24,11 @@ type DeployResult struct {
 	Resource string `json:"resource"`
 	Status   string `json:"status"` // created, updated, unchanged, failed
 	Message  string `json:"message,omitempty"`
+}
+
+// boolPtr returns a pointer to a bool value
+func boolPtr(b bool) *bool {
+	return &b
 }
 
 // handleListClusterCapabilities returns cluster capabilities
@@ -163,85 +170,78 @@ func (s *Server) handleDeployApp(ctx context.Context, args json.RawMessage) (int
 }
 
 // applyManifest applies a manifest to a cluster
-func (s *Server) applyManifest(ctx context.Context, client *kubernetes.Clientset, clusterName, manifest string, dryRun bool) ([]DeployResult, error) {
+func (s *Server) applyManifest(ctx context.Context, client kubernetes.Interface, clusterName, manifest string, dryRun bool) ([]DeployResult, error) {
+	_ = client
+
 	var results []DeployResult
-
-	// Split manifest into documents
-	decoder := yaml.NewYAMLOrJSONDecoder(strings.NewReader(manifest), 4096)
-
-	for {
-		var rawObj map[string]interface{}
-		if err := decoder.Decode(&rawObj); err != nil {
-			if err.Error() == "EOF" {
-				break
+	if dryRun {
+		decoder := yaml.NewYAMLOrJSONDecoder(strings.NewReader(manifest), 4096)
+		for {
+			var rawObj map[string]interface{}
+			if err := decoder.Decode(&rawObj); err != nil {
+				if err == io.EOF {
+					break
+				}
+				return nil, fmt.Errorf("failed to decode manifest: %w", err)
 			}
-			return nil, fmt.Errorf("failed to decode manifest: %w", err)
-		}
+			if rawObj == nil {
+				continue
+			}
 
-		if rawObj == nil {
-			continue
-		}
+			kind, _ := rawObj["kind"].(string)
+			metadata, _ := rawObj["metadata"].(map[string]interface{})
+			name, _ := metadata["name"].(string)
+			namespace, _ := metadata["namespace"].(string)
+			if namespace == "" {
+				namespace = "default"
+			}
 
-		kind, _ := rawObj["kind"].(string)
-		metadata, _ := rawObj["metadata"].(map[string]interface{})
-		name, _ := metadata["name"].(string)
-		namespace, _ := metadata["namespace"].(string)
-		if namespace == "" {
-			namespace = "default"
-		}
-
-		resourceName := fmt.Sprintf("%s/%s", kind, name)
-
-		// For dry run, just record what would happen
-		if dryRun {
+			resourceName := fmt.Sprintf("%s/%s", kind, name)
 			results = append(results, DeployResult{
 				Cluster:  clusterName,
 				Resource: resourceName,
 				Status:   "would-apply",
 				Message:  fmt.Sprintf("Would apply %s to namespace %s", resourceName, namespace),
 			})
-			continue
 		}
+		return results, nil
+	}
 
-		// Apply based on kind
-		var err error
-		var status string
+	reader := s.getManifestReader()
+	manifests, err := reader.ReadFromReader(strings.NewReader(manifest))
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode manifest: %w", err)
+	}
 
-		switch kind {
-		case "Deployment":
-			status, err = s.applyDeployment(ctx, client, rawObj, namespace)
-		case "Service":
-			status, err = s.applyService(ctx, client, rawObj, namespace)
-		case "ConfigMap":
-			status, err = s.applyConfigMap(ctx, client, rawObj, namespace)
-		case "Secret":
-			status, err = s.applySecret(ctx, client, rawObj, namespace)
-		default:
-			status = "skipped"
-			err = fmt.Errorf("unsupported kind: %s", kind)
-		}
+	config, err := s.manager.GetConfig(clusterName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get config for cluster %s: %w", clusterName, err)
+	}
 
-		if err != nil {
-			results = append(results, DeployResult{
-				Cluster:  clusterName,
-				Resource: resourceName,
-				Status:   "failed",
-				Message:  err.Error(),
-			})
-		} else {
-			results = append(results, DeployResult{
-				Cluster:  clusterName,
-				Resource: resourceName,
-				Status:   status,
-			})
-		}
+	syncer, err := s.getManifestSyncer(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create manifest syncer: %w", err)
+	}
+
+	summary, err := syncer.Sync(ctx, manifests, clusterName, gitops.SyncOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to apply manifest: %w", err)
+	}
+
+	for _, result := range summary.Results {
+		results = append(results, DeployResult{
+			Cluster:  clusterName,
+			Resource: fmt.Sprintf("%s/%s", result.Kind, result.Name),
+			Status:   string(result.Action),
+			Message:  result.Message,
+		})
 	}
 
 	return results, nil
 }
 
 // applyDeployment creates or updates a deployment
-func (s *Server) applyDeployment(ctx context.Context, client *kubernetes.Clientset, rawObj map[string]interface{}, namespace string) (string, error) {
+func (s *Server) applyDeployment(ctx context.Context, client kubernetes.Interface, rawObj map[string]interface{}, namespace string) (string, error) {
 	data, err := json.Marshal(rawObj)
 	if err != nil {
 		return "", err
@@ -251,29 +251,38 @@ func (s *Server) applyDeployment(ctx context.Context, client *kubernetes.Clients
 	if err := json.Unmarshal(data, &deployment); err != nil {
 		return "", err
 	}
-
-	// Try to get existing
-	existing, err := client.AppsV1().Deployments(namespace).Get(ctx, deployment.Name, metav1.GetOptions{})
-	if err == nil {
-		// Update
-		deployment.ResourceVersion = existing.ResourceVersion
-		_, err = client.AppsV1().Deployments(namespace).Update(ctx, &deployment, metav1.UpdateOptions{})
-		if err != nil {
-			return "", err
-		}
-		return "updated", nil
+	if deployment.Namespace == "" {
+		deployment.Namespace = namespace
 	}
 
-	// Create
-	_, err = client.AppsV1().Deployments(namespace).Create(ctx, &deployment, metav1.CreateOptions{})
+	existing, err := client.AppsV1().Deployments(namespace).Get(ctx, deployment.Name, metav1.GetOptions{})
+	if err != nil && !apierrors.IsNotFound(err) {
+		return "", err
+	}
+
+	data, err = json.Marshal(deployment)
 	if err != nil {
 		return "", err
 	}
-	return "created", nil
+
+	updated, err := client.AppsV1().Deployments(namespace).Patch(ctx, deployment.Name, types.ApplyPatchType, data, metav1.PatchOptions{
+		FieldManager: "kubestellar-deploy",
+		Force:        boolPtr(true),
+	})
+	if err != nil {
+		return "", err
+	}
+	if existing == nil {
+		return "created", nil
+	}
+	if existing.ResourceVersion == updated.ResourceVersion {
+		return "unchanged", nil
+	}
+	return "updated", nil
 }
 
 // applyService creates or updates a service
-func (s *Server) applyService(ctx context.Context, client *kubernetes.Clientset, rawObj map[string]interface{}, namespace string) (string, error) {
+func (s *Server) applyService(ctx context.Context, client kubernetes.Interface, rawObj map[string]interface{}, namespace string) (string, error) {
 	data, err := json.Marshal(rawObj)
 	if err != nil {
 		return "", err
@@ -283,30 +292,38 @@ func (s *Server) applyService(ctx context.Context, client *kubernetes.Clientset,
 	if err := json.Unmarshal(data, &service); err != nil {
 		return "", err
 	}
-
-	// Try to get existing
-	existing, err := client.CoreV1().Services(namespace).Get(ctx, service.Name, metav1.GetOptions{})
-	if err == nil {
-		// Update - preserve clusterIP
-		service.Spec.ClusterIP = existing.Spec.ClusterIP
-		service.ResourceVersion = existing.ResourceVersion
-		_, err = client.CoreV1().Services(namespace).Update(ctx, &service, metav1.UpdateOptions{})
-		if err != nil {
-			return "", err
-		}
-		return "updated", nil
+	if service.Namespace == "" {
+		service.Namespace = namespace
 	}
 
-	// Create
-	_, err = client.CoreV1().Services(namespace).Create(ctx, &service, metav1.CreateOptions{})
+	existing, err := client.CoreV1().Services(namespace).Get(ctx, service.Name, metav1.GetOptions{})
+	if err != nil && !apierrors.IsNotFound(err) {
+		return "", err
+	}
+
+	data, err = json.Marshal(service)
 	if err != nil {
 		return "", err
 	}
-	return "created", nil
+
+	updated, err := client.CoreV1().Services(namespace).Patch(ctx, service.Name, types.ApplyPatchType, data, metav1.PatchOptions{
+		FieldManager: "kubestellar-deploy",
+		Force:        boolPtr(true),
+	})
+	if err != nil {
+		return "", err
+	}
+	if existing == nil {
+		return "created", nil
+	}
+	if existing.ResourceVersion == updated.ResourceVersion {
+		return "unchanged", nil
+	}
+	return "updated", nil
 }
 
 // applyConfigMap creates or updates a configmap
-func (s *Server) applyConfigMap(ctx context.Context, client *kubernetes.Clientset, rawObj map[string]interface{}, namespace string) (string, error) {
+func (s *Server) applyConfigMap(ctx context.Context, client kubernetes.Interface, rawObj map[string]interface{}, namespace string) (string, error) {
 	data, err := json.Marshal(rawObj)
 	if err != nil {
 		return "", err
@@ -316,29 +333,38 @@ func (s *Server) applyConfigMap(ctx context.Context, client *kubernetes.Clientse
 	if err := json.Unmarshal(data, &cm); err != nil {
 		return "", err
 	}
-
-	// Try to get existing
-	existing, err := client.CoreV1().ConfigMaps(namespace).Get(ctx, cm.Name, metav1.GetOptions{})
-	if err == nil {
-		// Update
-		cm.ResourceVersion = existing.ResourceVersion
-		_, err = client.CoreV1().ConfigMaps(namespace).Update(ctx, &cm, metav1.UpdateOptions{})
-		if err != nil {
-			return "", err
-		}
-		return "updated", nil
+	if cm.Namespace == "" {
+		cm.Namespace = namespace
 	}
 
-	// Create
-	_, err = client.CoreV1().ConfigMaps(namespace).Create(ctx, &cm, metav1.CreateOptions{})
+	existing, err := client.CoreV1().ConfigMaps(namespace).Get(ctx, cm.Name, metav1.GetOptions{})
+	if err != nil && !apierrors.IsNotFound(err) {
+		return "", err
+	}
+
+	data, err = json.Marshal(cm)
 	if err != nil {
 		return "", err
 	}
-	return "created", nil
+
+	updated, err := client.CoreV1().ConfigMaps(namespace).Patch(ctx, cm.Name, types.ApplyPatchType, data, metav1.PatchOptions{
+		FieldManager: "kubestellar-deploy",
+		Force:        boolPtr(true),
+	})
+	if err != nil {
+		return "", err
+	}
+	if existing == nil {
+		return "created", nil
+	}
+	if existing.ResourceVersion == updated.ResourceVersion {
+		return "unchanged", nil
+	}
+	return "updated", nil
 }
 
 // applySecret creates or updates a secret
-func (s *Server) applySecret(ctx context.Context, client *kubernetes.Clientset, rawObj map[string]interface{}, namespace string) (string, error) {
+func (s *Server) applySecret(ctx context.Context, client kubernetes.Interface, rawObj map[string]interface{}, namespace string) (string, error) {
 	data, err := json.Marshal(rawObj)
 	if err != nil {
 		return "", err
@@ -348,25 +374,34 @@ func (s *Server) applySecret(ctx context.Context, client *kubernetes.Clientset, 
 	if err := json.Unmarshal(data, &secret); err != nil {
 		return "", err
 	}
-
-	// Try to get existing
-	existing, err := client.CoreV1().Secrets(namespace).Get(ctx, secret.Name, metav1.GetOptions{})
-	if err == nil {
-		// Update
-		secret.ResourceVersion = existing.ResourceVersion
-		_, err = client.CoreV1().Secrets(namespace).Update(ctx, &secret, metav1.UpdateOptions{})
-		if err != nil {
-			return "", err
-		}
-		return "updated", nil
+	if secret.Namespace == "" {
+		secret.Namespace = namespace
 	}
 
-	// Create
-	_, err = client.CoreV1().Secrets(namespace).Create(ctx, &secret, metav1.CreateOptions{})
+	existing, err := client.CoreV1().Secrets(namespace).Get(ctx, secret.Name, metav1.GetOptions{})
+	if err != nil && !apierrors.IsNotFound(err) {
+		return "", err
+	}
+
+	data, err = json.Marshal(secret)
 	if err != nil {
 		return "", err
 	}
-	return "created", nil
+
+	updated, err := client.CoreV1().Secrets(namespace).Patch(ctx, secret.Name, types.ApplyPatchType, data, metav1.PatchOptions{
+		FieldManager: "kubestellar-deploy",
+		Force:        boolPtr(true),
+	})
+	if err != nil {
+		return "", err
+	}
+	if existing == nil {
+		return "created", nil
+	}
+	if existing.ResourceVersion == updated.ResourceVersion {
+		return "unchanged", nil
+	}
+	return "updated", nil
 }
 
 // handleScaleApp scales an app across clusters

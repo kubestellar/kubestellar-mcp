@@ -1,6 +1,8 @@
 package gitops
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -89,5 +91,53 @@ func TestManifestGetKeyAndNamespaceDefault(t *testing.T) {
 	}
 	if got := manifest.GetKey(); got.Name != "demo" || got.Namespace != "" {
 		t.Fatalf("unexpected key: %#v", got)
+	}
+}
+
+func TestResolveManifestPathRejectsTraversal(t *testing.T) {
+	baseDir := filepath.Join(string(os.PathSeparator), "repo", "clone")
+
+	_, err := resolveManifestPath(baseDir, "../../etc/passwd")
+	if err == nil || !strings.Contains(err.Error(), "escapes repository directory") {
+		t.Fatalf("resolveManifestPath() error = %v, want traversal rejection", err)
+	}
+
+	_, err = resolveManifestPath(baseDir, "/etc/passwd")
+	if err == nil || !strings.Contains(err.Error(), "escapes repository directory") {
+		t.Fatalf("resolveManifestPath() absolute path error = %v, want traversal rejection", err)
+	}
+}
+
+func TestResolveManifestPathAllowsRepoRelativePath(t *testing.T) {
+	baseDir := filepath.Join(string(os.PathSeparator), "repo", "clone")
+	got, err := resolveManifestPath(baseDir, "manifests/app")
+	if err != nil {
+		t.Fatalf("resolveManifestPath() unexpected error: %v", err)
+	}
+	want := filepath.Join(baseDir, "manifests", "app")
+	if got != want {
+		t.Fatalf("resolveManifestPath() = %q, want %q", got, want)
+	}
+}
+
+func TestResetTempDirRemovesPreviousDirectory(t *testing.T) {
+	dir, err := os.MkdirTemp(".", "manifest-reader-test-*")
+	if err != nil {
+		t.Fatalf("MkdirTemp() error = %v", err)
+	}
+	defer func() {
+		_ = os.RemoveAll(dir)
+	}()
+
+	reader := NewManifestReader()
+	reader.tempDir = dir
+	if err := reader.resetTempDir(); err != nil {
+		t.Fatalf("resetTempDir() error = %v", err)
+	}
+	if _, err := os.Stat(dir); !os.IsNotExist(err) {
+		t.Fatalf("os.Stat() error = %v, want not exists", err)
+	}
+	if reader.tempDir != "" {
+		t.Fatalf("tempDir = %q, want empty", reader.tempDir)
 	}
 }
