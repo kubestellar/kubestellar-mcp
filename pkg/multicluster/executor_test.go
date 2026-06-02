@@ -119,6 +119,70 @@ func TestExecutorExecuteAllAggregatesErrors(t *testing.T) {
 	}
 }
 
+func TestExecutorExecuteOnSelectedBoundsConcurrency(t *testing.T) {
+	manager := newTestManager(t, []string{"alpha", "beta", "gamma", "delta", "epsilon"})
+	executor := NewExecutor(manager)
+	executor.maxConcurrency = 2
+
+	var running atomic.Int32
+	var maxRunning atomic.Int32
+	release := make(chan struct{})
+	started := make(chan struct{}, len(manager.clients))
+	resultCh := make(chan []ClusterResult, 1)
+	errCh := make(chan error, 1)
+
+	go func() {
+		results, err := executor.ExecuteOnSelected(context.Background(), []string{"alpha", "beta", "gamma", "delta", "epsilon"}, func(ctx context.Context, client *kubernetes.Clientset, clusterName string) (interface{}, error) {
+			current := running.Add(1)
+			defer running.Add(-1)
+			for {
+				observed := maxRunning.Load()
+				if current <= observed || maxRunning.CompareAndSwap(observed, current) {
+					break
+				}
+			}
+			started <- struct{}{}
+			<-release
+			return clusterName + "-done", nil
+		})
+		if err != nil {
+			errCh <- err
+			return
+		}
+		resultCh <- results
+	}()
+
+	for range 2 {
+		select {
+		case <-started:
+		case <-time.After(2 * time.Second):
+			t.Fatal("timed out waiting for bounded workers to start")
+		}
+	}
+
+	select {
+	case <-started:
+		t.Fatal("started more workers than the concurrency limit allows")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	close(release)
+
+	select {
+	case err := <-errCh:
+		t.Fatalf("ExecuteOnSelected() error = %v", err)
+	case results := <-resultCh:
+		if len(results) != 5 {
+			t.Fatalf("result count = %d, want 5", len(results))
+		}
+		if maxRunning.Load() > 2 {
+			t.Fatalf("max concurrency = %d, want <= 2", maxRunning.Load())
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for ExecuteOnSelected() to finish")
+	}
+}
+
 func newTestManager(t *testing.T, clusters []string) *ClientManager {
 	t.Helper()
 

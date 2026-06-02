@@ -21,9 +21,28 @@ type GitOpsDriftResult struct {
 
 // GitOpsSyncResult aggregates sync results from multiple clusters
 type GitOpsSyncResult struct {
-	Source    gitops.ManifestSource   `json:"source"`
-	DryRun    bool                    `json:"dryRun"`
-	Summaries []gitops.SyncSummary    `json:"summaries"`
+	Source    gitops.ManifestSource `json:"source"`
+	DryRun    bool                  `json:"dryRun"`
+	Summaries []gitops.SyncSummary  `json:"summaries"`
+}
+
+const gitOpsMaxConcurrentClusters = 20
+
+func runGitOpsClusterTasks(clusterNames []string, fn func(string)) {
+	sem := make(chan struct{}, gitOpsMaxConcurrentClusters)
+	var wg sync.WaitGroup
+
+	for _, clusterName := range clusterNames {
+		sem <- struct{}{}
+		wg.Add(1)
+		go func(cluster string) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			fn(cluster)
+		}(clusterName)
+	}
+
+	wg.Wait()
 }
 
 // handleDetectDrift detects drift between git and clusters
@@ -82,64 +101,50 @@ func (s *Server) handleDetectDrift(ctx context.Context, args json.RawMessage) (i
 		ClusterCount: len(targetClusters),
 	}
 
-	var allDrifts []gitops.DriftResult
+	allDrifts := make([]gitops.DriftResult, 0)
 	var mu sync.Mutex
-	var wg sync.WaitGroup
 
-	// Limit concurrent goroutines to prevent resource exhaustion
-	const maxConcurrency = 20
-	sem := make(chan struct{}, maxConcurrency)
-
-	for _, clusterName := range targetClusters {
-		wg.Add(1)
-		go func(cluster string) {
-			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
-
-			config, err := s.manager.GetConfig(cluster)
-			if err != nil {
-				mu.Lock()
-				allDrifts = append(allDrifts, gitops.DriftResult{
-					Cluster:     cluster,
-					DriftType:   gitops.DriftTypeMissing,
-					Differences: []string{fmt.Sprintf("Failed to get config: %v", err)},
-				})
-				mu.Unlock()
-				return
-			}
-
-			detector, err := gitops.NewDriftDetector(config)
-			if err != nil {
-				mu.Lock()
-				allDrifts = append(allDrifts, gitops.DriftResult{
-					Cluster:     cluster,
-					DriftType:   gitops.DriftTypeMissing,
-					Differences: []string{fmt.Sprintf("Failed to create detector: %v", err)},
-				})
-				mu.Unlock()
-				return
-			}
-
-			drifts, err := detector.DetectDrift(ctx, manifests, cluster)
-			if err != nil {
-				mu.Lock()
-				allDrifts = append(allDrifts, gitops.DriftResult{
-					Cluster:     cluster,
-					DriftType:   gitops.DriftTypeMissing,
-					Differences: []string{fmt.Sprintf("Failed to detect drift: %v", err)},
-				})
-				mu.Unlock()
-				return
-			}
-
+	runGitOpsClusterTasks(targetClusters, func(cluster string) {
+		config, err := s.manager.GetConfig(cluster)
+		if err != nil {
 			mu.Lock()
-			allDrifts = append(allDrifts, drifts...)
+			allDrifts = append(allDrifts, gitops.DriftResult{
+				Cluster:     cluster,
+				DriftType:   gitops.DriftTypeMissing,
+				Differences: []string{fmt.Sprintf("Failed to get config: %v", err)},
+			})
 			mu.Unlock()
-		}(clusterName)
-	}
+			return
+		}
 
-	wg.Wait()
+		detector, err := gitops.NewDriftDetector(config)
+		if err != nil {
+			mu.Lock()
+			allDrifts = append(allDrifts, gitops.DriftResult{
+				Cluster:     cluster,
+				DriftType:   gitops.DriftTypeMissing,
+				Differences: []string{fmt.Sprintf("Failed to create detector: %v", err)},
+			})
+			mu.Unlock()
+			return
+		}
+
+		drifts, err := detector.DetectDrift(ctx, manifests, cluster)
+		if err != nil {
+			mu.Lock()
+			allDrifts = append(allDrifts, gitops.DriftResult{
+				Cluster:     cluster,
+				DriftType:   gitops.DriftTypeMissing,
+				Differences: []string{fmt.Sprintf("Failed to detect drift: %v", err)},
+			})
+			mu.Unlock()
+			return
+		}
+
+		mu.Lock()
+		allDrifts = append(allDrifts, drifts...)
+		mu.Unlock()
+	})
 
 	result.Drifts = allDrifts
 	result.TotalDrifts = len(allDrifts)
@@ -214,76 +219,62 @@ func (s *Server) handleSyncFromGit(ctx context.Context, args json.RawMessage) (i
 		Exclude:   params.Exclude,
 	}
 
-	var summaries []gitops.SyncSummary
+	summaries := make([]gitops.SyncSummary, 0, len(targetClusters))
 	var mu sync.Mutex
-	var wg sync.WaitGroup
 
-	// Limit concurrent goroutines to prevent resource exhaustion
-	const maxConcurrency = 20
-	sem := make(chan struct{}, maxConcurrency)
-
-	for _, clusterName := range targetClusters {
-		wg.Add(1)
-		go func(cluster string) {
-			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
-
-			config, err := s.manager.GetConfig(cluster)
-			if err != nil {
-				mu.Lock()
-				summaries = append(summaries, gitops.SyncSummary{
-					Cluster: cluster,
-					Failed:  1,
-					Results: []gitops.SyncResult{{
-						Cluster: cluster,
-						Action:  gitops.SyncActionFailed,
-						Message: fmt.Sprintf("Failed to get config: %v", err),
-					}},
-				})
-				mu.Unlock()
-				return
-			}
-
-			syncer, err := gitops.NewSyncer(config)
-			if err != nil {
-				mu.Lock()
-				summaries = append(summaries, gitops.SyncSummary{
-					Cluster: cluster,
-					Failed:  1,
-					Results: []gitops.SyncResult{{
-						Cluster: cluster,
-						Action:  gitops.SyncActionFailed,
-						Message: fmt.Sprintf("Failed to create syncer: %v", err),
-					}},
-				})
-				mu.Unlock()
-				return
-			}
-
-			summary, err := syncer.Sync(ctx, manifests, cluster, opts)
-			if err != nil {
-				mu.Lock()
-				summaries = append(summaries, gitops.SyncSummary{
-					Cluster: cluster,
-					Failed:  1,
-					Results: []gitops.SyncResult{{
-						Cluster: cluster,
-						Action:  gitops.SyncActionFailed,
-						Message: fmt.Sprintf("Failed to sync: %v", err),
-					}},
-				})
-				mu.Unlock()
-				return
-			}
-
+	runGitOpsClusterTasks(targetClusters, func(cluster string) {
+		config, err := s.manager.GetConfig(cluster)
+		if err != nil {
 			mu.Lock()
-			summaries = append(summaries, *summary)
+			summaries = append(summaries, gitops.SyncSummary{
+				Cluster: cluster,
+				Failed:  1,
+				Results: []gitops.SyncResult{{
+					Cluster: cluster,
+					Action:  gitops.SyncActionFailed,
+					Message: fmt.Sprintf("Failed to get config: %v", err),
+				}},
+			})
 			mu.Unlock()
-		}(clusterName)
-	}
+			return
+		}
 
-	wg.Wait()
+		syncer, err := gitops.NewSyncer(config)
+		if err != nil {
+			mu.Lock()
+			summaries = append(summaries, gitops.SyncSummary{
+				Cluster: cluster,
+				Failed:  1,
+				Results: []gitops.SyncResult{{
+					Cluster: cluster,
+					Action:  gitops.SyncActionFailed,
+					Message: fmt.Sprintf("Failed to create syncer: %v", err),
+				}},
+			})
+			mu.Unlock()
+			return
+		}
+
+		summary, err := syncer.Sync(ctx, manifests, cluster, opts)
+		if err != nil {
+			mu.Lock()
+			summaries = append(summaries, gitops.SyncSummary{
+				Cluster: cluster,
+				Failed:  1,
+				Results: []gitops.SyncResult{{
+					Cluster: cluster,
+					Action:  gitops.SyncActionFailed,
+					Message: fmt.Sprintf("Failed to sync: %v", err),
+				}},
+			})
+			mu.Unlock()
+			return
+		}
+
+		mu.Lock()
+		summaries = append(summaries, *summary)
+		mu.Unlock()
+	})
 
 	result.Summaries = summaries
 	return result, nil
