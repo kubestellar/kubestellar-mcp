@@ -134,10 +134,8 @@ func (r *ManifestReader) ReadFromGit(ctx context.Context, source ManifestSource)
 		return nil, fmt.Errorf("repo URL validation failed: %w", err)
 	}
 
-	// Clean up previous temp directory if it exists (issue #153)
-	if r.tempDir != "" {
-		_ = os.RemoveAll(r.tempDir)
-		r.tempDir = ""
+	if err := r.resetTempDir(); err != nil {
+		return nil, err
 	}
 
 	// Create temp directory
@@ -146,6 +144,12 @@ func (r *ManifestReader) ReadFromGit(ctx context.Context, source ManifestSource)
 		return nil, fmt.Errorf("failed to create temp dir: %w", err)
 	}
 	r.tempDir = tempDir
+	cleanupOnError := true
+	defer func() {
+		if cleanupOnError {
+			r.Cleanup()
+		}
+	}()
 
 	// Clone the repo
 	branch := source.Branch
@@ -162,14 +166,16 @@ func (r *ManifestReader) ReadFromGit(ctx context.Context, source ManifestSource)
 		return nil, fmt.Errorf("failed to clone repo: %w\n%s", err, output)
 	}
 
-	// Read manifests from path
-	// Validate path to prevent directory traversal (issue #152)
-	manifestPath := filepath.Clean(filepath.Join(tempDir, source.Path))
-	// Ensure the resolved path is within tempDir
-	if !strings.HasPrefix(manifestPath, filepath.Clean(tempDir)+string(filepath.Separator)) && manifestPath != filepath.Clean(tempDir) {
-		return nil, fmt.Errorf("invalid path: %q escapes repository directory", source.Path)
+	manifestPath, err := resolveManifestPath(tempDir, source.Path)
+	if err != nil {
+		return nil, err
 	}
-	return r.ReadFromPath(manifestPath)
+	manifests, err := r.ReadFromPath(manifestPath)
+	if err != nil {
+		return nil, err
+	}
+	cleanupOnError = false
+	return manifests, nil
 }
 
 // ReadFromPath reads all YAML manifests from a directory
@@ -248,10 +254,36 @@ func (r *ManifestReader) ReadFromReader(reader io.Reader) ([]Manifest, error) {
 	return manifests, nil
 }
 
+func resolveManifestPath(baseDir, requestedPath string) (string, error) {
+	if filepath.IsAbs(requestedPath) {
+		return "", fmt.Errorf("invalid path %q escapes repository directory", requestedPath)
+	}
+	resolvedPath := filepath.Clean(filepath.Join(baseDir, requestedPath))
+	rel, err := filepath.Rel(baseDir, resolvedPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve path %q: %w", requestedPath, err)
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("invalid path %q escapes repository directory", requestedPath)
+	}
+	return resolvedPath, nil
+}
+
+func (r *ManifestReader) resetTempDir() error {
+	if r.tempDir == "" {
+		return nil
+	}
+	if err := os.RemoveAll(r.tempDir); err != nil {
+		return fmt.Errorf("failed to remove previous temp dir %q: %w", r.tempDir, err)
+	}
+	r.tempDir = ""
+	return nil
+}
+
 // Cleanup removes temporary files
 func (r *ManifestReader) Cleanup() {
-	if r.tempDir != "" {
-		_ = os.RemoveAll(r.tempDir)
+	if err := r.resetTempDir(); err != nil {
+		_ = err
 	}
 }
 
