@@ -10,6 +10,8 @@ import (
 )
 
 // ClusterResult represents the result of an operation on a single cluster
+const maxConcurrentClusterOperations = 20
+
 type ClusterResult struct {
 	Cluster string      `json:"cluster"`
 	Result  interface{} `json:"result,omitempty"`
@@ -67,14 +69,17 @@ func (s *Server) executeAll(ctx context.Context, fn ExecuteFunc) ([]ClusterResul
 		return nil, fmt.Errorf("no clusters found from any discovery source")
 	}
 
-	var results []ClusterResult
+	results := make([]ClusterResult, 0, len(clusters))
+	sem := make(chan struct{}, maxConcurrentClusterOperations)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 
 	for _, cluster := range clusters {
+		sem <- struct{}{}
 		wg.Add(1)
 		go func(clusterName string) {
 			defer wg.Done()
+			defer func() { <-sem }()
 
 			client, err := s.getClientForCluster(clusterName)
 			if err != nil {

@@ -14,15 +14,19 @@ type ClusterResult struct {
 	Error   string      `json:"error,omitempty"`
 }
 
+const defaultMaxConcurrentClusterOperations = 20
+
 // Executor handles multi-cluster operations
 type Executor struct {
-	manager *ClientManager
+	manager        *ClientManager
+	maxConcurrency int
 }
 
 // NewExecutor creates a new multi-cluster executor
 func NewExecutor(manager *ClientManager) *Executor {
 	return &Executor{
-		manager: manager,
+		manager:        manager,
+		maxConcurrency: defaultMaxConcurrentClusterOperations,
 	}
 }
 
@@ -73,57 +77,31 @@ func (e *Executor) executeAll(ctx context.Context, fn ExecuteFunc) ([]ClusterRes
 		return nil, err
 	}
 
-	var results []ClusterResult
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-
+	clusterNames := make([]string, 0, len(clusters))
 	for _, cluster := range clusters {
-		wg.Add(1)
-		go func(clusterName string) {
-			defer wg.Done()
-
-			client, err := e.manager.GetClient(clusterName)
-			if err != nil {
-				mu.Lock()
-				results = append(results, ClusterResult{
-					Cluster: clusterName,
-					Error:   err.Error(),
-				})
-				mu.Unlock()
-				return
-			}
-
-			result, err := fn(ctx, client, clusterName)
-			mu.Lock()
-			if err != nil {
-				results = append(results, ClusterResult{
-					Cluster: clusterName,
-					Error:   err.Error(),
-				})
-			} else {
-				results = append(results, ClusterResult{
-					Cluster: clusterName,
-					Result:  result,
-				})
-			}
-			mu.Unlock()
-		}(cluster.Name)
+		clusterNames = append(clusterNames, cluster.Name)
 	}
 
-	wg.Wait()
-	return results, nil
+	return e.executeAcrossClusters(ctx, clusterNames, fn), nil
 }
 
 // ExecuteOnSelected runs the operation on selected clusters
 func (e *Executor) ExecuteOnSelected(ctx context.Context, clusterNames []string, fn ExecuteFunc) ([]ClusterResult, error) {
-	var results []ClusterResult
+	return e.executeAcrossClusters(ctx, clusterNames, fn), nil
+}
+
+func (e *Executor) executeAcrossClusters(ctx context.Context, clusterNames []string, fn ExecuteFunc) []ClusterResult {
+	results := make([]ClusterResult, 0, len(clusterNames))
+	sem := make(chan struct{}, e.concurrencyLimit())
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 
 	for _, clusterName := range clusterNames {
+		sem <- struct{}{}
 		wg.Add(1)
 		go func(name string) {
 			defer wg.Done()
+			defer func() { <-sem }()
 
 			client, err := e.manager.GetClient(name)
 			if err != nil {
@@ -154,5 +132,12 @@ func (e *Executor) ExecuteOnSelected(ctx context.Context, clusterNames []string,
 	}
 
 	wg.Wait()
-	return results, nil
+	return results
+}
+
+func (e *Executor) concurrencyLimit() int {
+	if e.maxConcurrency > 0 {
+		return e.maxConcurrency
+	}
+	return defaultMaxConcurrentClusterOperations
 }

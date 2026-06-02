@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"k8s.io/client-go/kubernetes"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
@@ -127,5 +129,75 @@ func TestExecuteAllDiscoveryFailures(t *testing.T) {
 			assert.Nil(t, results)
 			require.EqualError(t, err, tt.wantError)
 		})
+	}
+}
+
+func TestExecuteAllBoundsConcurrency(t *testing.T) {
+	clusters := make([]cluster.ClusterInfo, 0, maxConcurrentClusterOperations+5)
+	for i := range maxConcurrentClusterOperations + 5 {
+		clusters = append(clusters, cluster.ClusterInfo{Name: fmt.Sprintf("cluster-%d", i)})
+	}
+
+	s := &Server{
+		discoverer: stubDiscoverer{discoverClusters: func(source string) ([]cluster.ClusterInfo, error) {
+			return clusters, nil
+		}},
+		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
+			return k8sfake.NewSimpleClientset(), nil
+		},
+	}
+
+	var running atomic.Int32
+	var maxRunning atomic.Int32
+	release := make(chan struct{})
+	started := make(chan struct{}, len(clusters))
+	resultCh := make(chan []ClusterResult, 1)
+	errCh := make(chan error, 1)
+
+	go func() {
+		results, err := s.executeAll(context.Background(), func(ctx context.Context, client kubernetes.Interface, clusterName string) (interface{}, error) {
+			current := running.Add(1)
+			defer running.Add(-1)
+			for {
+				observed := maxRunning.Load()
+				if current <= observed || maxRunning.CompareAndSwap(observed, current) {
+					break
+				}
+			}
+			started <- struct{}{}
+			<-release
+			return clusterName + "-ok", nil
+		})
+		if err != nil {
+			errCh <- err
+			return
+		}
+		resultCh <- results
+	}()
+
+	for range maxConcurrentClusterOperations {
+		select {
+		case <-started:
+		case <-time.After(2 * time.Second):
+			t.Fatal("timed out waiting for executeAll workers to start")
+		}
+	}
+
+	select {
+	case <-started:
+		t.Fatal("started more executeAll workers than the concurrency limit allows")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	close(release)
+
+	select {
+	case err := <-errCh:
+		t.Fatalf("executeAll() error = %v", err)
+	case results := <-resultCh:
+		require.Len(t, results, len(clusters))
+		assert.LessOrEqual(t, maxRunning.Load(), int32(maxConcurrentClusterOperations))
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for executeAll() to finish")
 	}
 }

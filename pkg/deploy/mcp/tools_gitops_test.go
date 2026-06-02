@@ -2,10 +2,13 @@ package mcp
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
 	"github.com/stretchr/testify/assert"
@@ -143,6 +146,59 @@ func TestHandleReconcileDelegatesToSyncWithoutDryRun(t *testing.T) {
 	assert.False(t, result.DryRun)
 	require.Len(t, result.Summaries, 1)
 	assert.Equal(t, gitops.SyncActionFailed, result.Summaries[0].Results[0].Action)
+}
+
+func TestRunGitOpsClusterTasksBoundsConcurrency(t *testing.T) {
+	clusters := make([]string, 0, gitOpsMaxConcurrentClusters+5)
+	for i := range gitOpsMaxConcurrentClusters + 5 {
+		clusters = append(clusters, fmt.Sprintf("cluster-%d", i))
+	}
+
+	var running atomic.Int32
+	var maxRunning atomic.Int32
+	release := make(chan struct{})
+	started := make(chan struct{}, len(clusters))
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+		runGitOpsClusterTasks(clusters, func(cluster string) {
+			current := running.Add(1)
+			defer running.Add(-1)
+			for {
+				observed := maxRunning.Load()
+				if current <= observed || maxRunning.CompareAndSwap(observed, current) {
+					break
+				}
+			}
+			started <- struct{}{}
+			<-release
+		})
+	}()
+
+	for range gitOpsMaxConcurrentClusters {
+		select {
+		case <-started:
+		case <-time.After(2 * time.Second):
+			t.Fatal("timed out waiting for gitops workers to start")
+		}
+	}
+
+	select {
+	case <-started:
+		t.Fatal("started more gitops workers than the concurrency limit allows")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	close(release)
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for gitops tasks to finish")
+	}
+
+	assert.LessOrEqual(t, maxRunning.Load(), int32(gitOpsMaxConcurrentClusters))
 }
 
 func TestHandlePreviewChangesDelegatesToSyncWithDryRun(t *testing.T) {
