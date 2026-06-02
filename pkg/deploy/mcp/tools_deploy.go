@@ -7,7 +7,9 @@ import (
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -22,6 +24,11 @@ type DeployResult struct {
 	Resource string `json:"resource"`
 	Status   string `json:"status"` // created, updated, unchanged, failed
 	Message  string `json:"message,omitempty"`
+}
+
+// boolPtr returns a pointer to a bool value
+func boolPtr(b bool) *bool {
+	return &b
 }
 
 // handleListClusterCapabilities returns cluster capabilities
@@ -210,12 +217,22 @@ func (s *Server) applyManifest(ctx context.Context, client *kubernetes.Clientset
 		switch kind {
 		case "Deployment":
 			status, err = s.applyDeployment(ctx, client, rawObj, namespace)
+		case "StatefulSet":
+			status, err = s.applyStatefulSet(ctx, client, rawObj, namespace)
+		case "DaemonSet":
+			status, err = s.applyDaemonSet(ctx, client, rawObj, namespace)
 		case "Service":
 			status, err = s.applyService(ctx, client, rawObj, namespace)
 		case "ConfigMap":
 			status, err = s.applyConfigMap(ctx, client, rawObj, namespace)
 		case "Secret":
 			status, err = s.applySecret(ctx, client, rawObj, namespace)
+		case "Ingress":
+			status, err = s.applyIngress(ctx, client, rawObj, namespace)
+		case "Job":
+			status, err = s.applyJob(ctx, client, rawObj, namespace)
+		case "CronJob":
+			status, err = s.applyCronJob(ctx, client, rawObj, namespace)
 		default:
 			status = "skipped"
 			err = fmt.Errorf("unsupported kind: %s", kind)
@@ -240,7 +257,7 @@ func (s *Server) applyManifest(ctx context.Context, client *kubernetes.Clientset
 	return results, nil
 }
 
-// applyDeployment creates or updates a deployment
+// applyDeployment creates or updates a deployment using server-side apply
 func (s *Server) applyDeployment(ctx context.Context, client *kubernetes.Clientset, rawObj map[string]interface{}, namespace string) (string, error) {
 	data, err := json.Marshal(rawObj)
 	if err != nil {
@@ -252,27 +269,27 @@ func (s *Server) applyDeployment(ctx context.Context, client *kubernetes.Clients
 		return "", err
 	}
 
-	// Try to get existing
-	existing, err := client.AppsV1().Deployments(namespace).Get(ctx, deployment.Name, metav1.GetOptions{})
-	if err == nil {
-		// Update
-		deployment.ResourceVersion = existing.ResourceVersion
-		_, err = client.AppsV1().Deployments(namespace).Update(ctx, &deployment, metav1.UpdateOptions{})
-		if err != nil {
-			return "", err
-		}
-		return "updated", nil
-	}
+	// Check if resource exists
+	_, err = client.AppsV1().Deployments(namespace).Get(ctx, deployment.Name, metav1.GetOptions{})
+	exists := err == nil
 
-	// Create
-	_, err = client.AppsV1().Deployments(namespace).Create(ctx, &deployment, metav1.CreateOptions{})
+	// Use server-side apply (Patch with ApplyPatchType) instead of Update to avoid clobbering server-managed fields
+	_, err = client.AppsV1().Deployments(namespace).Patch(ctx, deployment.Name,
+		types.ApplyPatchType, data, metav1.PatchOptions{
+			FieldManager: "kubestellar-deploy",
+			Force:        boolPtr(true),
+		})
 	if err != nil {
 		return "", err
+	}
+
+	if exists {
+		return "updated", nil
 	}
 	return "created", nil
 }
 
-// applyService creates or updates a service
+// applyService creates or updates a service using server-side apply
 func (s *Server) applyService(ctx context.Context, client *kubernetes.Clientset, rawObj map[string]interface{}, namespace string) (string, error) {
 	data, err := json.Marshal(rawObj)
 	if err != nil {
@@ -284,28 +301,27 @@ func (s *Server) applyService(ctx context.Context, client *kubernetes.Clientset,
 		return "", err
 	}
 
-	// Try to get existing
-	existing, err := client.CoreV1().Services(namespace).Get(ctx, service.Name, metav1.GetOptions{})
-	if err == nil {
-		// Update - preserve clusterIP
-		service.Spec.ClusterIP = existing.Spec.ClusterIP
-		service.ResourceVersion = existing.ResourceVersion
-		_, err = client.CoreV1().Services(namespace).Update(ctx, &service, metav1.UpdateOptions{})
-		if err != nil {
-			return "", err
-		}
-		return "updated", nil
-	}
+	// Check if resource exists
+	_, err = client.CoreV1().Services(namespace).Get(ctx, service.Name, metav1.GetOptions{})
+	exists := err == nil
 
-	// Create
-	_, err = client.CoreV1().Services(namespace).Create(ctx, &service, metav1.CreateOptions{})
+	// Use server-side apply (Patch with ApplyPatchType) instead of Update to avoid clobbering server-managed fields like clusterIP
+	_, err = client.CoreV1().Services(namespace).Patch(ctx, service.Name,
+		types.ApplyPatchType, data, metav1.PatchOptions{
+			FieldManager: "kubestellar-deploy",
+			Force:        boolPtr(true),
+		})
 	if err != nil {
 		return "", err
+	}
+
+	if exists {
+		return "updated", nil
 	}
 	return "created", nil
 }
 
-// applyConfigMap creates or updates a configmap
+// applyConfigMap creates or updates a configmap using server-side apply
 func (s *Server) applyConfigMap(ctx context.Context, client *kubernetes.Clientset, rawObj map[string]interface{}, namespace string) (string, error) {
 	data, err := json.Marshal(rawObj)
 	if err != nil {
@@ -317,27 +333,27 @@ func (s *Server) applyConfigMap(ctx context.Context, client *kubernetes.Clientse
 		return "", err
 	}
 
-	// Try to get existing
-	existing, err := client.CoreV1().ConfigMaps(namespace).Get(ctx, cm.Name, metav1.GetOptions{})
-	if err == nil {
-		// Update
-		cm.ResourceVersion = existing.ResourceVersion
-		_, err = client.CoreV1().ConfigMaps(namespace).Update(ctx, &cm, metav1.UpdateOptions{})
-		if err != nil {
-			return "", err
-		}
-		return "updated", nil
-	}
+	// Check if resource exists
+	_, err = client.CoreV1().ConfigMaps(namespace).Get(ctx, cm.Name, metav1.GetOptions{})
+	exists := err == nil
 
-	// Create
-	_, err = client.CoreV1().ConfigMaps(namespace).Create(ctx, &cm, metav1.CreateOptions{})
+	// Use server-side apply (Patch with ApplyPatchType) instead of Update to avoid clobbering server-managed fields
+	_, err = client.CoreV1().ConfigMaps(namespace).Patch(ctx, cm.Name,
+		types.ApplyPatchType, data, metav1.PatchOptions{
+			FieldManager: "kubestellar-deploy",
+			Force:        boolPtr(true),
+		})
 	if err != nil {
 		return "", err
+	}
+
+	if exists {
+		return "updated", nil
 	}
 	return "created", nil
 }
 
-// applySecret creates or updates a secret
+// applySecret creates or updates a secret using server-side apply
 func (s *Server) applySecret(ctx context.Context, client *kubernetes.Clientset, rawObj map[string]interface{}, namespace string) (string, error) {
 	data, err := json.Marshal(rawObj)
 	if err != nil {
@@ -349,22 +365,182 @@ func (s *Server) applySecret(ctx context.Context, client *kubernetes.Clientset, 
 		return "", err
 	}
 
-	// Try to get existing
-	existing, err := client.CoreV1().Secrets(namespace).Get(ctx, secret.Name, metav1.GetOptions{})
-	if err == nil {
-		// Update
-		secret.ResourceVersion = existing.ResourceVersion
-		_, err = client.CoreV1().Secrets(namespace).Update(ctx, &secret, metav1.UpdateOptions{})
-		if err != nil {
-			return "", err
-		}
-		return "updated", nil
-	}
+	// Check if resource exists
+	_, err = client.CoreV1().Secrets(namespace).Get(ctx, secret.Name, metav1.GetOptions{})
+	exists := err == nil
 
-	// Create
-	_, err = client.CoreV1().Secrets(namespace).Create(ctx, &secret, metav1.CreateOptions{})
+	// Use server-side apply (Patch with ApplyPatchType) instead of Update to avoid clobbering server-managed fields
+	_, err = client.CoreV1().Secrets(namespace).Patch(ctx, secret.Name,
+		types.ApplyPatchType, data, metav1.PatchOptions{
+			FieldManager: "kubestellar-deploy",
+			Force:        boolPtr(true),
+		})
 	if err != nil {
 		return "", err
+	}
+
+	if exists {
+		return "updated", nil
+	}
+	return "created", nil
+}
+
+// applyStatefulSet creates or updates a statefulset using server-side apply
+func (s *Server) applyStatefulSet(ctx context.Context, client *kubernetes.Clientset, rawObj map[string]interface{}, namespace string) (string, error) {
+	data, err := json.Marshal(rawObj)
+	if err != nil {
+		return "", err
+	}
+
+	var sts appsv1.StatefulSet
+	if err := json.Unmarshal(data, &sts); err != nil {
+		return "", err
+	}
+
+	// Check if resource exists
+	_, err = client.AppsV1().StatefulSets(namespace).Get(ctx, sts.Name, metav1.GetOptions{})
+	exists := err == nil
+
+	// Use server-side apply
+	_, err = client.AppsV1().StatefulSets(namespace).Patch(ctx, sts.Name,
+		types.ApplyPatchType, data, metav1.PatchOptions{
+			FieldManager: "kubestellar-deploy",
+			Force:        boolPtr(true),
+		})
+	if err != nil {
+		return "", err
+	}
+
+	if exists {
+		return "updated", nil
+	}
+	return "created", nil
+}
+
+// applyDaemonSet creates or updates a daemonset using server-side apply
+func (s *Server) applyDaemonSet(ctx context.Context, client *kubernetes.Clientset, rawObj map[string]interface{}, namespace string) (string, error) {
+	data, err := json.Marshal(rawObj)
+	if err != nil {
+		return "", err
+	}
+
+	var ds appsv1.DaemonSet
+	if err := json.Unmarshal(data, &ds); err != nil {
+		return "", err
+	}
+
+	// Check if resource exists
+	_, err = client.AppsV1().DaemonSets(namespace).Get(ctx, ds.Name, metav1.GetOptions{})
+	exists := err == nil
+
+	// Use server-side apply
+	_, err = client.AppsV1().DaemonSets(namespace).Patch(ctx, ds.Name,
+		types.ApplyPatchType, data, metav1.PatchOptions{
+			FieldManager: "kubestellar-deploy",
+			Force:        boolPtr(true),
+		})
+	if err != nil {
+		return "", err
+	}
+
+	if exists {
+		return "updated", nil
+	}
+	return "created", nil
+}
+
+// applyIngress creates or updates an ingress using server-side apply
+func (s *Server) applyIngress(ctx context.Context, client *kubernetes.Clientset, rawObj map[string]interface{}, namespace string) (string, error) {
+	data, err := json.Marshal(rawObj)
+	if err != nil {
+		return "", err
+	}
+
+	var ing networkingv1.Ingress
+	if err := json.Unmarshal(data, &ing); err != nil {
+		return "", err
+	}
+
+	// Check if resource exists
+	_, err = client.NetworkingV1().Ingresses(namespace).Get(ctx, ing.Name, metav1.GetOptions{})
+	exists := err == nil
+
+	// Use server-side apply
+	_, err = client.NetworkingV1().Ingresses(namespace).Patch(ctx, ing.Name,
+		types.ApplyPatchType, data, metav1.PatchOptions{
+			FieldManager: "kubestellar-deploy",
+			Force:        boolPtr(true),
+		})
+	if err != nil {
+		return "", err
+	}
+
+	if exists {
+		return "updated", nil
+	}
+	return "created", nil
+}
+
+// applyJob creates or updates a job using server-side apply
+func (s *Server) applyJob(ctx context.Context, client *kubernetes.Clientset, rawObj map[string]interface{}, namespace string) (string, error) {
+	data, err := json.Marshal(rawObj)
+	if err != nil {
+		return "", err
+	}
+
+	var job batchv1.Job
+	if err := json.Unmarshal(data, &job); err != nil {
+		return "", err
+	}
+
+	// Check if resource exists
+	_, err = client.BatchV1().Jobs(namespace).Get(ctx, job.Name, metav1.GetOptions{})
+	exists := err == nil
+
+	// Use server-side apply
+	_, err = client.BatchV1().Jobs(namespace).Patch(ctx, job.Name,
+		types.ApplyPatchType, data, metav1.PatchOptions{
+			FieldManager: "kubestellar-deploy",
+			Force:        boolPtr(true),
+		})
+	if err != nil {
+		return "", err
+	}
+
+	if exists {
+		return "updated", nil
+	}
+	return "created", nil
+}
+
+// applyCronJob creates or updates a cronjob using server-side apply
+func (s *Server) applyCronJob(ctx context.Context, client *kubernetes.Clientset, rawObj map[string]interface{}, namespace string) (string, error) {
+	data, err := json.Marshal(rawObj)
+	if err != nil {
+		return "", err
+	}
+
+	var cj batchv1.CronJob
+	if err := json.Unmarshal(data, &cj); err != nil {
+		return "", err
+	}
+
+	// Check if resource exists
+	_, err = client.BatchV1().CronJobs(namespace).Get(ctx, cj.Name, metav1.GetOptions{})
+	exists := err == nil
+
+	// Use server-side apply
+	_, err = client.BatchV1().CronJobs(namespace).Patch(ctx, cj.Name,
+		types.ApplyPatchType, data, metav1.PatchOptions{
+			FieldManager: "kubestellar-deploy",
+			Force:        boolPtr(true),
+		})
+	if err != nil {
+		return "", err
+	}
+
+	if exists {
+		return "updated", nil
 	}
 	return "created", nil
 }

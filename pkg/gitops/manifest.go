@@ -134,6 +134,12 @@ func (r *ManifestReader) ReadFromGit(ctx context.Context, source ManifestSource)
 		return nil, fmt.Errorf("repo URL validation failed: %w", err)
 	}
 
+	// Clean up previous temp directory if it exists (issue #153)
+	if r.tempDir != "" {
+		_ = os.RemoveAll(r.tempDir)
+		r.tempDir = ""
+	}
+
 	// Create temp directory
 	tempDir, err := os.MkdirTemp("", "kubestellar-deploy-*")
 	if err != nil {
@@ -157,7 +163,12 @@ func (r *ManifestReader) ReadFromGit(ctx context.Context, source ManifestSource)
 	}
 
 	// Read manifests from path
-	manifestPath := filepath.Join(tempDir, source.Path)
+	// Validate path to prevent directory traversal (issue #152)
+	manifestPath := filepath.Clean(filepath.Join(tempDir, source.Path))
+	// Ensure the resolved path is within tempDir
+	if !strings.HasPrefix(manifestPath, filepath.Clean(tempDir)+string(filepath.Separator)) && manifestPath != filepath.Clean(tempDir) {
+		return nil, fmt.Errorf("invalid path: %q escapes repository directory", source.Path)
+	}
 	return r.ReadFromPath(manifestPath)
 }
 

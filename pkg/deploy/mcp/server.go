@@ -9,12 +9,17 @@ import (
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
 	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
+	"k8s.io/client-go/rest"
 )
 
 const (
 	ServerName    = "kubestellar-deploy"
 	ServerVersion = "0.8.0"
 )
+
+type manifestSyncer interface {
+	Sync(ctx context.Context, manifests []gitops.Manifest, clusterName string, opts gitops.SyncOptions) (*gitops.SyncSummary, error)
+}
 
 // Server implements the MCP server for kubestellar-deploy
 type Server struct {
@@ -24,6 +29,9 @@ type Server struct {
 	// newManifestReader is a factory for creating manifest readers.
 	// Tests can override this to allow file:// URLs for local test repos.
 	newManifestReader func() *gitops.ManifestReader
+	// newManifestSyncer is a factory for creating manifest syncers.
+	// Tests can override this to avoid talking to a real API server.
+	newManifestSyncer func(*rest.Config) (manifestSyncer, error)
 }
 
 // NewServer creates a new MCP server
@@ -41,6 +49,9 @@ func NewServer() (*Server, error) {
 		executor:          executor,
 		selector:          selector,
 		newManifestReader: gitops.NewManifestReader,
+		newManifestSyncer: func(config *rest.Config) (manifestSyncer, error) {
+			return gitops.NewSyncer(config)
+		},
 	}, nil
 }
 
@@ -50,6 +61,13 @@ func (s *Server) getManifestReader() *gitops.ManifestReader {
 		return s.newManifestReader()
 	}
 	return gitops.NewManifestReader()
+}
+
+func (s *Server) getManifestSyncer(config *rest.Config) (manifestSyncer, error) {
+	if s.newManifestSyncer != nil {
+		return s.newManifestSyncer(config)
+	}
+	return gitops.NewSyncer(config)
 }
 
 // MCPRequest represents an incoming MCP request
