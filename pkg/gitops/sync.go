@@ -202,45 +202,50 @@ func (s *Syncer) syncResource(ctx context.Context, manifest Manifest, mapping re
 		return result, nil
 	}
 
-	// Resource exists - update it using server-side apply
-	if dryRun {
-		result.Action = SyncActionUpdated
-		result.Message = "Would update (dry-run)"
-		return result, nil
-	}
-
 	// Use server-side apply for updates
 	data, err := json.Marshal(obj.Object)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal: %w", err)
 	}
 
+	patchOpts := metav1.PatchOptions{
+		FieldManager: "kubestellar-deploy",
+		Force:        boolPtr(true),
+	}
+	updateErrMessage := "failed to update"
+	noChangeMessage := "No changes"
+	updatedMessage := "Updated (rv: %s -> %s)"
+	if dryRun {
+		patchOpts.DryRun = []string{"All"}
+		updateErrMessage = "failed dry-run check"
+		noChangeMessage = "No changes (dry-run)"
+		updatedMessage = "Would update (dry-run)"
+	}
+
 	var updated *unstructured.Unstructured
 	if mapping.ClusterScoped {
 		updated, err = s.dynClient.Resource(mapping.GVR).Patch(ctx, manifest.Metadata.Name,
-			types.ApplyPatchType, data, metav1.PatchOptions{
-				FieldManager: "kubestellar-deploy",
-				Force:        boolPtr(true),
-			})
+			types.ApplyPatchType, data, patchOpts)
 	} else {
 		updated, err = s.dynClient.Resource(mapping.GVR).Namespace(namespace).Patch(ctx, manifest.Metadata.Name,
-			types.ApplyPatchType, data, metav1.PatchOptions{
-				FieldManager: "kubestellar-deploy",
-				Force:        boolPtr(true),
-			})
+			types.ApplyPatchType, data, patchOpts)
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to update: %w", err)
+		return nil, fmt.Errorf("%s: %w", updateErrMessage, err)
 	}
 
 	// Check if anything actually changed
 	if existing.GetResourceVersion() == updated.GetResourceVersion() {
 		result.Action = SyncActionUnchanged
-		result.Message = "No changes"
+		result.Message = noChangeMessage
 	} else {
 		result.Action = SyncActionUpdated
-		result.Message = fmt.Sprintf("Updated (rv: %s -> %s)", existing.GetResourceVersion(), updated.GetResourceVersion())
+		if dryRun {
+			result.Message = updatedMessage
+		} else {
+			result.Message = fmt.Sprintf(updatedMessage, existing.GetResourceVersion(), updated.GetResourceVersion())
+		}
 	}
 
 	return result, nil
