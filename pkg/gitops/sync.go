@@ -203,12 +203,6 @@ func (s *Syncer) syncResource(ctx context.Context, manifest Manifest, mapping re
 	}
 
 	// Resource exists - update it using server-side apply
-	if dryRun {
-		result.Action = SyncActionUpdated
-		result.Message = "Would update (dry-run)"
-		return result, nil
-	}
-
 	// Use server-side apply for updates
 	data, err := json.Marshal(obj.Object)
 	if err != nil {
@@ -216,6 +210,33 @@ func (s *Syncer) syncResource(ctx context.Context, manifest Manifest, mapping re
 	}
 
 	var updated *unstructured.Unstructured
+	if dryRun {
+		// Use Kubernetes SSA dry-run mechanism
+		patchOpts := metav1.PatchOptions{
+			FieldManager: "kubestellar-deploy",
+			Force:        boolPtr(true),
+			DryRun:       []string{"All"},
+		}
+		if mapping.ClusterScoped {
+			updated, err = s.dynClient.Resource(mapping.GVR).Patch(ctx, manifest.Metadata.Name,
+				types.ApplyPatchType, data, patchOpts)
+		} else {
+			updated, err = s.dynClient.Resource(mapping.GVR).Namespace(namespace).Patch(ctx, manifest.Metadata.Name,
+				types.ApplyPatchType, data, patchOpts)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed dry-run check: %w", err)
+		}
+		if existing.GetResourceVersion() == updated.GetResourceVersion() {
+			result.Action = SyncActionUnchanged
+			result.Message = "No changes (dry-run)"
+		} else {
+			result.Action = SyncActionUpdated
+			result.Message = "Would update (dry-run)"
+		}
+		return result, nil
+	}
+
 	if mapping.ClusterScoped {
 		updated, err = s.dynClient.Resource(mapping.GVR).Patch(ctx, manifest.Metadata.Name,
 			types.ApplyPatchType, data, metav1.PatchOptions{
