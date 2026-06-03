@@ -112,6 +112,88 @@ func TestSyncUpdatesAndDetectsUnchangedResources(t *testing.T) {
 	}
 }
 
+func TestSyncDryRunUsesSSAPatchAndDetectsUnchangedResources(t *testing.T) {
+	tests := []struct {
+		name               string
+		updatedRV          string
+		wantAction         SyncAction
+		wantUpdated        int
+		wantUnchanged      int
+		wantMessageSnippet string
+	}{
+		{
+			name:               "would update resource",
+			updatedRV:          "2",
+			wantAction:         SyncActionUpdated,
+			wantUpdated:        1,
+			wantMessageSnippet: "Would update (dry-run)",
+		},
+		{
+			name:               "unchanged resource",
+			updatedRV:          "1",
+			wantAction:         SyncActionUnchanged,
+			wantUnchanged:      1,
+			wantMessageSnippet: "No changes (dry-run)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			existing := testManifestObject("ConfigMap", "demo", "apps", "1")
+			client := dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), existing)
+			client.PrependReactor("patch", "configmaps", func(action k8stesting.Action) (bool, runtime.Object, error) {
+				patchAction, ok := action.(k8stesting.PatchAction)
+				if !ok {
+					t.Fatalf("patch action type = %T, want PatchAction", action)
+				}
+				if patchAction.GetPatchType() != types.ApplyPatchType {
+					t.Fatalf("patch type = %v, want %v", patchAction.GetPatchType(), types.ApplyPatchType)
+				}
+
+				patchActionWithOptions, ok := action.(interface{ GetPatchOptions() metav1.PatchOptions })
+				if !ok {
+					t.Fatalf("patch action type = %T, want GetPatchOptions", action)
+				}
+				patchOptions := patchActionWithOptions.GetPatchOptions()
+				if patchOptions.FieldManager != "kubestellar-deploy" {
+					t.Fatalf("field manager = %q, want kubestellar-deploy", patchOptions.FieldManager)
+				}
+				if patchOptions.Force == nil || !*patchOptions.Force {
+					t.Fatalf("force = %v, want true", patchOptions.Force)
+				}
+				if len(patchOptions.DryRun) != 1 || patchOptions.DryRun[0] != "All" {
+					t.Fatalf("dry run options = %#v, want []string{\"All\"}", patchOptions.DryRun)
+				}
+
+				var raw map[string]interface{}
+				if err := json.Unmarshal(patchAction.GetPatch(), &raw); err != nil {
+					t.Fatalf("json.Unmarshal() error = %v", err)
+				}
+				updated := &unstructured.Unstructured{Object: raw}
+				updated.SetResourceVersion(tt.updatedRV)
+				return true, updated, nil
+			})
+
+			summary, err := (&Syncer{dynClient: client}).Sync(context.Background(), []Manifest{testManifest("v1", "ConfigMap", "demo", "apps")}, "alpha", SyncOptions{DryRun: true})
+			if err != nil {
+				t.Fatalf("Sync() error = %v", err)
+			}
+			if summary.Created != 0 || summary.Updated != tt.wantUpdated || summary.Unchanged != tt.wantUnchanged {
+				t.Fatalf("unexpected summary counts: %#v", summary)
+			}
+			if len(summary.Results) != 1 {
+				t.Fatalf("result count = %d, want 1", len(summary.Results))
+			}
+			if summary.Results[0].Action != tt.wantAction {
+				t.Fatalf("action = %q, want %q", summary.Results[0].Action, tt.wantAction)
+			}
+			if summary.Results[0].Message != tt.wantMessageSnippet {
+				t.Fatalf("message = %q, want %q", summary.Results[0].Message, tt.wantMessageSnippet)
+			}
+		})
+	}
+}
+
 func TestShouldSyncHonorsIncludeAndExclude(t *testing.T) {
 	syncer := &Syncer{}
 	if syncer.shouldSync("Secret", SyncOptions{Exclude: []string{"Secret"}}) {
