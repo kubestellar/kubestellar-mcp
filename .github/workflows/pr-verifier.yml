@@ -4,6 +4,8 @@ on:
   pull_request_target:
     types: [opened, edited, synchronize, reopened]
 
+permissions: read-all  # top-level default (least-privilege)
+
 jobs:
   verify:
     if: github.event.pull_request.head.repo.full_name == github.repository

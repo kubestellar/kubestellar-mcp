@@ -30,6 +30,8 @@ on:
         default: false
         type: boolean
 
+permissions: read-all  # top-level default (least-privilege)
+
 jobs:
   determine-version:
     runs-on: ubuntu-latest
