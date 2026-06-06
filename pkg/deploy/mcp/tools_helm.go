@@ -5,9 +5,27 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os/exec"
 	"strings"
 )
+
+// validateHelmRepoURL ensures the Helm --repo URL uses an allowed scheme (https or http).
+// file://, ssh://, and other schemes are blocked to prevent SSRF and local file reads.
+// This mirrors the URL validation pattern in pkg/gitops/manifest.go.
+func validateHelmRepoURL(repo string) error {
+	u, err := url.Parse(repo)
+	if err != nil {
+		return fmt.Errorf("invalid repo URL: %w", err)
+	}
+	if u.Scheme != "https" && u.Scheme != "http" {
+		return fmt.Errorf("helm repo URL scheme %q is not allowed; use https://", u.Scheme)
+	}
+	if u.Host == "" {
+		return fmt.Errorf("helm repo URL must include a host; got %q", repo)
+	}
+	return nil
+}
 
 // HelmReleaseInfo represents information about a Helm release
 type HelmReleaseInfo struct {
@@ -53,6 +71,13 @@ func (s *Server) handleHelmInstall(ctx context.Context, args json.RawMessage) (i
 
 	if params.Namespace == "" {
 		params.Namespace = "default"
+	}
+
+	// Validate repo URL to prevent SSRF and local file reads via file:// or ssh://
+	if params.Repo != "" {
+		if err := validateHelmRepoURL(params.Repo); err != nil {
+			return nil, fmt.Errorf("invalid repo URL: %w", err)
+		}
 	}
 
 	// Get target clusters
@@ -104,7 +129,7 @@ func (s *Server) helmInstall(ctx context.Context, cluster, releaseName, chart, n
 		"--kube-context", cluster,
 	}
 
-	// Add repo if specified
+	// Add repo if specified (already validated by handleHelmInstall)
 	if repo != "" {
 		cmdArgs = append(cmdArgs, "--repo", repo)
 	}
