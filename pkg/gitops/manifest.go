@@ -15,10 +15,10 @@ import (
 )
 
 // allowedRepoSchemes restricts git clone to safe URL schemes.
+// http:// is excluded to prevent man-in-the-middle attacks on manifest fetches.
 // file:// and ssh:// are blocked to prevent SSRF and local file reads.
 var allowedRepoSchemes = map[string]bool{
 	"https": true,
-	"http":  true,
 }
 
 var validGitBranchPattern = regexp.MustCompile(`^[a-zA-Z0-9._/-]+$`)
@@ -105,7 +105,7 @@ func (k ResourceKey) String() string {
 type ManifestReader struct {
 	tempDir string
 	// AllowedSchemes overrides the default URL scheme allowlist for validation.
-	// When nil, the default safe set (https, http) is used.
+	// When nil, the default safe set (https) is used.
 	// Tests that need local repos can set this to include "file".
 	AllowedSchemes map[string]bool
 }
@@ -123,9 +123,9 @@ func NewManifestReaderWithSchemes(schemes map[string]bool) *ManifestReader {
 
 // ReadFromGit clones a repo and reads manifests.
 // ctx is used to cancel the git clone subprocess if the caller's context is done.
-// The repo URL is validated against the reader's allowed schemes (defaults to https/http).
+// The repo URL is validated against the reader's allowed schemes (defaults to https).
 func (r *ManifestReader) ReadFromGit(ctx context.Context, source ManifestSource) ([]Manifest, error) {
-	// Validate repo URL to prevent SSRF and local file reads
+	// Validate repo URL to prevent SSRF, MITM, and local file reads
 	schemes := r.AllowedSchemes
 	if schemes == nil {
 		schemes = allowedRepoSchemes
