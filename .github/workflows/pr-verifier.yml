@@ -4,10 +4,11 @@ on:
   pull_request_target:
     types: [opened, edited, synchronize, reopened]
 
+permissions:
+  checks: write
+  pull-requests: read
+
 jobs:
   verify:
-    if: github.event.pull_request.head.repo.full_name == github.repository
-    permissions:
-      checks: write
-      pull-requests: read
-    uses: kubestellar/infra/.github/workflows/reusable-pr-verifier.yml@af322d48cc67ade7345cabc6a0ed55c6c7040ee4
+    uses: kubestellar/infra/.github/workflows/reusable-pr-verifier.yml@main
+    secrets: inherit
