@@ -5,24 +5,63 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/url"
 	"os/exec"
 	"strings"
 )
 
-// validateHelmRepoURL ensures the Helm --repo URL uses an allowed scheme (https or http).
-// file://, ssh://, and other schemes are blocked to prevent SSRF and local file reads.
-// This mirrors the URL validation pattern in pkg/gitops/manifest.go.
+var (
+	// helmblockedCGNATNet is RFC 6598 Carrier-Grade NAT space (100.64.0.0/10).
+	// Not covered by net.IP.IsPrivate() but often routes to internal services.
+	_, helmBlockedCGNATNet, _ = net.ParseCIDR("100.64.0.0/10")
+
+	// helmBlockedCloudMetaNet is the cloud instance metadata service (169.254.169.254/32).
+	// This is the primary SSRF target for credential theft in AWS, GCP, and Azure.
+	_, helmBlockedCloudMetaNet, _ = net.ParseCIDR("169.254.169.254/32")
+
+	// helmBlockedIETFNet is RFC 6890 IETF Protocol Assignments (192.0.0.0/24).
+	_, helmBlockedIETFNet, _ = net.ParseCIDR("192.0.0.0/24")
+)
+
+// isHelmBlockedIP returns true if the resolved IP must not be contacted by the
+// Helm proxy. Blocks loopback, private, link-local, CGNAT, and cloud-metadata ranges.
+func isHelmBlockedIP(ip net.IP) bool {
+	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() ||
+		helmBlockedCGNATNet.Contains(ip) ||
+		helmBlockedCloudMetaNet.Contains(ip) ||
+		helmBlockedIETFNet.Contains(ip)
+}
+
+// validateHelmRepoURL ensures the Helm --repo URL is safe to contact.
+// Only https:// is allowed. The hostname is resolved and any private,
+// loopback, link-local, CGNAT, or cloud-metadata IP is rejected to prevent
+// SSRF / cloud IMDS credential theft (#216).
 func validateHelmRepoURL(repo string) error {
 	u, err := url.Parse(repo)
 	if err != nil {
 		return fmt.Errorf("invalid repo URL: %w", err)
 	}
-	if u.Scheme != "https" && u.Scheme != "http" {
+	if u.Scheme != "https" {
 		return fmt.Errorf("helm repo URL scheme %q is not allowed; use https://", u.Scheme)
 	}
 	if u.Host == "" {
 		return fmt.Errorf("helm repo URL must include a host; got %q", repo)
+	}
+	// Resolve and block private/internal IPs (SSRF protection).
+	hostname := u.Hostname()
+	addrs, err := net.LookupHost(hostname)
+	if err != nil {
+		return fmt.Errorf("helm repo URL host %q could not be resolved: %w", hostname, err)
+	}
+	for _, addr := range addrs {
+		ip := net.ParseIP(addr)
+		if ip == nil {
+			continue
+		}
+		if isHelmBlockedIP(ip) {
+			return fmt.Errorf("helm repo URL %q resolves to blocked IP %s (private/internal address)", repo, ip)
+		}
 	}
 	return nil
 }

@@ -334,3 +334,33 @@ func readLogFile(t *testing.T, logFile string) string {
 	}
 	return string(data)
 }
+
+func TestValidateHelmRepoURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		repo    string
+		wantErr bool
+	}{
+		// Positive case omitted: public hostname resolution requires network in CI.
+		// All invalid/blocked inputs must return errors.
+		{name: "reject http scheme", repo: "http://charts.example.com", wantErr: true},
+		{name: "reject file scheme", repo: "file:///etc/passwd", wantErr: true},
+		{name: "reject ssh scheme", repo: "ssh://git@github.com/charts", wantErr: true},
+		{name: "reject empty", repo: "", wantErr: true},
+		{name: "reject no host", repo: "https://", wantErr: true},
+		{name: "reject loopback IP", repo: "https://127.0.0.1/charts", wantErr: true},
+		{name: "reject localhost", repo: "https://localhost/charts", wantErr: true},
+		{name: "reject private 10.x", repo: "https://10.0.0.1/charts", wantErr: true},
+		{name: "reject private 192.168.x", repo: "https://192.168.1.1/charts", wantErr: true},
+		{name: "reject cloud metadata", repo: "https://169.254.169.254/latest", wantErr: true},
+		{name: "reject CGNAT 100.64.x", repo: "https://100.64.0.1/charts", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateHelmRepoURL(tt.repo)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateHelmRepoURL(%q) error = %v, wantErr %v", tt.repo, err, tt.wantErr)
+			}
+		})
+	}
+}
