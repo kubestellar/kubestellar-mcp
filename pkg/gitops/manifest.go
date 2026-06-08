@@ -15,10 +15,9 @@ import (
 )
 
 // allowedRepoSchemes restricts git clone to safe URL schemes.
-// file:// and ssh:// are blocked to prevent SSRF and local file reads.
+// http://, file://, and ssh:// are blocked to prevent MITM, SSRF, and local file reads.
 var allowedRepoSchemes = map[string]bool{
 	"https": true,
-	"http":  true,
 }
 
 var validGitBranchPattern = regexp.MustCompile(`^[a-zA-Z0-9._/-]+$`)
@@ -42,7 +41,7 @@ func validateRepoURLWithSchemes(repo string, schemes map[string]bool) error {
 		return fmt.Errorf("repo URL must include a scheme (e.g., https://); got %q", repo)
 	}
 	if !schemes[u.Scheme] {
-		return fmt.Errorf("repo URL scheme %q is not allowed; use https://", u.Scheme)
+		return fmt.Errorf("repo URL scheme %q is not allowed; only https:// is permitted", u.Scheme)
 	}
 	// file:// URLs don't have a host — skip host check for file scheme
 	if u.Scheme != "file" && u.Host == "" {
@@ -105,7 +104,7 @@ func (k ResourceKey) String() string {
 type ManifestReader struct {
 	tempDir string
 	// AllowedSchemes overrides the default URL scheme allowlist for validation.
-	// When nil, the default safe set (https, http) is used.
+	// When nil, the default safe set (https only) is used.
 	// Tests that need local repos can set this to include "file".
 	AllowedSchemes map[string]bool
 }
