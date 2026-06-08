@@ -14,7 +14,7 @@ func TestValidateRepoURL(t *testing.T) {
 		wantErr bool
 	}{
 		{"valid https", "https://github.com/org/repo.git", false},
-		{"valid http", "http://github.com/org/repo.git", false},
+		{"blocks http scheme", "http://github.com/org/repo.git", true},
 		{"blocks file scheme", "file:///etc/kubernetes/pki/ca.key", true},
 		{"blocks ssh scheme", "ssh://internal:22/repo", true},
 		{"blocks git scheme", "git://host/repo", true},
