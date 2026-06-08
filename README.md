@@ -4,6 +4,20 @@ AI-powered multi-cluster Kubernetes tools for Claude Code.
 
 **Single-cluster UX for multi-cluster reality** - work with your **apps**, not your **clusters**.
 
+## Why KubeStellar
+
+`kubestellar-mcp` is the AI entry point to the **KubeStellar platform** — a CNCF Sandbox ecosystem for multi-cluster Kubernetes orchestration.
+
+| Sub-project | Role |
+|-------------|------|
+| [kubestellar](https://github.com/kubestellar/kubestellar) | Core engine — BindingPolicy, WDS, ITS, WEC workload propagation |
+| [console](https://github.com/kubestellar/console) | Web dashboard — 160+ cards, AI missions, GPU and LLM-d monitoring |
+| [console-marketplace](https://github.com/kubestellar/console-marketplace) | 153+ community card presets (GPU/AI/ML, ArgoCD, OPA, Falco, security) |
+| [console-kb](https://github.com/kubestellar/console-kb) | AI knowledge base — community missions and operational runbooks |
+| **kubestellar-mcp** | **This repo** — MCP server for Claude, Cursor, Windsurf, VS Code |
+
+`kubestellar-mcp` lets AI agents inspect and operate clusters through natural language. For visual dashboards and AI missions, see [KubeStellar Console](https://console.kubestellar.io).
+
 ## Components
 
 | Binary | Description |
@@ -415,6 +429,7 @@ kubestellar-deploy completion bash
 ## Related Projects
 
 - [KubeStellar](https://kubestellar.io) - Multi-cluster orchestration platform
+- [KubeStellar Console](https://console.kubestellar.io) - AI-powered web dashboard for multi-cluster management
 
 ## Contributing
 
