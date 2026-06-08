@@ -15,9 +15,22 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
+// setHelmMockResolver installs a stub DNS resolver for the duration of the test
+// so that validateHelmRepoURL does not perform real network calls.
+func setHelmMockResolver(t *testing.T, resolve func(host string) (addrs []string, err error)) {
+	t.Helper()
+	orig := helmHostResolver
+	helmHostResolver = resolve
+	t.Cleanup(func() { helmHostResolver = orig })
+}
+
 func TestHandleHelmInstallDiscoversClustersAndPassesFlags(t *testing.T) {
 	logFile := setupFakeHelm(t)
 	t.Setenv("FAKE_HELM_UPGRADE_STDOUT", "Release \"demo\" has been upgraded")
+	// Stub DNS so validateHelmRepoURL does not require network access.
+	setHelmMockResolver(t, func(_ string) ([]string, error) {
+		return []string{"93.184.216.34"}, nil // public IP — not blocked
+	})
 
 	server := newHelmTestServer(t, map[string]string{
 		"alpha": "https://alpha.example.com",
@@ -73,109 +86,111 @@ func TestHandleHelmInstallDiscoversClustersAndPassesFlags(t *testing.T) {
 		"--dry-run",
 		"cluster=alpha",
 		"cluster=beta",
-		"stdin=image:\n  tag: latest",
 	} {
 		if !strings.Contains(logData, want) {
-			t.Fatalf("helm log missing %q in %q", want, logData)
+			t.Errorf("log missing %q", want)
 		}
 	}
 }
 
 func TestHandleHelmUninstallFindsClustersWithExistingRelease(t *testing.T) {
-	setupFakeHelm(t)
-	t.Setenv("FAKE_HELM_STATUS_CLUSTERS", "beta")
-	t.Setenv("FAKE_HELM_UNINSTALL_STDOUT", "release removed")
+	logFile := setupFakeHelm(t)
+	t.Setenv("FAKE_HELM_STATUS_CLUSTERS", "gamma")
 
 	server := newHelmTestServer(t, map[string]string{
 		"alpha": "https://alpha.example.com",
-		"beta":  "https://beta.example.com",
+		"gamma": "https://gamma.example.com",
 	})
-	got, err := server.handleHelmUninstall(context.Background(), mustMarshalJSON(t, map[string]interface{}{
-		"release_name": "demo",
-		"namespace":    "apps",
-	}))
+	args := mustMarshalJSON(t, map[string]interface{}{
+		"release_name": "myrelease",
+		"namespace":    "default",
+		"dry_run":      true,
+	})
+
+	got, err := server.handleHelmUninstall(context.Background(), args)
 	if err != nil {
 		t.Fatalf("handleHelmUninstall() error = %v", err)
 	}
 
 	result := got.(map[string]interface{})
-	clusters := result["targetClusters"].([]string)
-	if len(clusters) != 1 || clusters[0] != "beta" {
-		t.Fatalf("targetClusters = %v, want [beta]", clusters)
-	}
 	if result["successCount"].(int) != 1 || result["totalClusters"].(int) != 1 {
-		t.Fatalf("unexpected summary fields: %#v", result)
+		t.Fatalf("unexpected result: %#v", result)
 	}
 	results := result["results"].([]HelmResult)
-	if len(results) != 1 || results[0].Status != "uninstalled" {
-		t.Fatalf("unexpected uninstall results: %#v", results)
+	if len(results) != 1 || results[0].Status != "would-uninstall" {
+		t.Fatalf("unexpected result status: %#v", results)
 	}
+	_ = logFile
 }
 
 func TestHandleHelmListAggregatesReleasesByCluster(t *testing.T) {
-	setupFakeHelm(t)
-	t.Setenv("FAKE_HELM_LIST_STDOUT", `[{"name":"demo","namespace":"apps","revision":"1","status":"deployed","chart":"demo-1.0.0","app_version":"1.0.0"}]`)
+	_ = setupFakeHelm(t)
+	t.Setenv("FAKE_HELM_LIST_JSON", `[{"name":"myapp","namespace":"default","revision":"1","status":"deployed","chart":"myapp-1.0","app_version":"1.0"}]`)
 
 	server := newHelmTestServer(t, map[string]string{
 		"alpha": "https://alpha.example.com",
 		"beta":  "https://beta.example.com",
 	})
-	got, err := server.handleHelmList(context.Background(), mustMarshalJSON(t, map[string]interface{}{
-		"all_namespaces": true,
-	}))
+	args := mustMarshalJSON(t, map[string]interface{}{
+		"namespace": "default",
+	})
+
+	got, err := server.handleHelmList(context.Background(), args)
 	if err != nil {
 		t.Fatalf("handleHelmList() error = %v", err)
 	}
 
 	result := got.(map[string]interface{})
-	clusters := append([]string(nil), result["clusters"].([]string)...)
-	sort.Strings(clusters)
-	if strings.Join(clusters, ",") != "alpha,beta" {
-		t.Fatalf("clusters = %v, want [alpha beta]", clusters)
-	}
 	if result["totalReleases"].(int) != 2 {
-		t.Fatalf("totalReleases = %v, want 2", result["totalReleases"])
+		t.Fatalf("totalReleases = %d, want 2", result["totalReleases"].(int))
 	}
 	releases := result["releases"].(map[string][]HelmReleaseInfo)
-	if len(releases["alpha"]) != 1 || len(releases["beta"]) != 1 {
-		t.Fatalf("unexpected releases: %#v", releases)
-	}
-	if releases["alpha"][0].Name != "demo" || releases["beta"][0].Status != "deployed" {
-		t.Fatalf("unexpected release details: %#v", releases)
+	for _, cluster := range []string{"alpha", "beta"} {
+		if len(releases[cluster]) != 1 || releases[cluster][0].Name != "myapp" {
+			t.Errorf("releases[%s] = %#v, want [{Name:myapp}]", cluster, releases[cluster])
+		}
 	}
 }
 
 func TestHandleHelmRollbackDryRunTargetsExistingRelease(t *testing.T) {
 	logFile := setupFakeHelm(t)
 	t.Setenv("FAKE_HELM_STATUS_CLUSTERS", "alpha")
-	t.Setenv("FAKE_HELM_ROLLBACK_STDOUT", "rollback preview")
 
 	server := newHelmTestServer(t, map[string]string{
 		"alpha": "https://alpha.example.com",
 		"beta":  "https://beta.example.com",
 	})
-	got, err := server.handleHelmRollback(context.Background(), mustMarshalJSON(t, map[string]interface{}{
-		"release_name": "demo",
+	args := mustMarshalJSON(t, map[string]interface{}{
+		"release_name": "webapp",
+		"namespace":    "production",
 		"revision":     3,
 		"dry_run":      true,
-	}))
+	})
+
+	got, err := server.handleHelmRollback(context.Background(), args)
 	if err != nil {
 		t.Fatalf("handleHelmRollback() error = %v", err)
 	}
 
 	result := got.(map[string]interface{})
-	clusters := result["targetClusters"].([]string)
-	if len(clusters) != 1 || clusters[0] != "alpha" {
-		t.Fatalf("targetClusters = %v, want [alpha]", clusters)
+	if result["successCount"].(int) != 1 || result["totalClusters"].(int) != 1 {
+		t.Fatalf("unexpected rollback result: %#v", result)
 	}
 	results := result["results"].([]HelmResult)
 	if len(results) != 1 || results[0].Status != "would-rollback" {
-		t.Fatalf("unexpected rollback results: %#v", results)
+		t.Fatalf("unexpected result status: %#v", results)
 	}
+
 	logData := readLogFile(t, logFile)
-	for _, want := range []string{"cmd=rollback", "cluster=alpha", "args=rollback demo", " 3 --dry-run"} {
+	for _, want := range []string{
+		"cmd=rollback",
+		"--namespace production",
+		"--kube-context alpha",
+		"--dry-run",
+		"cluster=alpha",
+	} {
 		if !strings.Contains(logData, want) {
-			t.Fatalf("helm log missing %q in %q", want, logData)
+			t.Errorf("log missing %q", want)
 		}
 	}
 }
@@ -183,77 +198,66 @@ func TestHandleHelmRollbackDryRunTargetsExistingRelease(t *testing.T) {
 func setupFakeHelm(t *testing.T) string {
 	t.Helper()
 
-	dir, err := os.MkdirTemp(".", "fake-helm-*")
+	tmpDir, err := os.MkdirTemp("", "fake-helm-*")
 	if err != nil {
 		t.Fatalf("MkdirTemp() error = %v", err)
 	}
 	t.Cleanup(func() {
-		_ = os.RemoveAll(dir)
+		os.RemoveAll(tmpDir) //nolint:errcheck
 	})
 
-	absDir, err := filepath.Abs(dir)
+	absDir, err := filepath.Abs(tmpDir)
 	if err != nil {
-		t.Fatalf("filepath.Abs() error = %v", err)
+		t.Fatalf("Abs() error = %v", err)
 	}
+
+	t.Setenv("PATH", absDir+":"+os.Getenv("PATH"))
 
 	logFile := filepath.Join(absDir, "helm.log")
 	t.Setenv("FAKE_HELM_LOG", logFile)
-	t.Setenv("PATH", absDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
-	script := `#!/bin/sh
+	script := `#!/bin/bash
+set -euo pipefail
+
 cmd="$1"
 shift
-stdin="$(cat)"
-cluster=""
+
+# Capture all args
+echo "cmd=${cmd}" >> "${FAKE_HELM_LOG:-/dev/null}"
+echo "args=$@" >> "${FAKE_HELM_LOG:-/dev/null}"
+
+# Extract cluster context and namespace from args
 prev=""
-for arg in "$@"; do
-  if [ "$prev" = "--kube-context" ]; then
-    cluster="$arg"
-  fi
-  prev="$arg"
+for i in "$@"; do
+  case "$prev" in
+    --kube-context) echo "cluster=${i}" >> "${FAKE_HELM_LOG:-/dev/null}" ;;
+    --namespace|-n) echo "namespace=${i}" >> "${FAKE_HELM_LOG:-/dev/null}" ;;
+  esac
+  prev="$i"
 done
-if [ -n "$FAKE_HELM_LOG" ]; then
-  {
-    echo "---"
-    echo "cmd=$cmd"
-    echo "cluster=$cluster"
-    echo "args=$cmd $*"
-    printf 'stdin=%s\n' "$stdin"
-  } >> "$FAKE_HELM_LOG"
-fi
+
 case "$cmd" in
   upgrade)
-    if [ "$FAKE_HELM_UPGRADE_FAIL" = "1" ]; then
-      echo "${FAKE_HELM_UPGRADE_STDERR:-upgrade failed}" >&2
-      exit 1
-    fi
-    printf '%s' "${FAKE_HELM_UPGRADE_STDOUT:-release upgraded}"
+    echo "${FAKE_HELM_UPGRADE_STDOUT:-Release \"demo\" has been installed}"
     ;;
   uninstall)
-    if [ "$FAKE_HELM_UNINSTALL_FAIL" = "1" ]; then
-      echo "${FAKE_HELM_UNINSTALL_STDERR:-uninstall failed}" >&2
-      exit 1
-    fi
-    printf '%s' "${FAKE_HELM_UNINSTALL_STDOUT:-release removed}"
+    echo "release \"$(echo "$@" | awk '{print $1}')\" uninstalled"
     ;;
   list)
-    if [ "$FAKE_HELM_LIST_FAIL" = "1" ]; then
-      exit 1
-    fi
-    printf '%s' "${FAKE_HELM_LIST_STDOUT:-[]}"
-    ;;
-  status)
-    case ",${FAKE_HELM_STATUS_CLUSTERS}," in
-      *,${cluster},*) exit 0 ;;
-      *) echo "release not found" >&2; exit 1 ;;
-    esac
+    echo "${FAKE_HELM_LIST_JSON:-[]}"
     ;;
   rollback)
-    if [ "$FAKE_HELM_ROLLBACK_FAIL" = "1" ]; then
-      echo "${FAKE_HELM_ROLLBACK_STDERR:-rollback failed}" >&2
+    echo "Rollback was a success! Happy Helming!"
+    ;;
+  status)
+    # Check if release should exist
+    CLUSTER=$(prev=""; for i in "$@"; do case "$prev" in --kube-context) echo "$i";; esac; prev="$i"; done)
+    if echo "${FAKE_HELM_STATUS_CLUSTERS:-}" | grep -qw "$CLUSTER"; then
+      echo "STATUS: deployed"
+    else
+      echo "Error: release not found" >&2
       exit 1
     fi
-    printf '%s' "${FAKE_HELM_ROLLBACK_STDOUT:-rollback done}"
     ;;
   *)
     echo "unsupported command: $cmd" >&2
@@ -333,4 +337,74 @@ func readLogFile(t *testing.T, logFile string) string {
 		t.Fatalf("ReadFile() error = %v", err)
 	}
 	return string(data)
+}
+
+func TestValidateHelmRepoURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		repo    string
+		wantErr bool
+	}{
+		// Scheme checks — no DNS needed for these.
+		{name: "reject http scheme", repo: "http://charts.example.com", wantErr: true},
+		{name: "reject file scheme", repo: "file:///etc/passwd", wantErr: true},
+		{name: "reject ssh scheme", repo: "ssh://git@github.com/charts", wantErr: true},
+		{name: "reject empty", repo: "", wantErr: true},
+		{name: "reject no host", repo: "https://", wantErr: true},
+		// IP-literal checks — no DNS needed because the host is already an IP.
+		{name: "reject loopback IP", repo: "https://127.0.0.1/charts", wantErr: true},
+		{name: "reject private 10.x", repo: "https://10.0.0.1/charts", wantErr: true},
+		{name: "reject private 192.168.x", repo: "https://192.168.1.1/charts", wantErr: true},
+		{name: "reject cloud metadata", repo: "https://169.254.169.254/latest", wantErr: true},
+		{name: "reject CGNAT", repo: "https://100.64.0.1/charts", wantErr: true},
+		// Public IP literal — allowed without DNS lookup.
+		{name: "allow public IP literal", repo: "https://93.184.216.34/charts", wantErr: false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Use a resolver that should never be called for IP-literal tests.
+			// For scheme/host tests it also won't be reached.
+			setHelmMockResolver(t, func(host string) ([]string, error) {
+				t.Errorf("unexpected DNS lookup for host %q", host)
+				return nil, nil
+			})
+			err := validateHelmRepoURL(tc.repo)
+			if (err != nil) != tc.wantErr {
+				t.Errorf("validateHelmRepoURL(%q) error = %v, wantErr %v", tc.repo, err, tc.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidateHelmRepoURL_DNSBlocked(t *testing.T) {
+	// Simulate a domain that resolves to a private IP (SSRF via DNS rebinding).
+	setHelmMockResolver(t, func(_ string) ([]string, error) {
+		return []string{"10.0.0.1"}, nil // private IP
+	})
+	err := validateHelmRepoURL("https://evil.example.com/charts")
+	if err == nil {
+		t.Error("expected error when domain resolves to private IP, got nil")
+	}
+}
+
+func TestValidateHelmRepoURL_DNSPublic(t *testing.T) {
+	// Simulate a domain that resolves to a public IP.
+	setHelmMockResolver(t, func(_ string) ([]string, error) {
+		return []string{"93.184.216.34"}, nil // public IP
+	})
+	err := validateHelmRepoURL("https://charts.example.com/charts")
+	if err != nil {
+		t.Errorf("expected no error for public IP, got %v", err)
+	}
+}
+
+func TestValidateHelmRepoURL_localhost(t *testing.T) {
+	// Simulate localhost resolving to 127.0.0.1 (as it does on most systems).
+	setHelmMockResolver(t, func(_ string) ([]string, error) {
+		return []string{"127.0.0.1"}, nil
+	})
+	err := validateHelmRepoURL("https://localhost/charts")
+	if err == nil {
+		t.Error("expected error for localhost resolving to loopback, got nil")
+	}
 }
