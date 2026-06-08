@@ -156,8 +156,8 @@ func TestToolGetOwnershipPolicyStatus_NoPolicy(t *testing.T) {
 		t.Fatalf("unexpected tool error: %s", result.Content[0].Text)
 	}
 	text := result.Content[0].Text
-	// Should indicate policy is not configured
-	if !strings.Contains(text, "Not Configured") && !strings.Contains(text, "not found") && !strings.Contains(text, "Not Installed") {
+	// Should indicate policy is not configured ("Not installed" is what the function outputs)
+	if !strings.Contains(text, "Not installed") && !strings.Contains(text, "not found") && !strings.Contains(text, "Not Installed") && !strings.Contains(text, "not installed") {
 		t.Fatalf("expected policy-not-found indication, got: %s", text)
 	}
 }
@@ -193,7 +193,7 @@ func TestToolListOwnershipViolations_NoConstraint(t *testing.T) {
 		t.Fatalf("unexpected tool error: %s", result.Content[0].Text)
 	}
 	text := result.Content[0].Text
-	if !strings.Contains(text, "not found") && !strings.Contains(text, "Not Configured") && !strings.Contains(text, "constraint") {
+	if !strings.Contains(text, "not found") && !strings.Contains(text, "Not Configured") && !strings.Contains(text, "not installed") && !strings.Contains(text, "Not installed") {
 		t.Fatalf("expected no-constraint indication, got: %s", text)
 	}
 }
