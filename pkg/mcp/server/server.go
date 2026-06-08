@@ -13,10 +13,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/cluster"
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/protocol"
 )
 
 const (
-	MCPVersion    = "2024-11-05"
+	// MCPVersion is re-exported from protocol for backward compatibility.
+	MCPVersion    = protocol.MCPVersion
 	ServerName    = "kubestellar-ops"
 	ServerVersion = "0.8.0"
 )
@@ -36,88 +38,22 @@ type Server struct {
 	mu            sync.Mutex
 }
 
-// JSON-RPC types
-type Request struct {
-	JSONRPC string          `json:"jsonrpc"`
-	ID      interface{}     `json:"id,omitempty"`
-	Method  string          `json:"method"`
-	Params  json.RawMessage `json:"params,omitempty"`
-}
-
-type Response struct {
-	JSONRPC string      `json:"jsonrpc"`
-	ID      interface{} `json:"id,omitempty"`
-	Result  interface{} `json:"result,omitempty"`
-	Error   *Error      `json:"error,omitempty"`
-}
-
-type Error struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-// MCP types
-type ServerInfo struct {
-	Name    string `json:"name"`
-	Version string `json:"version"`
-}
-
-type InitializeResult struct {
-	ProtocolVersion string       `json:"protocolVersion"`
-	Capabilities    Capabilities `json:"capabilities"`
-	ServerInfo      ServerInfo   `json:"serverInfo"`
-}
-
-type Capabilities struct {
-	Tools *ToolsCapability `json:"tools,omitempty"`
-}
-
-type ToolsCapability struct {
-	ListChanged bool `json:"listChanged,omitempty"`
-}
-
-type Tool struct {
-	Name        string      `json:"name"`
-	Description string      `json:"description"`
-	InputSchema InputSchema `json:"inputSchema"`
-}
-
-type InputSchema struct {
-	Type       string              `json:"type"`
-	Properties map[string]Property `json:"properties,omitempty"`
-	Required   []string            `json:"required,omitempty"`
-}
-
-type Property struct {
-	Type        string   `json:"type"`
-	Description string   `json:"description,omitempty"`
-	Enum        []string `json:"enum,omitempty"`
-	Items       *Items   `json:"items,omitempty"`
-}
-
-type Items struct {
-	Type string `json:"type"`
-}
-
-type ToolsListResult struct {
-	Tools []Tool `json:"tools"`
-}
-
-type CallToolParams struct {
-	Name      string                 `json:"name"`
-	Arguments map[string]interface{} `json:"arguments,omitempty"`
-}
-
-type CallToolResult struct {
-	Content []ContentBlock `json:"content"`
-	IsError bool           `json:"isError,omitempty"`
-}
-
-type ContentBlock struct {
-	Type string `json:"type"`
-	Text string `json:"text"`
-}
+// JSON-RPC / MCP type aliases (canonical definitions live in pkg/mcp/protocol).
+type Request = protocol.Request
+type Response = protocol.Response
+type Error = protocol.Error
+type ServerInfo = protocol.ServerInfo
+type InitializeResult = protocol.InitializeResult
+type Capabilities = protocol.Capabilities
+type ToolsCapability = protocol.ToolsCapability
+type Tool = protocol.Tool
+type InputSchema = protocol.InputSchema
+type Property = protocol.Property
+type Items = protocol.Items
+type ToolsListResult = protocol.ToolsListResult
+type CallToolParams = protocol.CallToolParams
+type CallToolResult = protocol.CallToolResult
+type ContentBlock = protocol.ContentBlock
 
 // NewServer creates a new MCP server
 func NewServer(kubeconfig string) *Server {
