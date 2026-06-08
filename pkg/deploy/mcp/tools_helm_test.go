@@ -227,6 +227,7 @@ echo "cmd=${cmd}" >> "${FAKE_HELM_LOG:-/dev/null}"
 echo "args=$@" >> "${FAKE_HELM_LOG:-/dev/null}"
 
 # Extract cluster context and namespace from args
+prev=""
 for i in "$@"; do
   case "$prev" in
     --kube-context) echo "cluster=${i}" >> "${FAKE_HELM_LOG:-/dev/null}" ;;
@@ -250,7 +251,7 @@ case "$cmd" in
     ;;
   status)
     # Check if release should exist
-    CLUSTER=$(for i in "$@"; do case "$prev" in --kube-context) echo "$i";; esac; prev="$i"; done)
+    CLUSTER=$(prev=""; for i in "$@"; do case "$prev" in --kube-context) echo "$i";; esac; prev="$i"; done)
     if echo "${FAKE_HELM_STATUS_CLUSTERS:-}" | grep -qw "$CLUSTER"; then
       echo "STATUS: deployed"
     else
