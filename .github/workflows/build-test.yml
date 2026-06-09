@@ -33,12 +33,17 @@ jobs:
 
       - name: Check coverage threshold
         run: |
-          THRESHOLD=43.5
+          THRESHOLD=$(cat .github/go-coverage-ratchet.txt)
           COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print substr($3, 1, length($3)-1)}')
-          echo "Total coverage: ${COVERAGE}%"
+          echo "Total coverage: ${COVERAGE}%  (ratchet: ${THRESHOLD}%)"
           if awk -v c="$COVERAGE" -v t="$THRESHOLD" 'BEGIN { exit !(c + 0 < t + 0) }'; then
-            echo "::error::Coverage ${COVERAGE}% is below threshold ${THRESHOLD}%"
+            echo "::error::Coverage ${COVERAGE}% is below ratchet threshold ${THRESHOLD}%"
+            echo "::error::Update .github/go-coverage-ratchet.txt if coverage legitimately decreased."
             exit 1
+          fi
+          # Auto-update ratchet if coverage improved
+          if awk -v c="$COVERAGE" -v t="$THRESHOLD" 'BEGIN { exit !(c + 0 > t + 0) }'; then
+            echo "Coverage improved to ${COVERAGE}% — update .github/go-coverage-ratchet.txt to lock in gains"
           fi
 
       - name: Upload coverage
