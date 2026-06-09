@@ -6,6 +6,8 @@ on:
   issues:
     types: [opened, reopened]
 
+permissions: read-all  # default read; writes scoped to job below
+
 jobs:
   greet:
     if: >-
