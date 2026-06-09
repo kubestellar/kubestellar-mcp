@@ -72,7 +72,7 @@ func TestIsClusterScoped(t *testing.T) {
 	}
 }
 
-func TestIsSystemManagedField(t *testing.T) {
+func TestIsSystemManagedFieldExtended(t *testing.T) {
 	managed := []string{
 		"resourceVersion", "uid", "creationTimestamp",
 		"generation", "managedFields", "selfLink", "status",
@@ -96,7 +96,7 @@ func TestIsSystemManagedField(t *testing.T) {
 	}
 }
 
-func TestCompareObjects(t *testing.T) {
+func TestCompareObjectsExtended(t *testing.T) {
 	tests := []struct {
 		name       string
 		expected   map[string]interface{}
