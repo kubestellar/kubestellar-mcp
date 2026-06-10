@@ -36,6 +36,50 @@ func isHelmBlockedIP(ip net.IP) bool {
 		helmBlockedIETFNet.Contains(ip)
 }
 
+// validateHelmChartRef ensures the chart positional argument is safe.
+// It blocks local filesystem paths and, for oci:// references, applies the
+// same IP-blocking rules as validateHelmRepoURL to prevent SSRF via OCI
+// registries that resolve to private/internal addresses (see #246).
+func validateHelmChartRef(chart string) error {
+	// Block local filesystem paths.
+	if strings.HasPrefix(chart, "/") || strings.HasPrefix(chart, "./") || strings.HasPrefix(chart, "../") {
+		return fmt.Errorf("helm chart ref %q is a local path — only remote chart names or oci:// references are allowed", chart)
+	}
+
+	// For OCI references, validate the registry URL the same way as --repo.
+	if strings.HasPrefix(chart, "oci://") {
+		u, err := url.Parse(chart)
+		if err != nil {
+			return fmt.Errorf("invalid oci chart ref: %w", err)
+		}
+		if u.Host == "" {
+			return fmt.Errorf("oci chart ref must include a registry host; got %q", chart)
+		}
+		hostname := u.Hostname()
+		if ip := net.ParseIP(hostname); ip != nil {
+			if isHelmBlockedIP(ip) {
+				return fmt.Errorf("oci chart ref %q uses a blocked IP address", chart)
+			}
+			return nil
+		}
+		addrs, err := helmHostResolver(hostname)
+		if err != nil {
+			return fmt.Errorf("oci chart ref host %q could not be resolved: %w", hostname, err)
+		}
+		for _, addr := range addrs {
+			ip := net.ParseIP(addr)
+			if ip == nil {
+				continue
+			}
+			if isHelmBlockedIP(ip) {
+				return fmt.Errorf("oci chart ref %q resolves to blocked IP %s (private/internal address)", chart, ip)
+			}
+		}
+	}
+
+	return nil
+}
+
 // validateHelmRepoURL ensures the Helm --repo URL is safe to contact.
 // Only https:// is allowed. The hostname is resolved (via helmHostResolver) and
 // any private, loopback, link-local, CGNAT, or cloud-metadata IP is rejected to
@@ -123,6 +167,11 @@ func (s *Server) handleHelmInstall(ctx context.Context, args json.RawMessage) (i
 
 	if params.Namespace == "" {
 		params.Namespace = "default"
+	}
+
+	// Validate chart ref to prevent local filesystem access and OCI SSRF (see #246).
+	if err := validateHelmChartRef(params.Chart); err != nil {
+		return nil, fmt.Errorf("invalid chart ref: %w", err)
 	}
 
 	// Validate repo URL to prevent SSRF and local file reads via file:// or ssh://
