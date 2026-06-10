@@ -7,7 +7,32 @@ import (
 	"strings"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
+	"k8s.io/client-go/rest"
 )
+
+type manifestReader interface {
+	ReadFromGit(ctx context.Context, source gitops.ManifestSource) ([]gitops.Manifest, error)
+	Cleanup()
+}
+
+type driftDetector interface {
+	IsManifestClusterScoped(manifest gitops.Manifest) bool
+	DetectDrift(ctx context.Context, manifests []gitops.Manifest, clusterName string) ([]gitops.DriftResult, error)
+}
+
+func (s *Server) newManifestReader() manifestReader {
+	if s.manifestReaderFactory != nil {
+		return s.manifestReaderFactory()
+	}
+	return gitops.NewManifestReader()
+}
+
+func (s *Server) newDriftDetector(config *rest.Config) (driftDetector, error) {
+	if s.driftDetectorFactory != nil {
+		return s.driftDetectorFactory(config)
+	}
+	return gitops.NewDriftDetector(config)
+}
 
 func (s *Server) toolDetectDrift(ctx context.Context, args map[string]interface{}) (string, bool) {
 	repoURL, _ := args["repo_url"].(string)
@@ -33,7 +58,7 @@ func (s *Server) toolDetectDrift(ctx context.Context, args map[string]interface{
 	}
 
 	// Read manifests from git
-	reader := gitops.NewManifestReader()
+	reader := s.newManifestReader()
 	defer reader.Cleanup()
 
 	source := gitops.ManifestSource{
@@ -52,7 +77,7 @@ func (s *Server) toolDetectDrift(ctx context.Context, args map[string]interface{
 	}
 
 	// Create drift detector
-	detector, err := gitops.NewDriftDetector(restConfig)
+	detector, err := s.newDriftDetector(restConfig)
 	if err != nil {
 		return fmt.Sprintf("Failed to create drift detector: %v", err), true
 	}
@@ -190,4 +215,3 @@ func (s *Server) toolDetectDrift(ctx context.Context, args map[string]interface{
 
 	return sb.String(), false
 }
-
