@@ -30,6 +30,10 @@ func (s *Server) getDynamicClientForCluster(clusterName string) (dynamic.Interfa
 }
 
 func (s *Server) getRestConfigForCluster(clusterName string) (*rest.Config, error) {
+	if s.restConfigFactory != nil {
+		return s.restConfigFactory(clusterName)
+	}
+
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	if s.kubeconfig != "" {
 		loadingRules.ExplicitPath = s.kubeconfig
@@ -43,4 +47,3 @@ func (s *Server) getRestConfigForCluster(clusterName string) (*rest.Config, erro
 	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		loadingRules, configOverrides).ClientConfig()
 }
-
