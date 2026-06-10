@@ -177,3 +177,48 @@ func newClusterVersion(desiredVersion, progressMessage string) *unstructured.Uns
 		},
 	}}
 }
+
+func TestGetNestedString(t *testing.T) {
+	obj := &unstructured.Unstructured{Object: map[string]interface{}{
+		"status": map[string]interface{}{
+			"desired": map[string]interface{}{
+				"version": "4.14.0",
+			},
+		},
+	}}
+
+	assert.Equal(t, "4.14.0", getNestedString(obj, "status", "desired", "version"))
+	assert.Equal(t, "", getNestedString(obj, "status", "nonexistent"))
+	assert.Equal(t, "", getNestedString(obj, "missing", "path"))
+}
+
+func TestGetUpgradeStatus_NotProgressing(t *testing.T) {
+	cv := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "config.openshift.io/v1",
+		"kind":       "ClusterVersion",
+		"metadata":   map[string]interface{}{"name": "version"},
+		"status": map[string]interface{}{
+			"desired": map[string]interface{}{"version": "4.14.0"},
+			"conditions": []interface{}{
+				map[string]interface{}{
+					"type":    "Available",
+					"status":  "True",
+					"message": "Done",
+				},
+			},
+		},
+	}}
+	dynClient := newFakeDynamicClient(cv)
+	status, err := getUpgradeStatus(context.Background(), dynClient)
+	require.NoError(t, err)
+	assert.Equal(t, "4.14.0", status.Label)
+	assert.True(t, status.Complete)
+	assert.Equal(t, 100, status.Percent)
+}
+
+func TestEnsureOpenShiftCluster_Success(t *testing.T) {
+	cv := newClusterVersion("4.14.0", "Cluster version is 4.14.0")
+	dynClient := newFakeDynamicClient(cv)
+	err := ensureOpenShiftCluster(context.Background(), dynClient)
+	require.NoError(t, err)
+}
