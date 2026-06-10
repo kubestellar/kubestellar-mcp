@@ -201,9 +201,9 @@ func TestGetUpgradeStatus_NotProgressing(t *testing.T) {
 			"desired": map[string]interface{}{"version": "4.14.0"},
 			"conditions": []interface{}{
 				map[string]interface{}{
-					"type":    "Available",
-					"status":  "True",
-					"message": "Done",
+					"type":    "Progressing",
+					"status":  "False",
+					"message": "Cluster version is 4.14.0",
 				},
 			},
 		},
@@ -221,4 +221,165 @@ func TestEnsureOpenShiftCluster_Success(t *testing.T) {
 	dynClient := newFakeDynamicClient(cv)
 	err := ensureOpenShiftCluster(context.Background(), dynClient)
 	require.NoError(t, err)
+}
+
+func TestGetUpgradeStatus_ErrorFetchingClusterVersion(t *testing.T) {
+	// Empty client with no ClusterVersion resource
+	dynClient := newFakeDynamicClient()
+
+	_, err := getUpgradeStatus(context.Background(), dynClient)
+
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "failed to get ClusterVersion")
+}
+
+func TestGetUpgradeStatus_EmptyConditions(t *testing.T) {
+	cv := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "config.openshift.io/v1",
+		"kind":       "ClusterVersion",
+		"metadata":   map[string]interface{}{"name": "version"},
+		"status": map[string]interface{}{
+			"desired": map[string]interface{}{"version": "4.18.30"},
+			"conditions": []interface{}{},
+		},
+	}}
+	dynClient := newFakeDynamicClient(cv)
+
+	status, err := getUpgradeStatus(context.Background(), dynClient)
+
+	require.NoError(t, err)
+	assert.Equal(t, "4.18.30", status.Label)
+	assert.Equal(t, 0, status.Percent)
+	assert.False(t, status.Complete)
+}
+
+func TestGetUpgradeStatus_NoDesiredVersion(t *testing.T) {
+	cv := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "config.openshift.io/v1",
+		"kind":       "ClusterVersion",
+		"metadata":   map[string]interface{}{"name": "version"},
+		"status": map[string]interface{}{
+			"desired": map[string]interface{}{},
+			"conditions": []interface{}{
+				map[string]interface{}{
+					"type":    "Progressing",
+					"message": "Working towards 4.18.30: 50 of 100 done (50% complete)",
+				},
+			},
+		},
+	}}
+	dynClient := newFakeDynamicClient(cv)
+
+	status, err := getUpgradeStatus(context.Background(), dynClient)
+
+	require.NoError(t, err)
+	assert.Equal(t, "", status.Label)
+	assert.Equal(t, 50, status.Percent)
+	assert.False(t, status.Complete)
+}
+
+func TestParseProgressMessage_PercentOnly(t *testing.T) {
+	pct, done, total, waiting := parseProgressMessage("something 75% complete")
+	assert.Equal(t, 75, pct)
+	assert.Equal(t, 0, done)
+	assert.Equal(t, 0, total)
+	assert.Equal(t, "", waiting)
+}
+
+func TestParseProgressMessage_WaitingOnly(t *testing.T) {
+	pct, done, total, waiting := parseProgressMessage("something, waiting on kube-apiserver")
+	assert.Equal(t, 0, pct)
+	assert.Equal(t, 0, done)
+	assert.Equal(t, 0, total)
+	assert.Equal(t, "kube-apiserver", waiting)
+}
+
+func TestParseProgressMessage_100Percent(t *testing.T) {
+	pct, done, total, waiting := parseProgressMessage("900 of 906 done (100% complete)")
+	assert.Equal(t, 100, pct)
+	assert.Equal(t, 900, done)
+	assert.Equal(t, 906, total)
+	assert.Equal(t, "", waiting)
+}
+
+func TestGetUpgradeStatus_NonProgressingCondition(t *testing.T) {
+	cv := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "config.openshift.io/v1",
+		"kind":       "ClusterVersion",
+		"metadata":   map[string]interface{}{"name": "version"},
+		"status": map[string]interface{}{
+			"desired": map[string]interface{}{"version": "4.17.0"},
+			"conditions": []interface{}{
+				map[string]interface{}{
+					"type":    "Degraded",
+					"message": "etcd is unhealthy",
+				},
+				map[string]interface{}{
+					"type":    "Available",
+					"status":  "True",
+					"message": "Cluster version is 4.17.0",
+				},
+			},
+		},
+	}}
+	dynClient := newFakeDynamicClient(cv)
+
+	status, err := getUpgradeStatus(context.Background(), dynClient)
+
+	require.NoError(t, err)
+	assert.Equal(t, "4.17.0", status.Label)
+	assert.Equal(t, 0, status.Percent)
+}
+
+func TestWatchUpgrade_CommandWiring(t *testing.T) {
+	configFlags := genericclioptions.NewConfigFlags(true)
+	cmd := NewWatchCommand(configFlags)
+
+	// Verify the command uses RunE (error-returning variant)
+	assert.NotNil(t, cmd.RunE)
+	assert.Nil(t, cmd.Run)
+
+	// Verify interval flag can be set
+	err := cmd.Flags().Set("interval", "5s")
+	require.NoError(t, err)
+	assert.Equal(t, "5s", cmd.Flags().Lookup("interval").Value.String())
+}
+
+func TestGetUpgradeStatus_MultipleConditionsWithProgressing(t *testing.T) {
+	cv := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "config.openshift.io/v1",
+		"kind":       "ClusterVersion",
+		"metadata":   map[string]interface{}{"name": "version"},
+		"status": map[string]interface{}{
+			"desired": map[string]interface{}{"version": "4.18.30"},
+			"conditions": []interface{}{
+				map[string]interface{}{
+					"type":    "Available",
+					"status":  "True",
+					"message": "Cluster is available",
+				},
+				map[string]interface{}{
+					"type":    "Degraded",
+					"status":  "False",
+					"message": "",
+				},
+				map[string]interface{}{
+					"type":    "Progressing",
+					"status":  "True",
+					"message": "Working towards 4.18.30: 300 of 906 done (33% complete), waiting on etcd",
+				},
+			},
+		},
+	}}
+	dynClient := newFakeDynamicClient(cv)
+
+	status, err := getUpgradeStatus(context.Background(), dynClient)
+
+	require.NoError(t, err)
+	assert.Equal(t, "4.18.30", status.Label)
+	assert.Equal(t, 33, status.Percent)
+	assert.Equal(t, 300, status.Done)
+	assert.Equal(t, 906, status.Total)
+	assert.Equal(t, "etcd", status.Current)
+	assert.False(t, status.Complete)
 }
