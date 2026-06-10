@@ -408,3 +408,48 @@ func TestValidateHelmRepoURL_localhost(t *testing.T) {
 		t.Error("expected error for localhost resolving to loopback, got nil")
 	}
 }
+
+func TestValidateHelmChartRef(t *testing.T) {
+	tests := []struct {
+		name    string
+		chart   string
+		wantErr bool
+	}{
+		{"simple chart name", "nginx", false},
+		{"chart with version", "stable/nginx", false},
+		{"chart with dots", "bitnami/postgresql-14.0.0", false},
+		{"blocks absolute path", "/etc/kubernetes/pki", true},
+		{"blocks relative path dot-slash", "./malicious-chart", true},
+		{"blocks parent path traversal", "../../../etc/passwd", true},
+		{"valid oci reference", "oci://registry.example.com/charts/app", false},
+		{"oci no host", "oci://", true},
+		{"oci blocked loopback IP", "oci://127.0.0.1/chart", true},
+		{"oci blocked private IP", "oci://192.168.1.1/chart", true},
+		{"oci blocked cloud IMDS", "oci://169.254.169.254/chart", true},
+		{"oci blocked CGNAT", "oci://100.96.0.1/chart", true},
+	}
+
+	// Use a mock resolver that returns a public IP for unknown hosts.
+	setHelmMockResolver(t, func(host string) ([]string, error) {
+		return []string{"8.8.8.8"}, nil
+	})
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateHelmChartRef(tc.chart)
+			if (err != nil) != tc.wantErr {
+				t.Errorf("validateHelmChartRef(%q) error = %v, wantErr %v", tc.chart, err, tc.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidateHelmChartRef_OCIDNSBlocked(t *testing.T) {
+	setHelmMockResolver(t, func(_ string) ([]string, error) {
+		return []string{"10.0.0.1"}, nil
+	})
+	err := validateHelmChartRef("oci://internal-registry.corp/chart")
+	if err == nil {
+		t.Error("expected error for oci ref resolving to private IP, got nil")
+	}
+}
