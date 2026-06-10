@@ -213,6 +213,28 @@ func TestToolGetClusterHealth_DiscoveryError(t *testing.T) {
 	}
 }
 
+func TestToolGetClusterHealth_CheckError(t *testing.T) {
+	s := &Server{discoverer: stubDiscoverer{
+		discoverClusters: func(source string) ([]cluster.ClusterInfo, error) {
+			return []cluster.ClusterInfo{{Name: "prod", Context: "prod-ctx", Current: true}}, nil
+		},
+		checkHealthByCtxFn: func(contextName string) (*cluster.HealthInfo, error) {
+			if contextName != "prod-ctx" {
+				t.Fatalf("contextName = %q, want prod-ctx", contextName)
+			}
+			return nil, errors.New("api timeout")
+		},
+	}}
+
+	result, isErr := s.toolGetClusterHealth(map[string]interface{}{"cluster": "prod"})
+	if !isErr {
+		t.Fatal("expected isErr=true for health check failure")
+	}
+	if !strings.Contains(result, "Failed to check health: api timeout") {
+		t.Fatalf("expected health check error, got: %s", result)
+	}
+}
+
 func TestToolGetClusterHealth_ByContext(t *testing.T) {
 	s := &Server{discoverer: &mockDiscoverer{
 		clusters: []cluster.ClusterInfo{
@@ -232,5 +254,30 @@ func TestToolGetClusterHealth_ByContext(t *testing.T) {
 	}
 	if !strings.Contains(result, "Cluster: prod") {
 		t.Errorf("expected cluster name, got:\n%s", result)
+	}
+}
+
+func TestHandleToolsCallClusterHealthIncludesHealthError(t *testing.T) {
+	server := &Server{discoverer: stubDiscoverer{
+		discoverClusters: func(source string) ([]cluster.ClusterInfo, error) {
+			return []cluster.ClusterInfo{{Name: "prod", Context: "prod-ctx", Current: true}}, nil
+		},
+		checkHealthByCtxFn: func(contextName string) (*cluster.HealthInfo, error) {
+			if contextName != "prod-ctx" {
+				t.Fatalf("context = %q, want prod-ctx", contextName)
+			}
+			return nil, errors.New("probe failed")
+		},
+	}}
+
+	result, rpcErr := callTool(t, server, "get_cluster_health", map[string]interface{}{"cluster": "prod"})
+	if rpcErr != nil {
+		t.Fatalf("unexpected RPC error: %v", rpcErr)
+	}
+	if !result.IsError {
+		t.Fatal("expected tool error for failed health check")
+	}
+	if !strings.Contains(result.Content[0].Text, "Failed to check health: probe failed") {
+		t.Fatalf("unexpected tool error text: %s", result.Content[0].Text)
 	}
 }

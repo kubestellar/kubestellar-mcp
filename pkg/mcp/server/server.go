@@ -12,6 +12,7 @@ import (
 
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/cluster"
 )
@@ -32,10 +33,15 @@ type Server struct {
 	kubeconfig    string
 	discoverer    discoverer
 	clientFactory func(clusterName string) (kubernetes.Interface, error)
+	// restConfigFactory is an injectable factory for REST configs.
+	// When nil, getRestConfigForCluster falls back to loading kubeconfig.
+	restConfigFactory func(clusterName string) (*rest.Config, error)
 	// dynamicClientFactory is an injectable factory for dynamic clients.
 	// When nil, getDynamicClientForCluster falls back to building a real
 	// client from kubeconfig. Tests set this to inject a fake.
 	dynamicClientFactory func(clusterName string) (dynamic.Interface, error)
+	manifestReaderFactory func() manifestReader
+	driftDetectorFactory  func(config *rest.Config) (driftDetector, error)
 	reader               *bufio.Reader
 	writer               io.Writer
 	mu                   sync.Mutex

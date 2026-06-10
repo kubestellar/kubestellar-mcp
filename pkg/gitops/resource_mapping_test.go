@@ -1,7 +1,15 @@
 package gitops
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/rest"
 )
 
 func TestKindToResource(t *testing.T) {
@@ -252,6 +260,122 @@ func TestResolveManifestResource_InvalidAPIVersion(t *testing.T) {
 	_, err := resolveManifestResource(manifest, nil)
 	if err == nil {
 		t.Fatal("expected error for invalid apiVersion, got nil")
+	}
+}
+
+func TestResolveManifestResource_UsesRESTMapperWhenAvailable(t *testing.T) {
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "apps", Version: "v1"}})
+	mapper.AddSpecific(
+		schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
+		schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+		schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployment"},
+		meta.RESTScopeNamespace,
+	)
+
+	mapping, err := resolveManifestResource(Manifest{
+		APIVersion: "apps/v1",
+		Kind:       "Deployment",
+		Metadata:   ManifestMetadata{Name: "frontend", Namespace: "apps"},
+	}, mapper)
+	if err != nil {
+		t.Fatalf("resolveManifestResource() error = %v", err)
+	}
+	if mapping.GVR != (schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}) {
+		t.Fatalf("unexpected GVR: %#v", mapping.GVR)
+	}
+	if mapping.ClusterScoped {
+		t.Fatal("expected deployment to be namespaced")
+	}
+}
+
+func TestResolveManifestResource_FallsBackWhenRESTMapperMisses(t *testing.T) {
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "apps", Version: "v1"}})
+
+	mapping, err := resolveManifestResource(Manifest{
+		APIVersion: "rbac.authorization.k8s.io/v1",
+		Kind:       "ClusterRole",
+		Metadata:   ManifestMetadata{Name: "viewer"},
+	}, mapper)
+	if err != nil {
+		t.Fatalf("resolveManifestResource() error = %v", err)
+	}
+	if mapping.GVR.Resource != "clusterroles" {
+		t.Fatalf("GVR.Resource = %q, want clusterroles", mapping.GVR.Resource)
+	}
+	if !mapping.ClusterScoped {
+		t.Fatal("expected cluster role to be cluster scoped")
+	}
+}
+
+func TestNewRESTMapperInvalidConfigReturnsNil(t *testing.T) {
+	if mapper := newRESTMapper(&rest.Config{}); mapper != nil {
+		t.Fatalf("expected nil mapper for invalid config, got %#v", mapper)
+	}
+}
+
+func TestNewRESTMapperBuildsMapperFromDiscovery(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"kind":                        "APIVersions",
+				"versions":                    []string{"v1"},
+				"serverAddressByClientCIDRs": []any{},
+			})
+		case "/api/v1":
+			_ = json.NewEncoder(w).Encode(metav1.APIResourceList{
+				GroupVersion: "v1",
+				APIResources: []metav1.APIResource{
+					{Name: "configmaps", SingularName: "configmap", Namespaced: true, Kind: "ConfigMap"},
+				},
+			})
+		case "/apis":
+			_ = json.NewEncoder(w).Encode(metav1.APIGroupList{
+				Groups: []metav1.APIGroup{
+					{
+						Name: "rbac.authorization.k8s.io",
+						Versions: []metav1.GroupVersionForDiscovery{
+							{GroupVersion: "rbac.authorization.k8s.io/v1", Version: "v1"},
+						},
+						PreferredVersion: metav1.GroupVersionForDiscovery{
+							GroupVersion: "rbac.authorization.k8s.io/v1",
+							Version:      "v1",
+						},
+					},
+				},
+			})
+		case "/apis/rbac.authorization.k8s.io/v1":
+			_ = json.NewEncoder(w).Encode(metav1.APIResourceList{
+				GroupVersion: "rbac.authorization.k8s.io/v1",
+				APIResources: []metav1.APIResource{
+					{Name: "clusterroles", SingularName: "clusterrole", Namespaced: false, Kind: "ClusterRole"},
+				},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	mapper := newRESTMapper(&rest.Config{Host: server.URL})
+	if mapper == nil {
+		t.Fatal("expected REST mapper from discovery server")
+	}
+
+	mapping, err := resolveManifestResource(Manifest{
+		APIVersion: "rbac.authorization.k8s.io/v1",
+		Kind:       "ClusterRole",
+		Metadata:   ManifestMetadata{Name: "viewer"},
+	}, mapper)
+	if err != nil {
+		t.Fatalf("resolveManifestResource() error = %v", err)
+	}
+	if mapping.GVR.Resource != "clusterroles" {
+		t.Fatalf("GVR.Resource = %q, want clusterroles", mapping.GVR.Resource)
+	}
+	if !mapping.ClusterScoped {
+		t.Fatal("expected cluster role mapping to be cluster scoped")
 	}
 }
 
