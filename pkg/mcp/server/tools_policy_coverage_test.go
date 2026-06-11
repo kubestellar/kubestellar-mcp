@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -364,7 +365,7 @@ func TestToolUninstallOwnershipPolicy_Success(t *testing.T) {
 		Version:  "v1beta1",
 		Resource: "k8srequiredlabels",
 	}
-	_, err := fakeDyn.Resource(constraintGVR).Get(nil, ownershipConstraintName, metav1.GetOptions{})
+	_, err := fakeDyn.Resource(constraintGVR).Get(context.TODO(), ownershipConstraintName, metav1.GetOptions{})
 	if err == nil {
 		t.Fatal("expected constraint to be deleted")
 	}
