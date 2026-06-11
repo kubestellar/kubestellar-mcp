@@ -214,7 +214,11 @@ func TestToolSetOwnershipPolicyMode_SuccessUpdate(t *testing.T) {
 	csItemGVK := schema.GroupVersionKind{Group: "constraints.gatekeeper.sh", Version: "v1beta1", Kind: "K8sRequiredLabels"}
 	scheme.AddKnownTypeWithName(csItemGVK, &unstructured.Unstructured{})
 
-	fakeDyn := dynfake.NewSimpleDynamicClient(scheme, constraint)
+	constraintGVR := schema.GroupVersionResource{Group: "constraints.gatekeeper.sh", Version: "v1beta1", Resource: "k8srequiredlabels"}
+	fakeDyn := dynfake.NewSimpleDynamicClient(scheme)
+	if err := fakeDyn.Tracker().Create(constraintGVR, constraint, ""); err != nil {
+		t.Fatalf("failed to seed constraint: %v", err)
+	}
 	server := &Server{
 		discoverer: stubDiscoverer{},
 		dynamicClientFactory: func(clusterName string) (dynamic.Interface, error) {
@@ -260,7 +264,11 @@ func TestToolSetOwnershipPolicyMode_AlreadySameMode(t *testing.T) {
 	csItemGVK := schema.GroupVersionKind{Group: "constraints.gatekeeper.sh", Version: "v1beta1", Kind: "K8sRequiredLabels"}
 	scheme.AddKnownTypeWithName(csItemGVK, &unstructured.Unstructured{})
 
-	fakeDyn := dynfake.NewSimpleDynamicClient(scheme, constraint)
+	constraintGVR := schema.GroupVersionResource{Group: "constraints.gatekeeper.sh", Version: "v1beta1", Resource: "k8srequiredlabels"}
+	fakeDyn := dynfake.NewSimpleDynamicClient(scheme)
+	if err := fakeDyn.Tracker().Create(constraintGVR, constraint, ""); err != nil {
+		t.Fatalf("failed to seed constraint: %v", err)
+	}
 	server := &Server{
 		discoverer: stubDiscoverer{},
 		dynamicClientFactory: func(clusterName string) (dynamic.Interface, error) {
