@@ -17,6 +17,10 @@ RUN apk add --no-cache ca-certificates \
 
 COPY --from=builder /kubestellar-ops /usr/local/bin/kubestellar-ops
 
+# MCP Registry ownership verification label
+# See: https://github.com/modelcontextprotocol/registry/blob/main/docs/modelcontextprotocol-io/package-types.mdx
+LABEL io.modelcontextprotocol.server.name="io.github.kubestellar/kubestellar-mcp"
+
 USER nonroot:nonroot
 
 ENTRYPOINT ["kubestellar-ops", "--mcp-server"]
