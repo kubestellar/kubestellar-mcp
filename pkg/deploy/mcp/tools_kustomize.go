@@ -146,6 +146,10 @@ func (s *Server) handleKustomizeApply(ctx context.Context, args json.RawMessage)
 		return nil, fmt.Errorf("path is required")
 	}
 
+	if err := validateHelmClusters(params.Clusters); err != nil {
+		return nil, err
+	}
+
 	resolvedPath, err := resolveKustomizePath(params.Path)
 	if err != nil {
 		return nil, err
@@ -249,6 +253,10 @@ func (s *Server) handleKustomizeDelete(ctx context.Context, args json.RawMessage
 
 	if params.Path == "" {
 		return nil, fmt.Errorf("path is required")
+	}
+
+	if err := validateHelmClusters(params.Clusters); err != nil {
+		return nil, err
 	}
 
 	resolvedPath, err := resolveKustomizePath(params.Path)
