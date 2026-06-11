@@ -491,6 +491,92 @@ func TestValidateHelmIdentifier(t *testing.T) {
 	}
 }
 
+// TestValidateHelmSetKey verifies that helm --set keys containing forbidden
+// characters are rejected (#288).
+func TestValidateHelmSetKey(t *testing.T) {
+	tests := []struct {
+		name    string
+		key     string
+		wantErr bool
+	}{
+		{name: "simple key", key: "image.tag", wantErr: false},
+		{name: "nested key", key: "server.ingress.enabled", wantErr: false},
+		{name: "array index", key: "servers[0].port", wantErr: false},
+		// Injection characters
+		{name: "comma injection", key: "image.tag,extra=injected", wantErr: true},
+		{name: "backtick in key", key: "image.`tag`", wantErr: true},
+		{name: "brace in key", key: "image.{tag}", wantErr: true},
+		{name: "leading dash", key: "--post-renderer", wantErr: true},
+		{name: "space in key", key: "image tag", wantErr: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateHelmSetKey(tc.key)
+			if (err != nil) != tc.wantErr {
+				t.Errorf("validateHelmSetKey(%q) error = %v, wantErr %v", tc.key, err, tc.wantErr)
+			}
+		})
+	}
+}
+
+// TestValidateHelmSetValue verifies that helm --set values containing Helm
+// structural characters are rejected (#288).
+func TestValidateHelmSetValue(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   string
+		wantErr bool
+	}{
+		{name: "simple value", value: "latest", wantErr: false},
+		{name: "version string", value: "1.2.3", wantErr: false},
+		{name: "numeric", value: "8080", wantErr: false},
+		{name: "boolean", value: "true", wantErr: false},
+		// Comma injection — Helm splits on comma in --set values
+		{name: "comma injects extra pair", value: "latest,adminPassword=hacked", wantErr: true},
+		{name: "comma alone", value: "a,b", wantErr: true},
+		// Helm special syntax
+		{name: "braces set syntax", value: "{a,b,c}", wantErr: true},
+		{name: "bracket index", value: "value[0]", wantErr: true},
+		{name: "backtick raw string", value: "`raw`", wantErr: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateHelmSetValue(tc.value)
+			if (err != nil) != tc.wantErr {
+				t.Errorf("validateHelmSetValue(%q) error = %v, wantErr %v", tc.value, err, tc.wantErr)
+			}
+		})
+	}
+}
+
+// TestValidateHelmClusters verifies that user-supplied cluster names are
+// validated before being used as --kube-context values (#289).
+func TestValidateHelmClusters(t *testing.T) {
+	tests := []struct {
+		name     string
+		clusters []string
+		wantErr  bool
+	}{
+		{name: "nil slice", clusters: nil, wantErr: false},
+		{name: "empty slice", clusters: []string{}, wantErr: false},
+		{name: "valid names", clusters: []string{"cluster-a", "cluster-b"}, wantErr: false},
+		{name: "single valid", clusters: []string{"prod-k8s"}, wantErr: false},
+		// Invalid names
+		{name: "leading dash", clusters: []string{"valid", "--dry-run"}, wantErr: true},
+		{name: "empty string", clusters: []string{""}, wantErr: false}, // empty handled by required-field checks
+		{name: "uppercase", clusters: []string{"ClusterA"}, wantErr: true},
+		{name: "spaces", clusters: []string{"cluster a"}, wantErr: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateHelmClusters(tc.clusters)
+			if (err != nil) != tc.wantErr {
+				t.Errorf("validateHelmClusters(%v) error = %v, wantErr %v", tc.clusters, err, tc.wantErr)
+			}
+		})
+	}
+}
+
 // TestRevalidateHelmHosts_DNSRebinding verifies that the pre-exec DNS
 // re-check catches a hostname that rebinds to a private IP after initial
 // validation (TOCTOU mitigation for #275).

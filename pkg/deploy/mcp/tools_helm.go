@@ -183,6 +183,14 @@ func resolveAndBlock(host string) error {
 // See: https://github.com/kubestellar/kubestellar-mcp/issues/269
 var validHelmIdentifierPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9\-\.]*[a-z0-9]$|^[a-z0-9]$`)
 
+// helmSetSpecialChars are characters that Helm's --set parser treats as
+// structural delimiters: comma (list separator), braces (set syntax),
+// brackets (index syntax), and backtick (raw string quoting). Any of these
+// appearing in a user-supplied key or value would let an attacker inject extra
+// key=value pairs or override values beyond what was intended.
+// See: https://github.com/kubestellar/kubestellar-mcp/issues/288
+const helmSetSpecialChars = ",{}[]`"
+
 // validateHelmIdentifier rejects values that would be misinterpreted as CLI flags
 // (leading "-") or that do not conform to Kubernetes DNS label / subdomain format.
 func validateHelmIdentifier(kind, value string) error {
@@ -194,6 +202,46 @@ func validateHelmIdentifier(kind, value string) error {
 	}
 	if !validHelmIdentifierPattern.MatchString(value) {
 		return fmt.Errorf("%s %q is not a valid Kubernetes identifier (must be lowercase alphanumeric, hyphens, or dots, and start/end with alphanumeric)", kind, value)
+	}
+	return nil
+}
+
+// validateHelmSetKey rejects --set keys that contain Helm structural characters.
+// Keys may contain dots (path separators) and brackets (array indices), both of
+// which are normal Helm key syntax, but commas, braces, and backticks are not
+// valid in keys and indicate injection attempts.
+func validateHelmSetKey(key string) error {
+	if strings.HasPrefix(key, "-") {
+		return fmt.Errorf("--set key %q must not begin with '-' (possible flag injection)", key)
+	}
+	for _, ch := range ",{}` " {
+		if strings.ContainsRune(key, ch) {
+			return fmt.Errorf("--set key %q contains forbidden character %q (possible Helm value injection)", key, string(ch))
+		}
+	}
+	return nil
+}
+
+// validateHelmSetValue rejects --set values that contain Helm structural
+// characters. A comma in a value causes Helm to split it into multiple
+// key=value pairs, allowing injection of extra chart values (#288).
+func validateHelmSetValue(value string) error {
+	for _, ch := range helmSetSpecialChars {
+		if strings.ContainsRune(value, ch) {
+			return fmt.Errorf("--set value %q contains forbidden character %q (possible Helm value injection; use values_yaml for complex values)", value, string(ch))
+		}
+	}
+	return nil
+}
+
+// validateHelmClusters validates user-supplied cluster names (#289).
+// Cluster names are passed as --kube-context values; they must meet the same
+// Kubernetes identifier rules as release names and namespaces.
+func validateHelmClusters(clusters []string) error {
+	for _, c := range clusters {
+		if err := validateHelmIdentifier("cluster", c); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -262,6 +310,21 @@ func (s *Server) handleHelmInstall(ctx context.Context, args json.RawMessage) (i
 	}
 	if err := validateHelmIdentifier("namespace", params.Namespace); err != nil {
 		return nil, err
+	}
+
+	// Validate user-supplied cluster names (#289).
+	if err := validateHelmClusters(params.Clusters); err != nil {
+		return nil, err
+	}
+
+	// Validate --set keys and values to prevent Helm value injection (#288).
+	for k, v := range params.Values {
+		if err := validateHelmSetKey(k); err != nil {
+			return nil, err
+		}
+		if err := validateHelmSetValue(v); err != nil {
+			return nil, err
+		}
 	}
 
 	// Get target clusters
@@ -434,6 +497,11 @@ func (s *Server) handleHelmUninstall(ctx context.Context, args json.RawMessage) 
 		return nil, err
 	}
 
+	// Validate user-supplied cluster names (#289).
+	if err := validateHelmClusters(params.Clusters); err != nil {
+		return nil, err
+	}
+
 	// Get target clusters
 	targetClusters := params.Clusters
 	if len(targetClusters) == 0 {
@@ -528,6 +596,11 @@ func (s *Server) handleHelmList(ctx context.Context, args json.RawMessage) (inte
 	}
 	if err := json.Unmarshal(args, &params); err != nil {
 		return nil, fmt.Errorf("invalid arguments: %w", err)
+	}
+
+	// Validate user-supplied cluster names (#289).
+	if err := validateHelmClusters(params.Clusters); err != nil {
+		return nil, err
 	}
 
 	// Get target clusters
@@ -628,6 +701,11 @@ func (s *Server) handleHelmRollback(ctx context.Context, args json.RawMessage) (
 		return nil, err
 	}
 	if err := validateHelmIdentifier("namespace", params.Namespace); err != nil {
+		return nil, err
+	}
+
+	// Validate user-supplied cluster names (#289).
+	if err := validateHelmClusters(params.Clusters); err != nil {
 		return nil, err
 	}
 
