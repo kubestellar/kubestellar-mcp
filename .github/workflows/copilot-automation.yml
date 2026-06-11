@@ -10,7 +10,7 @@ on:
   pull_request_target:
     types: [opened, synchronize, ready_for_review]
 
-permissions: read-all  # default read; writes scoped to job below
+permissions: {}
 
 concurrency:
   group: copilot-automation-${{ github.event.pull_request.number || github.event.inputs.pr_number || github.sha }}
@@ -22,9 +22,9 @@ jobs:
       github.event_name != 'pull_request_target' ||
       github.event.pull_request.head.repo.full_name == github.repository
     permissions:
-      contents: write        # create/update files when applying Copilot suggestions
-      pull-requests: write   # review, comment, and approve pull requests
-      issues: write          # comment on issues linked from PRs
+      issues: write
+      pull-requests: read
+      statuses: write
     uses: kubestellar/infra/.github/workflows/reusable-copilot-automation.yml@af322d48cc67ade7345cabc6a0ed55c6c7040ee4
     with:
       pr_number: ${{ github.event.inputs.pr_number || '' }}
