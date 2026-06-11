@@ -124,6 +124,59 @@ func validateHelmRepoURL(repo string) error {
 	return nil
 }
 
+// revalidateHelmHosts performs a second DNS resolution check on the chart and
+// repo hostnames immediately before exec. This narrows the TOCTOU window
+// between the initial validation (validateHelmChartRef/validateHelmRepoURL)
+// and helm's own DNS resolution. If a DNS rebinding attack switched the
+// record to a blocked IP after validation, this check catches it (#275).
+func revalidateHelmHosts(chart, repo string) error {
+	// Re-check OCI chart hostname if applicable.
+	if strings.HasPrefix(chart, "oci://") {
+		ref := strings.TrimPrefix(chart, "oci://")
+		host := strings.SplitN(ref, "/", 2)[0]
+		// Strip port if present.
+		if h, _, err := net.SplitHostPort(host); err == nil {
+			host = h
+		}
+		if host != "" {
+			if err := resolveAndBlock(host); err != nil {
+				return fmt.Errorf("chart host %q: %w", host, err)
+			}
+		}
+	}
+	// Re-check --repo hostname if specified.
+	if repo != "" {
+		u, err := url.Parse(repo)
+		if err == nil && u.Hostname() != "" {
+			if err := resolveAndBlock(u.Hostname()); err != nil {
+				return fmt.Errorf("repo host %q: %w", u.Hostname(), err)
+			}
+		}
+	}
+	return nil
+}
+
+// resolveAndBlock resolves a hostname and returns an error if any resulting IP
+// is in a blocked range.
+func resolveAndBlock(host string) error {
+	if ip := net.ParseIP(host); ip != nil {
+		if isHelmBlockedIP(ip) {
+			return fmt.Errorf("resolves to blocked IP %s", ip)
+		}
+		return nil
+	}
+	addrs, err := helmHostResolver(host)
+	if err != nil {
+		return fmt.Errorf("DNS lookup failed: %w", err)
+	}
+	for _, addr := range addrs {
+		if ip := net.ParseIP(addr); ip != nil && isHelmBlockedIP(ip) {
+			return fmt.Errorf("resolves to blocked IP %s", ip)
+		}
+	}
+	return nil
+}
+
 // validHelmIdentifierPattern enforces Kubernetes DNS label format for Helm
 // release names, namespaces, and kube-context names. This prevents flag-injection
 // attacks where a leading "--" value would be parsed as a CLI flag by helm.
@@ -253,6 +306,21 @@ func (s *Server) handleHelmInstall(ctx context.Context, args json.RawMessage) (i
 // helmInstall runs helm install/upgrade for a single cluster
 func (s *Server) helmInstall(ctx context.Context, cluster, releaseName, chart, namespace string,
 	values map[string]string, valuesYAML, version, repo string, wait bool, timeout string, dryRun bool) HelmResult {
+
+	// Pre-exec DNS re-validation: re-resolve hostnames immediately before
+	// exec to close the TOCTOU gap between validateHelmRepoURL/validateHelmChartRef
+	// (which resolve during input validation) and the helm subprocess (which
+	// resolves independently). If DNS has rebind to a blocked IP between
+	// validation and now, abort. See #275.
+	if err := revalidateHelmHosts(chart, repo); err != nil {
+		return HelmResult{
+			Cluster:     cluster,
+			ReleaseName: releaseName,
+			Namespace:   namespace,
+			Status:      "failed",
+			Message:     fmt.Sprintf("pre-exec SSRF re-check failed (possible DNS rebinding): %v", err),
+		}
+	}
 
 	cmdArgs := []string{"upgrade", "--install", releaseName, chart,
 		"--namespace", namespace,
