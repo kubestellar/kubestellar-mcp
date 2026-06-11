@@ -453,3 +453,40 @@ func TestValidateHelmChartRef_OCIDNSBlocked(t *testing.T) {
 		t.Error("expected error for oci ref resolving to private IP, got nil")
 	}
 }
+
+func TestValidateHelmIdentifier(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   string
+		wantErr bool
+	}{
+		// Valid Kubernetes identifiers
+		{name: "simple name", value: "my-release", wantErr: false},
+		{name: "single char", value: "a", wantErr: false},
+		{name: "alphanumeric", value: "release123", wantErr: false},
+		{name: "with dots", value: "my.release", wantErr: false},
+		{name: "namespace kube-system", value: "kube-system", wantErr: false},
+		{name: "default namespace", value: "default", wantErr: false},
+		// Empty value is allowed (handled by required-field checks)
+		{name: "empty is allowed", value: "", wantErr: false},
+		// Flag injection attacks
+		{name: "leading double-dash", value: "--post-renderer", wantErr: true},
+		{name: "leading single-dash", value: "-n", wantErr: true},
+		{name: "flag with value", value: "--kubeconfig", wantErr: true},
+		// Invalid Kubernetes naming
+		{name: "uppercase letters", value: "MyRelease", wantErr: true},
+		{name: "trailing dash", value: "release-", wantErr: true},
+		{name: "leading dot", value: ".release", wantErr: true},
+		{name: "spaces", value: "my release", wantErr: true},
+		{name: "semicolon injection", value: "release;rm -rf /", wantErr: true},
+		{name: "shell substitution", value: "release$(pwd)", wantErr: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateHelmIdentifier("release_name", tc.value)
+			if (err != nil) != tc.wantErr {
+				t.Errorf("validateHelmIdentifier(%q) error = %v, wantErr %v", tc.value, err, tc.wantErr)
+			}
+		})
+	}
+}
