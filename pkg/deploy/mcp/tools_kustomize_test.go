@@ -97,6 +97,40 @@ func TestHandleKustomizeBuildFallsBackToKubectlKustomize(t *testing.T) {
 	assert.Contains(t, logData, "args=kustomize "+dir)
 }
 
+func TestHandleKustomizeApplyRejectsInvalidClusterNames(t *testing.T) {
+	setupFakeKustomize(t)
+	server := newHelmTestServer(t, map[string]string{})
+	dir := createTestKustomization(t, "kustomization.yaml")
+	t.Setenv("FAKE_KUSTOMIZE_BUILD_STDOUT", "kind: ConfigMap\n")
+
+	for _, badCluster := range []string{"--server=http://evil.example.com", "-x", "--token=leaked"} {
+		_, err := server.handleKustomizeApply(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+			"path":     dir,
+			"clusters": []string{badCluster},
+			"dry_run":  true,
+		}))
+		require.Error(t, err, "expected rejection of cluster %q", badCluster)
+		assert.Contains(t, err.Error(), "flag injection", "cluster %q should be rejected as flag injection", badCluster)
+	}
+}
+
+func TestHandleKustomizeDeleteRejectsInvalidClusterNames(t *testing.T) {
+	setupFakeKustomize(t)
+	server := newHelmTestServer(t, map[string]string{})
+	dir := createTestKustomization(t, "kustomization.yaml")
+	t.Setenv("FAKE_KUSTOMIZE_BUILD_STDOUT", "kind: Deployment\n")
+
+	for _, badCluster := range []string{"--server=http://evil.example.com", "-x", "--kubeconfig=/etc/passwd"} {
+		_, err := server.handleKustomizeDelete(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+			"path":     dir,
+			"clusters": []string{badCluster},
+			"dry_run":  true,
+		}))
+		require.Error(t, err, "expected rejection of cluster %q", badCluster)
+		assert.Contains(t, err.Error(), "flag injection", "cluster %q should be rejected as flag injection", badCluster)
+	}
+}
+
 func TestApplyKustomizeDryRunReturnsWouldApply(t *testing.T) {
 	server := newHelmTestServer(t, map[string]string{})
 
