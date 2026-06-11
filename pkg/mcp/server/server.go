@@ -15,12 +15,31 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/cluster"
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/protocol"
 )
 
 const (
-	MCPVersion    = "2024-11-05"
 	ServerName    = "kubestellar-ops"
 	ServerVersion = "0.8.0"
+)
+
+// Type aliases so tool registry files continue to compile unchanged.
+type (
+	Request         = protocol.Request
+	Response        = protocol.Response
+	Error           = protocol.Error
+	ServerInfo      = protocol.ServerInfo
+	InitializeResult = protocol.InitializeResult
+	Capabilities    = protocol.Capabilities
+	ToolsCapability = protocol.ToolsCapability
+	Tool            = protocol.Tool
+	InputSchema     = protocol.InputSchema
+	Property        = protocol.Property
+	Items           = protocol.Items
+	ToolsListResult = protocol.ToolsListResult
+	CallToolParams  = protocol.CallToolParams
+	CallToolResult  = protocol.CallToolResult
+	ContentBlock    = protocol.ContentBlock
 )
 
 type discoverer interface {
@@ -45,89 +64,6 @@ type Server struct {
 	reader                *bufio.Reader
 	writer                io.Writer
 	mu                    sync.Mutex
-}
-
-// JSON-RPC types
-type Request struct {
-	JSONRPC string          `json:"jsonrpc"`
-	ID      interface{}     `json:"id,omitempty"`
-	Method  string          `json:"method"`
-	Params  json.RawMessage `json:"params,omitempty"`
-}
-
-type Response struct {
-	JSONRPC string      `json:"jsonrpc"`
-	ID      interface{} `json:"id,omitempty"`
-	Result  interface{} `json:"result,omitempty"`
-	Error   *Error      `json:"error,omitempty"`
-}
-
-type Error struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-// MCP types
-type ServerInfo struct {
-	Name    string `json:"name"`
-	Version string `json:"version"`
-}
-
-type InitializeResult struct {
-	ProtocolVersion string       `json:"protocolVersion"`
-	Capabilities    Capabilities `json:"capabilities"`
-	ServerInfo      ServerInfo   `json:"serverInfo"`
-}
-
-type Capabilities struct {
-	Tools *ToolsCapability `json:"tools,omitempty"`
-}
-
-type ToolsCapability struct {
-	ListChanged bool `json:"listChanged,omitempty"`
-}
-
-type Tool struct {
-	Name        string      `json:"name"`
-	Description string      `json:"description"`
-	InputSchema InputSchema `json:"inputSchema"`
-}
-
-type InputSchema struct {
-	Type       string              `json:"type"`
-	Properties map[string]Property `json:"properties,omitempty"`
-	Required   []string            `json:"required,omitempty"`
-}
-
-type Property struct {
-	Type        string   `json:"type"`
-	Description string   `json:"description,omitempty"`
-	Enum        []string `json:"enum,omitempty"`
-	Items       *Items   `json:"items,omitempty"`
-}
-
-type Items struct {
-	Type string `json:"type"`
-}
-
-type ToolsListResult struct {
-	Tools []Tool `json:"tools"`
-}
-
-type CallToolParams struct {
-	Name      string                 `json:"name"`
-	Arguments map[string]interface{} `json:"arguments,omitempty"`
-}
-
-type CallToolResult struct {
-	Content []ContentBlock `json:"content"`
-	IsError bool           `json:"isError,omitempty"`
-}
-
-type ContentBlock struct {
-	Type string `json:"type"`
-	Text string `json:"text"`
 }
 
 // NewServer creates a new MCP server
@@ -186,7 +122,7 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) {
 
 func (s *Server) handleInitialize(req *Request) {
 	result := InitializeResult{
-		ProtocolVersion: MCPVersion,
+		ProtocolVersion: protocol.MCPVersion,
 		Capabilities: Capabilities{
 			Tools: &ToolsCapability{},
 		},

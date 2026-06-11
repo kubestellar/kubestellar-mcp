@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/protocol"
 	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 	"k8s.io/client-go/rest"
 )
@@ -69,28 +70,12 @@ func (s *Server) getManifestSyncer(config *rest.Config) (manifestSyncer, error) 
 	}
 	return gitops.NewSyncer(config)
 }
-
-// MCPRequest represents an incoming MCP request
-type MCPRequest struct {
-	JSONRPC string          `json:"jsonrpc"`
-	ID      interface{}     `json:"id"`
-	Method  string          `json:"method"`
-	Params  json.RawMessage `json:"params,omitempty"`
-}
-
-// MCPResponse represents an outgoing MCP response
-type MCPResponse struct {
-	JSONRPC string      `json:"jsonrpc"`
-	ID      interface{} `json:"id"`
-	Result  interface{} `json:"result,omitempty"`
-	Error   *MCPError   `json:"error,omitempty"`
-}
-
-// MCPError represents an MCP error
-type MCPError struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-}
+// Type aliases from shared protocol package.
+type (
+	MCPRequest  = protocol.Request
+	MCPResponse = protocol.Response
+	MCPError    = protocol.Error
+)
 
 // RunMCPServer starts the MCP server on stdin/stdout
 func RunMCPServer() error {
