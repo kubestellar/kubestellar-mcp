@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/url"
 	"os/exec"
+	"regexp"
 	"strings"
 )
 
@@ -123,6 +124,27 @@ func validateHelmRepoURL(repo string) error {
 	return nil
 }
 
+// validHelmIdentifierPattern enforces Kubernetes DNS label format for Helm
+// release names, namespaces, and kube-context names. This prevents flag-injection
+// attacks where a leading "--" value would be parsed as a CLI flag by helm.
+// See: https://github.com/kubestellar/kubestellar-mcp/issues/269
+var validHelmIdentifierPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9\-\.]*[a-z0-9]$|^[a-z0-9]$`)
+
+// validateHelmIdentifier rejects values that would be misinterpreted as CLI flags
+// (leading "-") or that do not conform to Kubernetes DNS label / subdomain format.
+func validateHelmIdentifier(kind, value string) error {
+	if value == "" {
+		return nil // empty values are handled by existing required-field checks
+	}
+	if strings.HasPrefix(value, "-") {
+		return fmt.Errorf("%s %q must not begin with '-' (possible flag injection)", kind, value)
+	}
+	if !validHelmIdentifierPattern.MatchString(value) {
+		return fmt.Errorf("%s %q is not a valid Kubernetes identifier (must be lowercase alphanumeric, hyphens, or dots, and start/end with alphanumeric)", kind, value)
+	}
+	return nil
+}
+
 // HelmReleaseInfo represents information about a Helm release
 type HelmReleaseInfo struct {
 	Name       string `json:"name"`
@@ -179,6 +201,14 @@ func (s *Server) handleHelmInstall(ctx context.Context, args json.RawMessage) (i
 		if err := validateHelmRepoURL(params.Repo); err != nil {
 			return nil, fmt.Errorf("invalid repo URL: %w", err)
 		}
+	}
+
+	// Validate identifiers against Kubernetes naming rules to prevent flag injection (#269).
+	if err := validateHelmIdentifier("release_name", params.ReleaseName); err != nil {
+		return nil, err
+	}
+	if err := validateHelmIdentifier("namespace", params.Namespace); err != nil {
+		return nil, err
 	}
 
 	// Get target clusters
@@ -326,6 +356,14 @@ func (s *Server) handleHelmUninstall(ctx context.Context, args json.RawMessage) 
 
 	if params.Namespace == "" {
 		params.Namespace = "default"
+	}
+
+	// Validate identifiers against Kubernetes naming rules to prevent flag injection (#269).
+	if err := validateHelmIdentifier("release_name", params.ReleaseName); err != nil {
+		return nil, err
+	}
+	if err := validateHelmIdentifier("namespace", params.Namespace); err != nil {
+		return nil, err
 	}
 
 	// Get target clusters
@@ -515,6 +553,14 @@ func (s *Server) handleHelmRollback(ctx context.Context, args json.RawMessage) (
 
 	if params.Namespace == "" {
 		params.Namespace = "default"
+	}
+
+	// Validate identifiers against Kubernetes naming rules to prevent flag injection (#269).
+	if err := validateHelmIdentifier("release_name", params.ReleaseName); err != nil {
+		return nil, err
+	}
+	if err := validateHelmIdentifier("namespace", params.Namespace); err != nil {
+		return nil, err
 	}
 
 	// Get target clusters
