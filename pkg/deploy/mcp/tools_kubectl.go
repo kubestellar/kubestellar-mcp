@@ -107,6 +107,34 @@ func (s *Server) deleteResourceInCluster(ctx context.Context, client *kubernetes
 		Namespace: namespace,
 	}
 
+	// Check if kind is supported before proceeding
+	kindLower := strings.ToLower(kind)
+	supportedKinds := map[string]bool{
+		"deployment": true, "deployments": true,
+		"service": true, "services": true, "svc": true,
+		"configmap": true, "configmaps": true, "cm": true,
+		"secret": true, "secrets": true,
+		"pod": true, "pods": true,
+		"statefulset": true, "statefulsets": true, "sts": true,
+		"daemonset": true, "daemonsets": true, "ds": true,
+		"job": true, "jobs": true,
+		"cronjob": true, "cronjobs": true,
+		"ingress": true, "ingresses": true, "ing": true,
+		"pvc": true, "persistentvolumeclaim": true, "persistentvolumeclaims": true,
+		"namespace": true, "namespaces": true, "ns": true,
+		"serviceaccount": true, "serviceaccounts": true, "sa": true,
+		"role": true, "roles": true,
+		"rolebinding": true, "rolebindings": true,
+		"clusterrole": true, "clusterroles": true,
+		"clusterrolebinding": true, "clusterrolebindings": true,
+	}
+
+	if !supportedKinds[kindLower] {
+		result.Status = "failed"
+		result.Message = fmt.Sprintf("Unsupported resource kind: %s", kind)
+		return result, nil
+	}
+
 	if dryRun {
 		result.Status = "would-delete"
 		result.Message = fmt.Sprintf("Would delete %s/%s", kind, name)

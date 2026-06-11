@@ -40,6 +40,12 @@ func init() {
 	upgradesScheme.AddKnownTypeWithName(subGVK, &unstructured.UnstructuredList{})
 	subItemGVK := schema.GroupVersionKind{Group: "operators.coreos.com", Version: "v1alpha1", Kind: "Subscription"}
 	upgradesScheme.AddKnownTypeWithName(subItemGVK, &unstructured.Unstructured{})
+
+	// MachineConfigPool
+	mcpGVK := schema.GroupVersionKind{Group: "machineconfiguration.openshift.io", Version: "v1", Kind: "MachineConfigPoolList"}
+	upgradesScheme.AddKnownTypeWithName(mcpGVK, &unstructured.UnstructuredList{})
+	mcpItemGVK := schema.GroupVersionKind{Group: "machineconfiguration.openshift.io", Version: "v1", Kind: "MachineConfigPool"}
+	upgradesScheme.AddKnownTypeWithName(mcpItemGVK, &unstructured.Unstructured{})
 }
 
 func newUpgradeCoverageServer(k8sObjs []runtime.Object, dynObjs []runtime.Object) *Server {

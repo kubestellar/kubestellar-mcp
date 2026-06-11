@@ -363,7 +363,7 @@ func TestGetUpgradePrerequisites_HealthyCluster(t *testing.T) {
 	ca := &mockClusterAccess{client: cs, dynClient: dynClient}
 	result, isErr := GetUpgradePrerequisites(context.Background(), ca, map[string]interface{}{})
 	assert.False(t, isErr)
-	assert.Contains(t, result, "All nodes Ready")
+	assert.Contains(t, result, "All nodes ready (1/1)")
 	assert.Contains(t, result, "Passed")
 }
 
@@ -412,7 +412,7 @@ func TestCheckOLMOperatorUpgrades_ClientError(t *testing.T) {
 	ca := &mockClusterAccess{dynErr: fmt.Errorf("no config")}
 	result, isErr := CheckOLMOperatorUpgrades(context.Background(), ca, map[string]interface{}{})
 	assert.True(t, isErr)
-	assert.Contains(t, result, "Failed to create dynamic client")
+	assert.Contains(t, result, "Failed to create client")
 }
 
 // --- GetUpgradeStatus tests ---
