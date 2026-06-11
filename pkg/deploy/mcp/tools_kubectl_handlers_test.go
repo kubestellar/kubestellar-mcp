@@ -197,10 +197,8 @@ func TestDeleteResourceInClusterUnsupportedKind(t *testing.T) {
 	result, err := server.deleteResourceInCluster(context.Background(), nil, "alpha", "Widget", "my-widget", "default", false)
 	require.NoError(t, err)
 
-	dr, ok := result.(DeleteResult)
-	require.True(t, ok)
-	assert.Equal(t, "failed", dr.Status)
-	assert.Contains(t, dr.Message, "Unsupported resource kind")
+	assert.Equal(t, "failed", result.Status)
+	assert.Contains(t, result.Message, "Unsupported resource kind")
 }
 
 func TestDeleteResourceInClusterDryRun(t *testing.T) {
@@ -209,9 +207,7 @@ func TestDeleteResourceInClusterDryRun(t *testing.T) {
 	result, err := server.deleteResourceInCluster(context.Background(), nil, "alpha", "Pod", "my-pod", "default", true)
 	require.NoError(t, err)
 
-	dr, ok := result.(DeleteResult)
-	require.True(t, ok)
-	assert.Equal(t, "would-delete", dr.Status)
+	assert.Equal(t, "would-delete", result.Status)
 }
 
 func TestApplyManifestDynamicDryRun(t *testing.T) {

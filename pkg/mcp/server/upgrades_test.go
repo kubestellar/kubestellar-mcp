@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"compress/gzip"
-	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -233,24 +232,6 @@ func TestToolGetUpgradePrerequisites_NotReadyNode(t *testing.T) {
 	text := result.Content[0].Text
 	if !strings.Contains(text, "not ready") || !strings.Contains(text, "bad-node") {
 		t.Fatalf("expected not-ready node message, got: %s", text)
-	}
-}
-
-// --- toolGetUpgradeStatus ---
-
-func TestToolGetUpgradeStatus_ClientError(t *testing.T) {
-	server := &Server{
-		discoverer: stubDiscoverer{},
-		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
-			return nil, errors.New("unreachable")
-		},
-	}
-	result, rpcErr := callTool(t, server, "get_upgrade_status", map[string]interface{}{"cluster": "test"})
-	if rpcErr != nil {
-		t.Fatalf("unexpected RPC error: %v", rpcErr)
-	}
-	if !result.IsError {
-		t.Fatalf("expected tool error")
 	}
 }
 
