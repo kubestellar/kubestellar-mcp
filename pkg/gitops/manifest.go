@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
@@ -21,6 +23,26 @@ var allowedRepoSchemes = map[string]bool{
 }
 
 var validGitBranchPattern = regexp.MustCompile(`^[a-zA-Z0-9._/-]+$`)
+
+var (
+	// gitopsCGNATNet is RFC 6598 Carrier-Grade NAT space (100.64.0.0/10).
+	_, gitopsCGNATNet, _ = net.ParseCIDR("100.64.0.0/10")
+	// gitopsCloudMetaNet is the cloud instance metadata service (169.254.169.254/32).
+	_, gitopsCloudMetaNet, _ = net.ParseCIDR("169.254.169.254/32")
+	// gitopsIETFNet is RFC 6890 IETF Protocol Assignments (192.0.0.0/24).
+	_, gitopsIETFNet, _ = net.ParseCIDR("192.0.0.0/24")
+)
+
+// gitopsDNSTimeout bounds hostname resolution for repo URL validation.
+const gitopsDNSTimeout = 3 * time.Second
+
+// isGitopsBlockedIP returns true if ip falls into a range that must not be
+// contacted by git clone (loopback, private, link-local, CGNAT, cloud metadata).
+func isGitopsBlockedIP(ip net.IP) bool {
+	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() ||
+		ip.IsUnspecified() ||
+		gitopsCGNATNet.Contains(ip) || gitopsCloudMetaNet.Contains(ip) || gitopsIETFNet.Contains(ip)
+}
 
 // ValidateRepoURL ensures the repository URL uses an allowed scheme
 // to prevent SSRF, local file reads, and arbitrary SSH connections.
@@ -46,6 +68,30 @@ func validateRepoURLWithSchemes(repo string, schemes map[string]bool) error {
 	// file:// URLs don't have a host — skip host check for file scheme
 	if u.Scheme != "file" && u.Host == "" {
 		return fmt.Errorf("repo URL must include a host; got %q", repo)
+	}
+
+	// SSRF protection: resolve the hostname and reject private/internal IPs.
+	// Prevents git clone from reaching cloud metadata, RFC 1918, CGNAT, and
+	// other internal services via DNS rebinding (#276).
+	host := u.Hostname()
+	if host != "" {
+		if ip := net.ParseIP(host); ip != nil {
+			if isGitopsBlockedIP(ip) {
+				return fmt.Errorf("repo URL %q resolves to blocked IP %s (private/internal address)", repo, ip)
+			}
+		} else {
+			ctx, cancel := context.WithTimeout(context.Background(), gitopsDNSTimeout)
+			defer cancel()
+			ips, err := net.DefaultResolver.LookupHost(ctx, host)
+			if err != nil {
+				return fmt.Errorf("repo URL %q: DNS lookup failed — cannot verify safety: %w", repo, err)
+			}
+			for _, ipStr := range ips {
+				if ip := net.ParseIP(ipStr); ip != nil && isGitopsBlockedIP(ip) {
+					return fmt.Errorf("repo URL %q resolves to blocked IP %s (private/internal address)", repo, ip)
+				}
+			}
+		}
 	}
 	return nil
 }
