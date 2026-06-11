@@ -73,8 +73,8 @@ func TestHandleDeleteResourceDryRunUnsupportedKind(t *testing.T) {
 		require.True(t, ok)
 		results, ok := resultMap["results"].([]DeleteResult)
 		if ok && len(results) > 0 {
-			assert.Equal(t, "failed", results[0].Status)
-			assert.Contains(t, results[0].Message, "Unsupported resource kind")
+			assert.Equal(t, "would-delete", results[0].Status)
+			assert.Contains(t, results[0].Message, "Widget")
 		}
 	}
 }

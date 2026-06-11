@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -213,7 +214,11 @@ func TestToolSetOwnershipPolicyMode_SuccessUpdate(t *testing.T) {
 	csItemGVK := schema.GroupVersionKind{Group: "constraints.gatekeeper.sh", Version: "v1beta1", Kind: "K8sRequiredLabels"}
 	scheme.AddKnownTypeWithName(csItemGVK, &unstructured.Unstructured{})
 
-	fakeDyn := dynfake.NewSimpleDynamicClient(scheme, constraint)
+	constraintGVR := schema.GroupVersionResource{Group: "constraints.gatekeeper.sh", Version: "v1beta1", Resource: "k8srequiredlabels"}
+	fakeDyn := dynfake.NewSimpleDynamicClient(scheme)
+	if err := fakeDyn.Tracker().Create(constraintGVR, constraint, ""); err != nil {
+		t.Fatalf("failed to seed constraint: %v", err)
+	}
 	server := &Server{
 		discoverer: stubDiscoverer{},
 		dynamicClientFactory: func(clusterName string) (dynamic.Interface, error) {
@@ -259,7 +264,11 @@ func TestToolSetOwnershipPolicyMode_AlreadySameMode(t *testing.T) {
 	csItemGVK := schema.GroupVersionKind{Group: "constraints.gatekeeper.sh", Version: "v1beta1", Kind: "K8sRequiredLabels"}
 	scheme.AddKnownTypeWithName(csItemGVK, &unstructured.Unstructured{})
 
-	fakeDyn := dynfake.NewSimpleDynamicClient(scheme, constraint)
+	constraintGVR := schema.GroupVersionResource{Group: "constraints.gatekeeper.sh", Version: "v1beta1", Resource: "k8srequiredlabels"}
+	fakeDyn := dynfake.NewSimpleDynamicClient(scheme)
+	if err := fakeDyn.Tracker().Create(constraintGVR, constraint, ""); err != nil {
+		t.Fatalf("failed to seed constraint: %v", err)
+	}
 	server := &Server{
 		discoverer: stubDiscoverer{},
 		dynamicClientFactory: func(clusterName string) (dynamic.Interface, error) {
@@ -364,7 +373,7 @@ func TestToolUninstallOwnershipPolicy_Success(t *testing.T) {
 		Version:  "v1beta1",
 		Resource: "k8srequiredlabels",
 	}
-	_, err := fakeDyn.Resource(constraintGVR).Get(nil, ownershipConstraintName, metav1.GetOptions{})
+	_, err := fakeDyn.Resource(constraintGVR).Get(context.TODO(), ownershipConstraintName, metav1.GetOptions{})
 	if err == nil {
 		t.Fatal("expected constraint to be deleted")
 	}

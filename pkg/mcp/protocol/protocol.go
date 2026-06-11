@@ -160,10 +160,10 @@ func (w *Writer) Send(resp Response) {
 	data, err := json.Marshal(resp)
 	if err != nil {
 		// Best-effort: log and continue
-		fmt.Fprintf(w.w, `{"jsonrpc":"2.0","error":{"code":-32603,"message":"marshal error"}}`+"\n")
+		_, _ = fmt.Fprintf(w.w, `{"jsonrpc":"2.0","error":{"code":-32603,"message":"marshal error"}}`+"\n")
 		return
 	}
-	fmt.Fprintf(w.w, "%s\n", data)
+	_, _ = fmt.Fprintf(w.w, "%s\n", data)
 }
 
 // TextResult is a convenience helper that builds a CallToolResult with a single text block.
