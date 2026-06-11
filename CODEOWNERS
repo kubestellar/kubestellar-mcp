@@ -1,0 +1,8 @@
+# CODEOWNERS — require review for MCP server changes
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# All MCP server code requires review
+* @clubanderson
+
+# CI/CD workflows
+/.github/ @clubanderson
