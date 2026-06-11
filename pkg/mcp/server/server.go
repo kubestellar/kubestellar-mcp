@@ -21,6 +21,7 @@ import (
 const (
 	ServerName    = "kubestellar-ops"
 	ServerVersion = "0.8.0"
+	MCPVersion    = protocol.MCPVersion
 )
 
 // Type aliases so tool registry files continue to compile unchanged.
