@@ -22,6 +22,13 @@ func TestValidateRepoURL(t *testing.T) {
 		{"blocks empty", "", true},
 		{"blocks scheme-only no host", "https://", true},
 		{"blocks scp-like (no scheme)", "git@github.com:org/repo.git", true},
+		// SSRF IP-literal tests (#276)
+		{"blocks cloud metadata IP", "https://169.254.169.254/latest/meta-data/", true},
+		{"blocks private 10.x", "https://10.0.0.1/repo.git", true},
+		{"blocks private 172.16.x", "https://172.16.0.1/repo.git", true},
+		{"blocks private 192.168.x", "https://192.168.1.1/repo.git", true},
+		{"blocks loopback", "https://127.0.0.1/repo.git", true},
+		{"blocks CGNAT", "https://100.64.0.1/repo.git", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
