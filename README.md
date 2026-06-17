@@ -11,7 +11,7 @@ AI-powered multi-cluster Kubernetes tools for Claude Code.
 | Sub-project | Role |
 |-------------|------|
 | [kubestellar](https://github.com/kubestellar/kubestellar) | Core engine — BindingPolicy, WDS, ITS, WEC workload propagation |
-| [console](https://github.com/kubestellar/console) | Web dashboard — 160+ cards, AI missions, GPU and LLM-d monitoring |
+| [console](https://github.com/kubestellar/console) | Web dashboard — 300+ cards, AI missions, GPU and LLM-d monitoring |
 | [console-marketplace](https://github.com/kubestellar/console-marketplace) | 153+ community card presets (GPU/AI/ML, ArgoCD, OPA, Falco, security) |
 | [console-kb](https://github.com/kubestellar/console-kb) | AI knowledge base — community missions and operational runbooks |
 | **kubestellar-mcp** | **This repo** — MCP server for Claude, Cursor, Windsurf, VS Code |
