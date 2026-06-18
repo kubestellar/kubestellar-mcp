@@ -13,5 +13,5 @@ jobs:
       checks: write
       pull-requests: read
       packages: read
-    uses: kubestellar/infra/.github/workflows/reusable-pr-verifier.yml@2cdb7c22649c4e5cd36edc2d2fc57de96949e7a9
+    uses: kubestellar/infra/.github/workflows/reusable-pr-verifier.yml@2cdb7c22649c4e5cd36edc2d2fc57de96949e7a9 # pinned commit SHA (was @main)
     secrets: inherit
