@@ -44,7 +44,7 @@ func isHelmBlockedIP(ip net.IP) bool {
 func validateHelmChartRef(chart string) error {
 	// Block local filesystem paths.
 	if strings.HasPrefix(chart, "/") || strings.HasPrefix(chart, "./") || strings.HasPrefix(chart, "../") {
-		return fmt.Errorf("helm chart ref %q is a local path — only remote chart names or oci:// references are allowed", chart)
+		return fmt.Errorf("helm chart ref %q is a local path \u2014 only remote chart names or oci:// references are allowed", chart)
 	}
 
 	// For OCI references, validate the registry URL the same way as --repo.
@@ -601,6 +601,16 @@ func (s *Server) handleHelmList(ctx context.Context, args json.RawMessage) (inte
 	// Validate user-supplied cluster names (#289).
 	if err := validateHelmClusters(params.Clusters); err != nil {
 		return nil, err
+	}
+
+	// Validate namespace to prevent flag injection (#344).
+	if err := validateHelmIdentifier("namespace", params.Namespace); err != nil {
+		return nil, err
+	}
+
+	// Validate filter to prevent flag injection (#344).
+	if params.Filter != "" && strings.HasPrefix(params.Filter, "-") {
+		return nil, fmt.Errorf("filter %q must not begin with '-' (possible flag injection)", params.Filter)
 	}
 
 	// Get target clusters
