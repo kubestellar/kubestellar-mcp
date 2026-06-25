@@ -463,9 +463,7 @@ func marshalRequest(t *testing.T, req MCPRequest) string {
 // TestHandleToolCallErrorPathFormatsAsContent verifies that handler errors
 // are returned as isError:true content blocks (not JSON-RPC errors).
 func TestHandleToolCallErrorPathFormatsAsContent(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{
-		"alpha": "https://alpha.example.com",
-	})
+	server := newHelmTestServer(t, map[string]string{})
 
 	// Call deploy_app with invalid arguments to trigger a handler error
 	resp := server.handleToolCall(context.Background(), &MCPRequest{
