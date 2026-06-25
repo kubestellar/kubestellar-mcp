@@ -20,11 +20,11 @@ jobs:
   copilot-automation:
     if: github.event_name != 'pull_request_target' || github.event.pull_request.head.repo.full_name == github.repository
     permissions:
-      contents: write
-      pull-requests: write
-      issues: write
-      statuses: write
-    uses: kubestellar/infra/.github/workflows/reusable-copilot-automation.yml@af322d48cc67ade7345cabc6a0ed55c6c7040ee4  # main
+      contents: write      # Required: pushes branches and commits for automated fixes
+      pull-requests: write # Required: creates and updates pull requests
+      issues: write        # Required: comments on issues with fix status
+      statuses: write      # Required: updates commit status checks
+    uses: kubestellar/infra/.github/workflows/reusable-copilot-automation.yml@1a04a3fd17771e78e5cf6d42a3fda84e3ba478f3  # main
     with:
       pr_number: ${{ github.event.inputs.pr_number || '' }}
     secrets:
