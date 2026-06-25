@@ -59,6 +59,7 @@ jobs:
             type=raw,value=latest,enable=${{ !contains(steps.version.outputs.tag, 'nightly') }}
 
       - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
           context: .
@@ -68,3 +69,51 @@ jobs:
           platforms: linux/amd64,linux/arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Verify published image
+        run: |
+          echo "Verifying published image..."
+          VERSION="${{ steps.version.outputs.version }}"
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}"
+          
+          # Wait for image to be available (max 30 seconds)
+          for i in {1..6}; do
+            if docker manifest inspect "$IMAGE" > /dev/null 2>&1; then
+              echo "✓ Image manifest verified: $IMAGE"
+              break
+            fi
+            if [ $i -eq 6 ]; then
+              echo "::error::Failed to verify image manifest after 30 seconds"
+              exit 1
+            fi
+            echo "Waiting for image to be available... (attempt $i/6)"
+            sleep 5
+          done
+          
+          # Verify image digest matches what was built
+          PUBLISHED_DIGEST=$(docker manifest inspect "$IMAGE" -v | jq -r '.[0].Descriptor.digest' || echo "")
+          BUILD_DIGEST="${{ steps.build.outputs.digest }}"
+          
+          if [ -n "$PUBLISHED_DIGEST" ] && [ -n "$BUILD_DIGEST" ]; then
+            if [ "$PUBLISHED_DIGEST" = "$BUILD_DIGEST" ]; then
+              echo "✓ Image digest verified: $PUBLISHED_DIGEST"
+            else
+              echo "::warning::Published digest ($PUBLISHED_DIGEST) differs from build digest ($BUILD_DIGEST)"
+            fi
+          else
+            echo "::warning::Could not verify digest match"
+          fi
+          
+          # Verify all expected tags are accessible
+          echo "Verifying all tags..."
+          TAGS="${{ steps.meta.outputs.tags }}"
+          for TAG in $TAGS; do
+            if docker manifest inspect "$TAG" > /dev/null 2>&1; then
+              echo "✓ Tag verified: $TAG"
+            else
+              echo "::error::Failed to verify tag: $TAG"
+              exit 1
+            fi
+          done
+          
+          echo "Post-publish verification complete"
