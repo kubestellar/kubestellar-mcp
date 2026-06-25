@@ -129,7 +129,10 @@ func (o *queryOptions) run(ctx context.Context) error {
 				if err == nil {
 					userQuery = claude.BuildQueryPrompt(o.query, fmt.Sprintf(
 						"Current cluster: %s\nStatus: %s\nNodes: %s\nAPI Server: %s",
-						c.Name, health.Status, health.NodesReady, health.APIServerStatus,
+						claude.ValidateClusterName(c.Name),
+						claude.SanitizeForPrompt(health.Status),
+						claude.SanitizeForPrompt(health.NodesReady),
+						claude.SanitizeForPrompt(health.APIServerStatus),
 					))
 				}
 				break
