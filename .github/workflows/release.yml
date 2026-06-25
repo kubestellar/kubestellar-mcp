@@ -191,7 +191,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event.inputs.dry_run != 'true' && needs.determine-version.outputs.has_changes == 'true' }}
     permissions:
-      contents: write
+      contents: write  # Required: creates git tags, pushes tags, and creates GitHub releases with artifacts
 
     steps:
       - name: Checkout repository

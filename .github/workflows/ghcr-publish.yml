@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
+      packages: write  # Required: pushes Docker images to GitHub Container Registry (ghcr.io)
 
     steps:
       - name: Checkout repository
