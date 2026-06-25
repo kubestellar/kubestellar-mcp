@@ -54,11 +54,11 @@ func TestRunProcessesMultipleRequestsAndHandlesEOF(t *testing.T) {
 	// Write input and close to signal EOF
 	_, err = stdinW.Write(input.Bytes())
 	require.NoError(t, err)
-	stdinW.Close()
+	_ = stdinW.Close()
 
 	// Run the server (blocks until EOF)
 	runErr := server.Run()
-	stdoutW.Close()
+	_ = stdoutW.Close()
 
 	assert.NoError(t, runErr)
 
@@ -113,10 +113,10 @@ func TestRunSkipsEmptyLines(t *testing.T) {
 
 	_, err = stdinW.WriteString(input)
 	require.NoError(t, err)
-	stdinW.Close()
+	_ = stdinW.Close()
 
 	runErr := server.Run()
-	stdoutW.Close()
+	_ = stdoutW.Close()
 
 	assert.NoError(t, runErr)
 
@@ -151,10 +151,10 @@ func TestRunHandlesMalformedJSON(t *testing.T) {
 
 	_, err = stdinW.WriteString(input)
 	require.NoError(t, err)
-	stdinW.Close()
+	_ = stdinW.Close()
 
 	runErr := server.Run()
-	stdoutW.Close()
+	_ = stdoutW.Close()
 
 	assert.NoError(t, runErr)
 
@@ -195,7 +195,7 @@ func TestSendResponseWritesNewlineDelimitedJSON(t *testing.T) {
 		Result:  map[string]interface{}{"hello": "world"},
 	}
 	server.sendResponse(resp)
-	w.Close()
+	_ = w.Close()
 
 	output, err := io.ReadAll(r)
 	require.NoError(t, err)
@@ -225,7 +225,7 @@ func TestSendErrorWritesErrorResponse(t *testing.T) {
 	os.Stdout = w
 
 	server.sendError(7, -32700, "Parse error")
-	w.Close()
+	_ = w.Close()
 
 	output, err := io.ReadAll(r)
 	require.NoError(t, err)
@@ -252,7 +252,7 @@ func TestSendErrorWithNilID(t *testing.T) {
 	os.Stdout = w
 
 	server.sendError(nil, -32700, "Parse error")
-	w.Close()
+	_ = w.Close()
 
 	output, err := io.ReadAll(r)
 	require.NoError(t, err)
@@ -322,7 +322,7 @@ func TestHandleToolCallSuccessPathFormatsResultAsContent(t *testing.T) {
 	})
 
 	require.Nil(t, resp.Error, "successful tool call should not have an error")
-	assert.Equal(t, float64(10), resp.ID)
+	assert.EqualValues(t, 10, resp.ID)
 
 	payload := resp.Result.(map[string]interface{})
 	// Success responses should NOT have isError set
@@ -404,12 +404,16 @@ func TestRunLargeMessageWithinBufferLimit(t *testing.T) {
 	os.Stdin = stdinR
 	os.Stdout = stdoutW
 
-	_, err = stdinW.WriteString(input)
-	require.NoError(t, err)
-	stdinW.Close()
+	// Write in a goroutine to avoid pipe buffer deadlock — the message
+	// exceeds the OS pipe buffer (~64KB on Linux), so writing must happen
+	// concurrently with server.Run() reading from the other end.
+	go func() {
+		_, _ = stdinW.WriteString(input)
+		_ = stdinW.Close()
+	}()
 
 	runErr := server.Run()
-	stdoutW.Close()
+	_ = stdoutW.Close()
 
 	assert.NoError(t, runErr)
 
@@ -528,7 +532,7 @@ func TestSendResponseMultipleCallsProduceSeparateLines(t *testing.T) {
 			Result:  fmt.Sprintf("result-%d", i),
 		})
 	}
-	w.Close()
+	_ = w.Close()
 
 	output, err := io.ReadAll(r)
 	require.NoError(t, err)
