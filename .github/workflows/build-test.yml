@@ -52,6 +52,41 @@ jobs:
           files: coverage.out
           fail_ci_if_error: false
 
+  validate-server-json:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Validate server.json schema
+        run: python3 << 'EOF'
+import json
+import sys
+
+try:
+    with open('server.json', 'r') as f:
+        data = json.load(f)
+except FileNotFoundError:
+    print("ERROR: server.json not found")
+    sys.exit(1)
+except json.JSONDecodeError as e:
+    print(f"ERROR: Invalid JSON syntax: {e}")
+    sys.exit(1)
+
+required_fields = ['name', 'version', 'packages', 'repository']
+missing_fields = [field for field in required_fields if field not in data]
+
+if missing_fields:
+    print(f"ERROR: Missing required fields: {', '.join(missing_fields)}")
+    sys.exit(1)
+
+print("✓ server.json validation passed")
+print(f"  - name: {data['name']}")
+print(f"  - version: {data['version']}")
+print(f"  - packages count: {len(data['packages'])}")
+print(f"  - repository: {data['repository']}")
+EOF
+
   lint:
     runs-on: ubuntu-latest
     steps:
