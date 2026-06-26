@@ -110,3 +110,69 @@ func TestValidateClusterName(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateK8sName(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		wantError bool
+	}{
+		{"valid lowercase", "nginx", false},
+		{"valid with hyphen", "my-app", false},
+		{"valid with dot", "app.v1", false},
+		{"valid with numbers", "app123", false},
+		{"valid complex", "my-app.v1-2", false},
+		{"empty string", "", true},
+		{"uppercase", "MyApp", true},
+		{"starts with hyphen", "-app", true},
+		{"ends with hyphen", "app-", true},
+		{"starts with dot", ".app", true},
+		{"ends with dot", "app.", true},
+		{"contains spaces", "my app", true},
+		{"contains slash", "my/app", true},
+		{"too long", "a234567890123456789012345678901234567890123456789012345678901234", true},
+		{"single char", "a", false},
+		{"malicious attempt", "../pod", true},
+		{"injection attempt", "pod; rm -rf /", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateK8sName(tt.input)
+			if (err != nil) != tt.wantError {
+				t.Errorf("ValidateK8sName(%q) error = %v, wantError %v", tt.input, err, tt.wantError)
+			}
+		})
+	}
+}
+
+func TestValidateK8sNamespace(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		wantError bool
+	}{
+		{"valid namespace", "default", false},
+		{"valid with hyphen", "kube-system", false},
+		{"valid with numbers", "ns123", false},
+		{"empty is valid", "", false},
+		{"uppercase", "MyNamespace", true},
+		{"starts with hyphen", "-namespace", true},
+		{"ends with hyphen", "namespace-", true},
+		{"contains dot", "name.space", true},
+		{"contains spaces", "my namespace", true},
+		{"too long", "a234567890123456789012345678901234567890123456789012345678901234", true},
+		{"single char", "a", false},
+		{"malicious attempt", "../namespace", true},
+		{"injection attempt", "ns; curl evil.com", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateK8sNamespace(tt.input)
+			if (err != nil) != tt.wantError {
+				t.Errorf("ValidateK8sNamespace(%q) error = %v, wantError %v", tt.input, err, tt.wantError)
+			}
+		})
+	}
+}

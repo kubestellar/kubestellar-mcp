@@ -1,11 +1,14 @@
 package claude
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 )
 
 var validClusterNamePattern = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
+var validK8sNamePattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$`)
+var validK8sNamespacePattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?$`)
 
 // SanitizeForPrompt sanitizes user-controlled strings before injecting them
 // into AI prompts to prevent prompt injection attacks. It removes newlines,
@@ -43,4 +46,36 @@ func ValidateClusterName(name string) string {
 		return "[invalid-cluster-name]"
 	}
 	return SanitizeForPrompt(name)
+}
+
+// ValidateK8sName validates a Kubernetes resource name (pod, deployment, etc.)
+// following RFC 1123 DNS label rules: lowercase alphanumeric with hyphens and dots,
+// must start and end with alphanumeric, max 63 characters.
+func ValidateK8sName(name string) error {
+	if name == "" {
+		return fmt.Errorf("name cannot be empty")
+	}
+	if len(name) > 63 {
+		return fmt.Errorf("name must be 63 characters or less")
+	}
+	if !validK8sNamePattern.MatchString(name) {
+		return fmt.Errorf("name must match pattern ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$")
+	}
+	return nil
+}
+
+// ValidateK8sNamespace validates a Kubernetes namespace name following RFC 1123
+// DNS label rules: lowercase alphanumeric with hyphens, must start and end with
+// alphanumeric, max 63 characters.
+func ValidateK8sNamespace(namespace string) error {
+	if namespace == "" {
+		return nil // empty namespace is valid (means all namespaces)
+	}
+	if len(namespace) > 63 {
+		return fmt.Errorf("namespace must be 63 characters or less")
+	}
+	if !validK8sNamespacePattern.MatchString(namespace) {
+		return fmt.Errorf("namespace must match pattern ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
+	}
+	return nil
 }

@@ -14,6 +14,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/kubestellar/kubestellar-mcp/pkg/ai/claude"
 )
 
 // AppInstance represents an app instance in a cluster
@@ -58,6 +60,13 @@ func (s *Server) handleGetAppInstances(ctx context.Context, args json.RawMessage
 		return nil, fmt.Errorf("invalid arguments: %w", err)
 	}
 
+	if err := claude.ValidateK8sName(params.App); err != nil {
+		return nil, fmt.Errorf("invalid app name: %w", err)
+	}
+	if err := claude.ValidateK8sNamespace(params.Namespace); err != nil {
+		return nil, fmt.Errorf("invalid namespace: %w", err)
+	}
+
 	results, err := s.executor.Execute(ctx, "", func(ctx context.Context, client *kubernetes.Clientset, clusterName string) (interface{}, error) {
 		return s.findAppInCluster(ctx, client, clusterName, params.App, params.Namespace)
 	})
@@ -77,7 +86,7 @@ func (s *Server) handleGetAppInstances(ctx context.Context, args json.RawMessage
 	}
 
 	return map[string]interface{}{
-		"app":       params.App,
+		"app":       claude.SanitizeForPrompt(params.App),
 		"instances": instances,
 		"count":     len(instances),
 	}, nil
@@ -158,6 +167,13 @@ func (s *Server) handleGetAppStatus(ctx context.Context, args json.RawMessage) (
 		return nil, fmt.Errorf("invalid arguments: %w", err)
 	}
 
+	if err := claude.ValidateK8sName(params.App); err != nil {
+		return nil, fmt.Errorf("invalid app name: %w", err)
+	}
+	if err := claude.ValidateK8sNamespace(params.Namespace); err != nil {
+		return nil, fmt.Errorf("invalid namespace: %w", err)
+	}
+
 	results, err := s.executor.Execute(ctx, "", func(ctx context.Context, client *kubernetes.Clientset, clusterName string) (interface{}, error) {
 		return s.findAppInCluster(ctx, client, clusterName, params.App, params.Namespace)
 	})
@@ -167,7 +183,7 @@ func (s *Server) handleGetAppStatus(ctx context.Context, args json.RawMessage) (
 
 	// Aggregate status
 	status := AppStatus{
-		App: params.App,
+		App: claude.SanitizeForPrompt(params.App),
 	}
 
 	for _, result := range results {
@@ -226,6 +242,13 @@ func (s *Server) handleGetAppLogs(ctx context.Context, args json.RawMessage) (in
 		return nil, fmt.Errorf("invalid arguments: %w", err)
 	}
 
+	if err := claude.ValidateK8sName(params.App); err != nil {
+		return nil, fmt.Errorf("invalid app name: %w", err)
+	}
+	if err := claude.ValidateK8sNamespace(params.Namespace); err != nil {
+		return nil, fmt.Errorf("invalid namespace: %w", err)
+	}
+
 	if params.Tail == 0 {
 		params.Tail = 100
 	}
@@ -249,7 +272,7 @@ func (s *Server) handleGetAppLogs(ctx context.Context, args json.RawMessage) (in
 	}
 
 	return map[string]interface{}{
-		"app":      params.App,
+		"app":      claude.SanitizeForPrompt(params.App),
 		"logCount": len(allLogs),
 		"logs":     allLogs,
 	}, nil
