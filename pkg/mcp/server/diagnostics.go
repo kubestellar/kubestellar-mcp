@@ -15,7 +15,10 @@ import (
 
 func (s *Server) toolFindPodIssues(ctx context.Context, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
-	namespace, _ := args["namespace"].(string)
+	namespace, err := extractAndValidateNamespace(args)
+	if err != nil {
+		return fmt.Sprintf("error: %v", err), true
+	}
 	includeCompleted := args["include_completed"] == "true"
 
 	client, err := s.getClientForCluster(cluster)
@@ -114,7 +117,10 @@ func (s *Server) toolFindPodIssues(ctx context.Context, args map[string]interfac
 
 func (s *Server) toolFindDeploymentIssues(ctx context.Context, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
-	namespace, _ := args["namespace"].(string)
+	namespace, err := extractAndValidateNamespace(args)
+	if err != nil {
+		return fmt.Sprintf("error: %v", err), true
+	}
 
 	client, err := s.getClientForCluster(cluster)
 	if err != nil {
@@ -213,7 +219,10 @@ func (s *Server) toolFindDeploymentIssues(ctx context.Context, args map[string]i
 
 func (s *Server) toolCheckResourceLimits(ctx context.Context, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
-	namespace, _ := args["namespace"].(string)
+	namespace, err := extractAndValidateNamespace(args)
+	if err != nil {
+		return fmt.Sprintf("error: %v", err), true
+	}
 
 	client, err := s.getClientForCluster(cluster)
 	if err != nil {
@@ -283,7 +292,10 @@ func (s *Server) toolCheckResourceLimits(ctx context.Context, args map[string]in
 
 func (s *Server) toolCheckSecurityIssues(ctx context.Context, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
-	namespace, _ := args["namespace"].(string)
+	namespace, err := extractAndValidateNamespace(args)
+	if err != nil {
+		return fmt.Sprintf("error: %v", err), true
+	}
 
 	client, err := s.getClientForCluster(cluster)
 	if err != nil {
@@ -375,8 +387,10 @@ func (s *Server) toolCheckSecurityIssues(ctx context.Context, args map[string]in
 
 func (s *Server) toolAnalyzeNamespace(ctx context.Context, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
-	namespace, _ := args["namespace"].(string)
-
+	namespace, err := extractAndValidateNamespace(args)
+	if err != nil {
+		return fmt.Sprintf("error: %v", err), true
+	}
 	if namespace == "" {
 		return "namespace is required", true
 	}
@@ -511,7 +525,10 @@ func (s *Server) toolAnalyzeNamespace(ctx context.Context, args map[string]inter
 
 func (s *Server) toolGetWarningEvents(ctx context.Context, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
-	namespace, _ := args["namespace"].(string)
+	namespace, err := extractAndValidateNamespace(args)
+	if err != nil {
+		return fmt.Sprintf("error: %v", err), true
+	}
 	involvedObject, _ := args["involved_object"].(string)
 	limit := int64(50)
 	if v, ok := args["limit"].(float64); ok {

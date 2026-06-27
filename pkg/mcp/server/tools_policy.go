@@ -193,7 +193,10 @@ func (s *Server) toolGetOwnershipPolicyStatus(ctx context.Context, args map[stri
 
 func (s *Server) toolListOwnershipViolations(ctx context.Context, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
-	namespaceFilter, _ := args["namespace"].(string)
+	namespaceFilter, err := extractAndValidateNamespace(args)
+	if err != nil {
+		return fmt.Sprintf("error: %v", err), true
+	}
 	limit := int64(50)
 	if v, ok := args["limit"].(float64); ok {
 		limit = int64(v)

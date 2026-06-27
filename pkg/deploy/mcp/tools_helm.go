@@ -10,6 +10,8 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+
+	server "github.com/kubestellar/kubestellar-mcp/pkg/mcp/server"
 )
 
 var (
@@ -292,6 +294,11 @@ func (s *Server) handleHelmInstall(ctx context.Context, args json.RawMessage) (i
 		params.Namespace = "default"
 	}
 
+	// Validate namespace to prevent access to system namespaces (#377).
+	if err := server.ValidateNamespace(params.Namespace); err != nil {
+		return nil, fmt.Errorf("invalid namespace: %w", err)
+	}
+
 	// Validate chart ref to prevent local filesystem access and OCI SSRF (see #246).
 	if err := validateHelmChartRef(params.Chart); err != nil {
 		return nil, fmt.Errorf("invalid chart ref: %w", err)
@@ -489,6 +496,11 @@ func (s *Server) handleHelmUninstall(ctx context.Context, args json.RawMessage) 
 		params.Namespace = "default"
 	}
 
+	// Validate namespace to prevent access to system namespaces (#377).
+	if err := server.ValidateNamespace(params.Namespace); err != nil {
+		return nil, fmt.Errorf("invalid namespace: %w", err)
+	}
+
 	// Validate identifiers against Kubernetes naming rules to prevent flag injection (#269).
 	if err := validateHelmIdentifier("release_name", params.ReleaseName); err != nil {
 		return nil, err
@@ -608,6 +620,13 @@ func (s *Server) handleHelmList(ctx context.Context, args json.RawMessage) (inte
 		return nil, err
 	}
 
+	// Validate namespace to prevent access to system namespaces (#377).
+	if params.Namespace != "" {
+		if err := server.ValidateNamespace(params.Namespace); err != nil {
+			return nil, fmt.Errorf("invalid namespace: %w", err)
+		}
+	}
+
 	// Validate filter to prevent flag injection (#344).
 	if params.Filter != "" && strings.HasPrefix(params.Filter, "-") {
 		return nil, fmt.Errorf("filter %q must not begin with '-' (possible flag injection)", params.Filter)
@@ -704,6 +723,11 @@ func (s *Server) handleHelmRollback(ctx context.Context, args json.RawMessage) (
 
 	if params.Namespace == "" {
 		params.Namespace = "default"
+	}
+
+	// Validate namespace to prevent access to system namespaces (#377).
+	if err := server.ValidateNamespace(params.Namespace); err != nil {
+		return nil, fmt.Errorf("invalid namespace: %w", err)
 	}
 
 	// Validate identifiers against Kubernetes naming rules to prevent flag injection (#269).

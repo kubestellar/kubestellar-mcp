@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	server "github.com/kubestellar/kubestellar-mcp/pkg/mcp/server"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -49,6 +50,13 @@ func (s *Server) handleDeleteResource(ctx context.Context, args json.RawMessage)
 
 	if params.Kind == "" || params.Name == "" {
 		return nil, fmt.Errorf("kind and name are required")
+	}
+
+	// Validate namespace to prevent access to system namespaces (#377).
+	if params.Namespace != "" {
+		if err := server.ValidateNamespace(params.Namespace); err != nil {
+			return nil, fmt.Errorf("invalid namespace: %w", err)
+		}
 	}
 
 	// Get target clusters
@@ -279,6 +287,14 @@ func (s *Server) applyManifestDynamic(ctx context.Context, clusterName, manifest
 		namespace := obj.GetNamespace()
 		if namespace == "" {
 			namespace = "default"
+		}
+
+		// Validate namespace from manifest to prevent access to system namespaces (#377).
+		if namespace != "" {
+			if err := server.ValidateNamespace(namespace); err != nil {
+				return []ApplyResult{{Cluster: clusterName, Status: "failed",
+					Message: fmt.Sprintf("invalid namespace in manifest: %v", err)}}, nil
+			}
 		}
 
 		result := ApplyResult{

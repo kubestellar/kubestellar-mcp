@@ -10,13 +10,13 @@ import (
 	"sync"
 	"time"
 
+	server "github.com/kubestellar/kubestellar-mcp/pkg/mcp/server"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/ai/claude"
-	server "github.com/kubestellar/kubestellar-mcp/pkg/mcp/server"
 )
 
 // AppInstance represents an app instance in a cluster
@@ -106,8 +106,10 @@ func (s *Server) findAppInCluster(ctx context.Context, client *kubernetes.Client
 		ns = metav1.NamespaceAll
 	}
 
-	if !safeName(ns) {
-		return nil, fmt.Errorf("bad namespace")
+	if ns != "" {
+		if err := server.ValidateNamespace(ns); err != nil {
+			return nil, fmt.Errorf("invalid namespace: %w", err)
+		}
 	}
 
 	// Search Deployments
@@ -305,8 +307,10 @@ func (s *Server) getLogsFromCluster(ctx context.Context, client *kubernetes.Clie
 		ns = metav1.NamespaceAll
 	}
 
-	if !safeName(ns) {
-		return nil, fmt.Errorf("bad namespace")
+	if ns != "" {
+		if err := server.ValidateNamespace(ns); err != nil {
+			return nil, fmt.Errorf("invalid namespace: %w", err)
+		}
 	}
 
 	// Find pods matching app
@@ -431,17 +435,4 @@ func getDaemonSetStatus(d *appsv1.DaemonSet) string {
 	return "failed"
 }
 
-func safeName(name string) bool {
-	if len(name) == 0 || len(name) > 253 {
-		return false
-	}
-	for i, r := range name {
-		if !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' || r == '.') {
-			return false
-		}
-		if i == 0 && r == '.' {
-			return false
-		}
-	}
-	return name[len(name)-1] != '.'
-}
+

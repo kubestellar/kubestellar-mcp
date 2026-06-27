@@ -15,7 +15,10 @@ import (
 
 func (s *Server) toolGetRoles(ctx context.Context, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
-	namespace, _ := args["namespace"].(string)
+	namespace, err := extractAndValidateNamespace(args)
+	if err != nil {
+		return fmt.Sprintf("error: %v", err), true
+	}
 
 	client, err := s.getClientForCluster(cluster)
 	if err != nil {
@@ -90,7 +93,10 @@ func (s *Server) toolGetClusterRoles(ctx context.Context, args map[string]interf
 
 func (s *Server) toolGetRoleBindings(ctx context.Context, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
-	namespace, _ := args["namespace"].(string)
+	namespace, err := extractAndValidateNamespace(args)
+	if err != nil {
+		return fmt.Sprintf("error: %v", err), true
+	}
 
 	client, err := s.getClientForCluster(cluster)
 	if err != nil {
@@ -185,7 +191,10 @@ func (s *Server) toolCanI(ctx context.Context, args map[string]interface{}) (str
 	cluster, _ := args["cluster"].(string)
 	verb, _ := args["verb"].(string)
 	resource, _ := args["resource"].(string)
-	namespace, _ := args["namespace"].(string)
+	namespace, err := extractAndValidateNamespace(args)
+	if err != nil {
+		return fmt.Sprintf("error: %v", err), true
+	}
 	subresource, _ := args["subresource"].(string)
 	name, _ := args["name"].(string)
 
@@ -244,7 +253,10 @@ func (s *Server) toolAnalyzeSubjectPermissions(ctx context.Context, args map[str
 	cluster, _ := args["cluster"].(string)
 	subjectKind, _ := args["subject_kind"].(string)
 	subjectName, _ := args["subject_name"].(string)
-	subjectNamespace, _ := args["namespace"].(string)
+	subjectNamespace, err := extractAndValidateNamespace(args)
+	if err != nil {
+		return fmt.Sprintf("error: %v", err), true
+	}
 
 	if subjectKind == "" || subjectName == "" {
 		return "subject_kind and subject_name are required", true
@@ -337,7 +349,10 @@ func subjectMatches(subjects []rbacv1.Subject, kind, name, namespace string) boo
 func (s *Server) toolDescribeRole(ctx context.Context, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
 	name, _ := args["name"].(string)
-	namespace, _ := args["namespace"].(string)
+	namespace, err := extractAndValidateNamespace(args)
+	if err != nil {
+		return fmt.Sprintf("error: %v", err), true
+	}
 
 	if name == "" {
 		return "name is required", true
@@ -417,7 +432,10 @@ func (s *Server) toolDescribeRole(ctx context.Context, args map[string]interface
 
 func (s *Server) toolFindResourceOwners(ctx context.Context, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
-	namespace, _ := args["namespace"].(string)
+	namespace, err := extractAndValidateNamespace(args)
+	if err != nil {
+		return fmt.Sprintf("error: %v", err), true
+	}
 	resourceType, _ := args["resource_type"].(string)
 
 	if namespace == "" {

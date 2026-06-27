@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 
+	server "github.com/kubestellar/kubestellar-mcp/pkg/mcp/server"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
@@ -170,6 +171,13 @@ func (s *Server) handleSyncFromGit(ctx context.Context, args json.RawMessage) (i
 
 	if params.Repo == "" {
 		return nil, fmt.Errorf("repo is required")
+	}
+
+	// Validate namespace override to prevent access to system namespaces (#377).
+	if params.Namespace != "" {
+		if err := server.ValidateNamespace(params.Namespace); err != nil {
+			return nil, fmt.Errorf("invalid namespace: %w", err)
+		}
 	}
 
 	source := gitops.ManifestSource{

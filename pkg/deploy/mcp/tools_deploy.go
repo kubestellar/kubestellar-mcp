@@ -7,6 +7,7 @@ import (
 	"io"
 	"strings"
 
+	server "github.com/kubestellar/kubestellar-mcp/pkg/mcp/server"
 	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
 	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 	appsv1 "k8s.io/api/apps/v1"
@@ -194,6 +195,16 @@ func (s *Server) applyManifest(ctx context.Context, client kubernetes.Interface,
 			namespace, _ := metadata["namespace"].(string)
 			if namespace == "" {
 				namespace = "default"
+			}
+
+			// Validate namespace from manifest to prevent access to system namespaces (#377).
+			if namespace != "" {
+				if err := server.ValidateNamespace(namespace); err != nil {
+					return []DeployResult{{
+						Cluster: clusterName, Status: "failed",
+						Message: fmt.Sprintf("invalid namespace in manifest: %v", err),
+					}}, nil
+				}
 			}
 
 			resourceName := fmt.Sprintf("%s/%s", kind, name)
@@ -416,6 +427,13 @@ func (s *Server) handleScaleApp(ctx context.Context, args json.RawMessage) (inte
 		return nil, fmt.Errorf("invalid arguments: %w", err)
 	}
 
+	// Validate namespace to prevent access to system namespaces (#377).
+	if params.Namespace != "" {
+		if err := server.ValidateNamespace(params.Namespace); err != nil {
+			return nil, fmt.Errorf("invalid namespace: %w", err)
+		}
+	}
+
 	// Get target clusters
 	targetClusters := params.Clusters
 	if len(targetClusters) == 0 {
@@ -500,6 +518,13 @@ func (s *Server) handlePatchApp(ctx context.Context, args json.RawMessage) (inte
 	}
 	if err := json.Unmarshal(args, &params); err != nil {
 		return nil, fmt.Errorf("invalid arguments: %w", err)
+	}
+
+	// Validate namespace to prevent access to system namespaces (#377).
+	if params.Namespace != "" {
+		if err := server.ValidateNamespace(params.Namespace); err != nil {
+			return nil, fmt.Errorf("invalid namespace: %w", err)
+		}
 	}
 
 	patchType := types.StrategicMergePatchType

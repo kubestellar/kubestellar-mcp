@@ -12,7 +12,10 @@ import (
 
 func (s *Server) toolGetPods(ctx context.Context, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
-	namespace, _ := args["namespace"].(string)
+	namespace, err := extractAndValidateNamespace(args)
+	if err != nil {
+		return fmt.Sprintf("error: %v", err), true
+	}
 	labelSelector, _ := args["label_selector"].(string)
 
 	client, err := s.getClientForCluster(cluster)
@@ -70,7 +73,10 @@ func (s *Server) toolGetPods(ctx context.Context, args map[string]interface{}) (
 
 func (s *Server) toolGetDeployments(ctx context.Context, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
-	namespace, _ := args["namespace"].(string)
+	namespace, err := extractAndValidateNamespace(args)
+	if err != nil {
+		return fmt.Sprintf("error: %v", err), true
+	}
 
 	client, err := s.getClientForCluster(cluster)
 	if err != nil {
@@ -94,7 +100,10 @@ func (s *Server) toolGetDeployments(ctx context.Context, args map[string]interfa
 
 func (s *Server) toolGetServices(ctx context.Context, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
-	namespace, _ := args["namespace"].(string)
+	namespace, err := extractAndValidateNamespace(args)
+	if err != nil {
+		return fmt.Sprintf("error: %v", err), true
+	}
 
 	client, err := s.getClientForCluster(cluster)
 	if err != nil {
@@ -197,7 +206,10 @@ func (s *Server) toolGetNodes(ctx context.Context, args map[string]interface{}) 
 
 func (s *Server) toolGetEvents(ctx context.Context, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
-	namespace, _ := args["namespace"].(string)
+	namespace, err := extractAndValidateNamespace(args)
+	if err != nil {
+		return fmt.Sprintf("error: %v", err), true
+	}
 	limit := int64(50)
 	if v, ok := args["limit"].(float64); ok {
 		limit = int64(v)
@@ -243,7 +255,10 @@ func (s *Server) toolGetEvents(ctx context.Context, args map[string]interface{})
 
 func (s *Server) toolDescribePod(ctx context.Context, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
-	namespace, _ := args["namespace"].(string)
+	namespace, err := extractAndValidateNamespace(args)
+	if err != nil {
+		return fmt.Sprintf("error: %v", err), true
+	}
 	name, ok := args["name"].(string)
 	if !ok || name == "" {
 		return "Pod name is required", true
@@ -298,7 +313,10 @@ func (s *Server) toolDescribePod(ctx context.Context, args map[string]interface{
 
 func (s *Server) toolGetPodLogs(ctx context.Context, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
-	namespace, _ := args["namespace"].(string)
+	namespace, err := extractAndValidateNamespace(args)
+	if err != nil {
+		return fmt.Sprintf("error: %v", err), true
+	}
 	name, ok := args["name"].(string)
 	if !ok || name == "" {
 		return "Pod name is required", true
