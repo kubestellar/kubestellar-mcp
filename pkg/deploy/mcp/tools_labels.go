@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	server "github.com/kubestellar/kubestellar-mcp/pkg/mcp/server"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -41,6 +42,13 @@ func (s *Server) handleAddLabels(ctx context.Context, args json.RawMessage) (int
 	}
 	if len(params.Labels) == 0 {
 		return nil, fmt.Errorf("labels are required")
+	}
+
+	// Validate namespace to prevent access to system namespaces (#377).
+	if params.Namespace != "" {
+		if err := server.ValidateNamespace(params.Namespace); err != nil {
+			return nil, fmt.Errorf("invalid namespace: %w", err)
+		}
 	}
 
 	// Get target clusters
@@ -179,6 +187,13 @@ func (s *Server) handleRemoveLabels(ctx context.Context, args json.RawMessage) (
 	}
 	if len(params.Labels) == 0 {
 		return nil, fmt.Errorf("labels are required")
+	}
+
+	// Validate namespace to prevent access to system namespaces (#377).
+	if params.Namespace != "" {
+		if err := server.ValidateNamespace(params.Namespace); err != nil {
+			return nil, fmt.Errorf("invalid namespace: %w", err)
+		}
 	}
 
 	// Get target clusters

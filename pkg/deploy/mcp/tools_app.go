@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	server "github.com/kubestellar/kubestellar-mcp/pkg/mcp/server"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,7 +55,7 @@ type LogEntry struct {
 func (s *Server) handleGetAppInstances(ctx context.Context, args json.RawMessage) (interface{}, error) {
 	var params struct {
 		App       string `json:"app"`
-		Namespace string `json:"namespace"`
+		Namespace string `json:"namespace,omitempty"`
 	}
 	if err := json.Unmarshal(args, &params); err != nil {
 		return nil, fmt.Errorf("invalid arguments: %w", err)
@@ -63,8 +64,13 @@ func (s *Server) handleGetAppInstances(ctx context.Context, args json.RawMessage
 	if err := claude.ValidateK8sName(params.App); err != nil {
 		return nil, fmt.Errorf("invalid app name: %w", err)
 	}
-	if err := claude.ValidateK8sNamespace(params.Namespace); err != nil {
-		return nil, fmt.Errorf("invalid namespace: %w", err)
+	if params.Namespace != "" {
+		if err := claude.ValidateK8sNamespace(params.Namespace); err != nil {
+			return nil, fmt.Errorf("invalid namespace: %w", err)
+		}
+		if err := server.ValidateNamespace(params.Namespace); err != nil {
+			return nil, fmt.Errorf("invalid namespace: %w", err)
+		}
 	}
 
 	results, err := s.executor.Execute(ctx, "", func(ctx context.Context, client *kubernetes.Clientset, clusterName string) (interface{}, error) {
@@ -98,6 +104,12 @@ func (s *Server) findAppInCluster(ctx context.Context, client *kubernetes.Client
 	ns := namespace
 	if ns == "" {
 		ns = metav1.NamespaceAll
+	}
+
+	if ns != "" {
+		if err := server.ValidateNamespace(ns); err != nil {
+			return nil, fmt.Errorf("invalid namespace: %w", err)
+		}
 	}
 
 	// Search Deployments
@@ -161,7 +173,7 @@ func (s *Server) findAppInCluster(ctx context.Context, client *kubernetes.Client
 func (s *Server) handleGetAppStatus(ctx context.Context, args json.RawMessage) (interface{}, error) {
 	var params struct {
 		App       string `json:"app"`
-		Namespace string `json:"namespace"`
+		Namespace string `json:"namespace,omitempty"`
 	}
 	if err := json.Unmarshal(args, &params); err != nil {
 		return nil, fmt.Errorf("invalid arguments: %w", err)
@@ -170,8 +182,13 @@ func (s *Server) handleGetAppStatus(ctx context.Context, args json.RawMessage) (
 	if err := claude.ValidateK8sName(params.App); err != nil {
 		return nil, fmt.Errorf("invalid app name: %w", err)
 	}
-	if err := claude.ValidateK8sNamespace(params.Namespace); err != nil {
-		return nil, fmt.Errorf("invalid namespace: %w", err)
+	if params.Namespace != "" {
+		if err := claude.ValidateK8sNamespace(params.Namespace); err != nil {
+			return nil, fmt.Errorf("invalid namespace: %w", err)
+		}
+		if err := server.ValidateNamespace(params.Namespace); err != nil {
+			return nil, fmt.Errorf("invalid namespace: %w", err)
+		}
 	}
 
 	results, err := s.executor.Execute(ctx, "", func(ctx context.Context, client *kubernetes.Clientset, clusterName string) (interface{}, error) {
@@ -245,8 +262,13 @@ func (s *Server) handleGetAppLogs(ctx context.Context, args json.RawMessage) (in
 	if err := claude.ValidateK8sName(params.App); err != nil {
 		return nil, fmt.Errorf("invalid app name: %w", err)
 	}
-	if err := claude.ValidateK8sNamespace(params.Namespace); err != nil {
-		return nil, fmt.Errorf("invalid namespace: %w", err)
+	if params.Namespace != "" {
+		if err := claude.ValidateK8sNamespace(params.Namespace); err != nil {
+			return nil, fmt.Errorf("invalid namespace: %w", err)
+		}
+		if err := server.ValidateNamespace(params.Namespace); err != nil {
+			return nil, fmt.Errorf("invalid namespace: %w", err)
+		}
 	}
 
 	if params.Tail == 0 {
@@ -283,6 +305,12 @@ func (s *Server) getLogsFromCluster(ctx context.Context, client *kubernetes.Clie
 	ns := namespace
 	if ns == "" {
 		ns = metav1.NamespaceAll
+	}
+
+	if ns != "" {
+		if err := server.ValidateNamespace(ns); err != nil {
+			return nil, fmt.Errorf("invalid namespace: %w", err)
+		}
 	}
 
 	// Find pods matching app
@@ -406,3 +434,5 @@ func getDaemonSetStatus(d *appsv1.DaemonSet) string {
 	}
 	return "failed"
 }
+
+
