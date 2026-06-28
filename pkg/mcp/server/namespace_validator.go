@@ -2,13 +2,12 @@ package server
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 )
 
 // blockedExact is a set of system namespace names that are not allowed for
 // AI-driven operations regardless of the action being performed.
-// Using a blocklist (rather than an allowlist) ensures that user-defined
-// namespaces continue to work without an explicit registration step.
 var blockedExact = map[string]bool{
 	"kube-system":       true,
 	"kube-public":       true,
@@ -17,14 +16,20 @@ var blockedExact = map[string]bool{
 	"openshift":         true,
 }
 
+var k8sNamespaceRe = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?$`)
+
 // ValidateNamespace checks whether the supplied namespace is allowed for
-// AI-driven operations. An empty string (all-namespaces mode) is always
-// accepted. The blocklist match is exact/string-based (map lookup + prefix
-// check are case-sensitive). Kubernetes namespace names are constrained to
-// DNS-1123 labels (lowercase alphanumeric), so case collisions are unlikely.
+// AI-driven operations. Namespace values must be valid RFC 1123 DNS labels
+// before the system namespace blocklist is applied.
 func ValidateNamespace(ns string) error {
 	if ns == "" {
-		return nil
+		return fmt.Errorf("namespace cannot be empty")
+	}
+	if len(ns) > 63 {
+		return fmt.Errorf("namespace exceeds maximum length of 63 characters")
+	}
+	if !k8sNamespaceRe.MatchString(ns) {
+		return fmt.Errorf("namespace %q is invalid: must be lowercase alphanumeric and hyphens only", ns)
 	}
 	if blockedExact[ns] {
 		return fmt.Errorf("access to system namespace %q is not allowed", ns)
@@ -36,10 +41,9 @@ func ValidateNamespace(ns string) error {
 }
 
 // extractAndValidateNamespace pulls the "namespace" key from a tool argument
-// map and validates it. When the key is absent or the value is an empty
-// string, the call is allowed (all-namespaces mode) and ("", nil) is returned.
-// A non-string value is rejected with an error, preventing type-coercion
-// bypass of the namespace blocklist.
+// map and validates it. When the key is absent, the call is allowed in
+// all-namespaces mode and ("", nil) is returned. A provided namespace must be
+// a non-empty string and pass ValidateNamespace.
 func extractAndValidateNamespace(args map[string]interface{}) (string, error) {
 	raw, ok := args["namespace"]
 	if !ok {
