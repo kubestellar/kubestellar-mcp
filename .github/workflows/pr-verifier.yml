@@ -1,8 +1,8 @@
+# Disabled because kubestellar/infra/.github/workflows/reusable-pr-verifier.yml does not exist.
 name: PR Verifier
 
 on:
-  pull_request_target:
-    types: [opened, edited, synchronize, reopened]
+  workflow_dispatch: {}
 
 permissions:
   checks: write
@@ -10,5 +10,5 @@ permissions:
 
 jobs:
   verify:
-    uses: kubestellar/infra/.github/workflows/reusable-pr-verifier.yml@main
+    uses: kubestellar/infra/.github/workflows/reusable-pr-verifier.yml@1a04a3fd17771e78e5cf6d42a3fda84e3ba478f3 # pinned from main
     secrets: inherit
