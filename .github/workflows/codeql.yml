@@ -34,6 +34,9 @@ jobs:
           languages: go
           queries: security-and-quality
 
+      - name: Tidy modules
+        run: go mod tidy
+
       - name: Build
         run: go build -v ./...
 
