@@ -1,6 +1,7 @@
 package server
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -48,14 +49,13 @@ func TestValidateNamespace_BlockedPrefix(t *testing.T) {
 	}
 }
 
-// TestValidateNamespace_Allowed verifies that user-facing namespaces and the
-// empty string (all-namespaces mode) are accepted.
+// TestValidateNamespace_Allowed verifies that user-facing namespaces that
+// satisfy the RFC 1123 allowlist are accepted.
 func TestValidateNamespace_Allowed(t *testing.T) {
 	tests := []struct {
 		name      string
 		namespace string
 	}{
-		{name: "empty (all-namespaces)", namespace: ""},
 		{name: "default", namespace: "default"},
 		{name: "my-app", namespace: "my-app"},
 		{name: "kube-flannel", namespace: "kube-flannel"},
@@ -70,10 +70,9 @@ func TestValidateNamespace_Allowed(t *testing.T) {
 	}
 }
 
-// TestValidateNamespace_CaseSensitive asserts that the function is
-// case-sensitive: only the exact lower-case forms in the blocklist are
-// rejected, so mixed-case variants are allowed.
-func TestValidateNamespace_CaseSensitive(t *testing.T) {
+// TestValidateNamespace_UppercaseRejected verifies that namespaces containing
+// uppercase characters are rejected by the RFC 1123 allowlist.
+func TestValidateNamespace_UppercaseRejected(t *testing.T) {
 	tests := []struct {
 		name      string
 		namespace string
@@ -85,27 +84,55 @@ func TestValidateNamespace_CaseSensitive(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateNamespace(tt.namespace)
-			assert.NoError(t, err, "namespace %q should not be blocked (case-sensitive)", tt.namespace)
+			assert.Error(t, err, "namespace %q should be rejected by the allowlist", tt.namespace)
 		})
 	}
 }
 
-// TestValidateNamespace_EdgeCases covers inputs that could be confused with
-// blocked namespaces but should be allowed.
+// TestValidateNamespace_EdgeCases covers inputs that are near blocked
+// namespaces or RFC 1123 boundary conditions.
 func TestValidateNamespace_EdgeCases(t *testing.T) {
 	tests := []struct {
 		name      string
 		namespace string
+		wantErr   bool
 	}{
-		{name: "kube without suffix", namespace: "kube"},
-		{name: "openshifted (not openshift- prefix)", namespace: "openshifted"},
-		{name: "dot", namespace: "."},
-		{name: "kube- prefix only", namespace: "kube-"},
+		{name: "kube without suffix", namespace: "kube", wantErr: false},
+		{name: "openshifted (not openshift- prefix)", namespace: "openshifted", wantErr: false},
+		{name: "dot", namespace: ".", wantErr: true},
+		{name: "kube- prefix only", namespace: "kube-", wantErr: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateNamespace(tt.namespace)
+			if tt.wantErr {
+				assert.Error(t, err, "namespace %q should be rejected", tt.namespace)
+				return
+			}
 			assert.NoError(t, err, "namespace %q should be allowed", tt.namespace)
+		})
+	}
+}
+
+func TestValidateNamespace_AllowlistRejections(t *testing.T) {
+	tooLong := strings.Repeat("a", 64)
+
+	tests := []struct {
+		name      string
+		namespace string
+	}{
+		{name: "newline", namespace: "foo\nbar"},
+		{name: "path traversal", namespace: "../etc"},
+		{name: "space", namespace: "hello world"},
+		{name: "glob", namespace: "foo*bar"},
+		{name: "over 63 chars", namespace: tooLong},
+		{name: "uppercase", namespace: "Uppercase"},
+		{name: "url encoded slash", namespace: "foo%2fbar"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateNamespace(tt.namespace)
+			assert.Error(t, err, "namespace %q should be rejected by the allowlist", tt.namespace)
 		})
 	}
 }
@@ -146,7 +173,7 @@ func TestExtractAndValidateNamespace(t *testing.T) {
 			name:    "empty string namespace",
 			args:    map[string]interface{}{"namespace": ""},
 			wantNs:  "",
-			wantErr: false,
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {

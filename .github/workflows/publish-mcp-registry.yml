@@ -1,0 +1,36 @@
+name: Publish to MCP Registry
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Install mcp-publisher
+        run: |
+          VERSION="v1.7.9"
+          EXPECTED_SHA256="ab128162b0616090b47cf245afe0a23f3ef08936fdce19074f5ba0a4469281ac"
+          PLATFORM="$(uname -s | tr '[:upper:]' '[:lower:]')"
+          ARCH="$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')"
+          TARBALL="mcp-publisher_${PLATFORM}_${ARCH}.tar.gz"
+          
+          curl -sL "https://github.com/modelcontextprotocol/registry/releases/download/${VERSION}/${TARBALL}" -o "${TARBALL}"
+          echo "${EXPECTED_SHA256}  ${TARBALL}" | sha256sum -c -
+          tar xzf "${TARBALL}" mcp-publisher
+          rm "${TARBALL}"
+
+      - name: Authenticate to MCP Registry
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish server metadata
+        run: ./mcp-publisher publish

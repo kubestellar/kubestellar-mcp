@@ -35,6 +35,43 @@ type ApplyResult struct {
 	Message   string `json:"message,omitempty"`
 }
 
+var sensitiveKinds = map[string]bool{
+	"clusterrole":         true,
+	"clusterroles":        true,
+	"clusterrolebinding":  true,
+	"clusterrolebindings": true,
+	"secret":              true,
+	"secrets":             true,
+	"serviceaccount":      true,
+	"serviceaccounts":     true,
+	"sa":                  true,
+}
+
+func isSensitiveKind(kind string) bool {
+	return sensitiveKinds[strings.ToLower(kind)]
+}
+
+func sensitiveKindError(kind string) error {
+	return fmt.Errorf("%q resources are blocked via MCP kubectl tools to prevent privilege escalation; use kubectl directly for this sensitive operation", kind)
+}
+
+func manifestSensitiveKind(doc string) (string, bool) {
+	doc = strings.TrimSpace(doc)
+	if doc == "" {
+		return "", false
+	}
+
+	obj := &unstructured.Unstructured{}
+	if err := obj.UnmarshalJSON([]byte(yamlToJSON(doc))); err != nil {
+		if err := unstructuredFromYAML(doc, obj); err != nil {
+			return "", false
+		}
+	}
+
+	kind := obj.GetKind()
+	return kind, isSensitiveKind(kind)
+}
+
 // handleDeleteResource deletes a resource from clusters
 func (s *Server) handleDeleteResource(ctx context.Context, args json.RawMessage) (interface{}, error) {
 	var params struct {
@@ -50,6 +87,10 @@ func (s *Server) handleDeleteResource(ctx context.Context, args json.RawMessage)
 
 	if params.Kind == "" || params.Name == "" {
 		return nil, fmt.Errorf("kind and name are required")
+	}
+
+	if isSensitiveKind(params.Kind) {
+		return nil, sensitiveKindError(params.Kind)
 	}
 
 	// Validate namespace to prevent access to system namespaces (#377).
@@ -196,6 +237,12 @@ func (s *Server) handleKubectlApply(ctx context.Context, args json.RawMessage) (
 
 	if params.Manifest == "" {
 		return nil, fmt.Errorf("manifest is required")
+	}
+
+	for _, doc := range strings.Split(params.Manifest, "---") {
+		if kind, blocked := manifestSensitiveKind(doc); blocked {
+			return nil, sensitiveKindError(kind)
+		}
 	}
 
 	// Get target clusters
