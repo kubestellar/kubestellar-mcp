@@ -5,7 +5,6 @@ on:
     types: [created]
 
 permissions:
-  read-all
   issues: write
 
 jobs:
