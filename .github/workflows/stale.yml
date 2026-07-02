@@ -6,6 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  read-all
   issues: write
 
 jobs:
