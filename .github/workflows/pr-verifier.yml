@@ -18,5 +18,24 @@ jobs:
     steps:
       - name: Validate PR title (Conventional Commits)
         uses: amannn/action-semantic-pull-request@e32d7e603df1aa1ba07e981f2a23455dee596825 # v5
+        with:
+          # Allow automated PRs with actor prefixes like [scanner], [ci-maintainer],
+          # [quality], or [actor] before the conventional commit type.
+          # e.g., "[scanner] fix: update dependency versions"
+          # e.g., "[actor] feat: add new feature"
+          subjectPattern: ^(\[scanner\]|\[ci-maintainer\]|\[quality\]|\[actor\])\s+(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?!?:\s.+|^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?!?:\s.+
+          subjectPatternError: |
+            The PR title must follow conventional commit format.
+            Examples:
+            - "fix: correct typo in README"
+            - "[scanner] feat: add new dependency scanner"
+            - "[actor] fix: resolve timeout issue"
+            - "[ci-maintainer] chore: update workflow"
+            - "[quality] refactor: improve code structure"
+
+            Allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
+
+            Automated PRs may use [scanner], [ci-maintainer], [quality], or [actor] prefix.
+          validateSingleCommit: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
