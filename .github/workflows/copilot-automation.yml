@@ -11,9 +11,7 @@ on:
     types: [opened, synchronize, ready_for_review]
 
 permissions:
-  pull-requests: write
-  issues: write
-  statuses: write
+  contents: read
 
 concurrency:
   group: copilot-automation-${{ github.event.pull_request.number || github.event.inputs.pr_number || github.sha }}
@@ -21,6 +19,10 @@ concurrency:
 
 jobs:
   copilot-automation:
+    permissions:
+      pull-requests: write
+      issues: write
+      statuses: write
     if: github.event_name != 'pull_request_target' || github.event.pull_request.head.repo.full_name == github.repository
     uses: kubestellar/infra/.github/workflows/reusable-copilot-automation.yml@1a04a3fd17771e78e5cf6d42a3fda84e3ba478f3 # main pinned 2026-07-08
     with:
