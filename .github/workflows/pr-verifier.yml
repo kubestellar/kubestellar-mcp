@@ -16,12 +16,24 @@ jobs:
       pull-requests: read
       statuses: write
     steps:
+      - name: Check for automated PR prefix
+        id: prefix-check
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          # Detect automated agent prefixes like [scanner], [agent], etc.
+          if echo "$PR_TITLE" | grep -qE '^\[(scanner|agent|ci-maintainer|quality|sec-check)\][[:space:]]+(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([^)]+\))?!?: .+'; then
+            echo "is_automated=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_automated=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Validate automated PR title
+        if: steps.prefix-check.outputs.is_automated == 'true'
+        run: echo "Automated PR title matches expected pattern — OK."
       - name: Validate PR title (Conventional Commits)
+        if: steps.prefix-check.outputs.is_automated == 'false'
         uses: amannn/action-semantic-pull-request@e32d7e603df1aa1ba07e981f2a23455dee596825 # v5
         with:
-          # Allow optional [scanner], [agent], [ci-maintainer], [quality], [sec-check] prefix
-          # before the conventional commit type for automated PRs
-          subjectPattern: ^(\[(scanner|agent|ci-maintainer|quality|sec-check)\]\s+)?(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?!?:.+
           subjectPatternError: |
             The PR title must follow Conventional Commits format.
             Automated PRs may use an optional prefix like [scanner] or [agent].
