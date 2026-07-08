@@ -1,0 +1,45 @@
+name: Fuzzing
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run fuzzing daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    name: Run Go Fuzzing Tests
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run fuzz tests
+        run: |
+          # Find all fuzz tests and run them for a limited time
+          go test -fuzz=. -fuzztime=30s ./...
+        timeout-minutes: 10
+        continue-on-error: true
+
+      - name: Run fuzzing with native Go fuzzing
+        run: |
+          # For each package, run fuzzing if fuzz tests exist
+          for dir in $(find ./cmd ./pkg -type f -name '*_test.go' -exec dirname {} \; | sort -u); do
+            if grep -r "func Fuzz" "$dir" > /dev/null; then
+              echo "Running fuzz tests in $dir"
+              go test -fuzz=. -fuzztime=30s "$dir"
+            fi
+          done
+        continue-on-error: true
