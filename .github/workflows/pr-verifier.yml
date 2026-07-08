@@ -20,3 +20,9 @@ jobs:
         uses: amannn/action-semantic-pull-request@e32d7e603df1aa1ba07e981f2a23455dee596825 # v5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Allow an optional [actor] prefix (e.g. "[scanner] fix: …", "[quality] feat: …")
+          # used by Hive automation agents before the conventional-commit type.
+          # Pattern: optional [word-chars] prefix, then standard type(scope)?: subject.
+          headerPattern: '^(?:\[[\w-]+\]\s+)?(\w*)(?:\(([\w$.\-*/ ]*)\))?!?:\s+(.*)$'
+          headerPatternCorrespondence: 'type, scope, subject'
