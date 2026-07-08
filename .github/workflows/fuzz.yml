@@ -1,0 +1,51 @@
+name: Fuzz Tests
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  schedule:
+    # Run a longer fuzz session nightly to catch regressions over time.
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    name: Go fuzz (short)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+
+      # Run each fuzz target for 30 s on PRs / pushes so the job stays fast.
+      # The nightly schedule gets 5 minutes per target.
+      - name: Fuzz ValidateRepoURL
+        run: |
+          FUZZ_SECS=${{ github.event_name == 'schedule' && '300' || '30' }}
+          go test -fuzz=FuzzValidateRepoURL -fuzztime=${FUZZ_SECS}s ./pkg/gitops/
+
+      - name: Fuzz ValidateBranchName
+        run: |
+          FUZZ_SECS=${{ github.event_name == 'schedule' && '300' || '30' }}
+          go test -fuzz=FuzzValidateBranchName -fuzztime=${FUZZ_SECS}s ./pkg/gitops/
+
+      - name: Fuzz ReadFromReader
+        run: |
+          FUZZ_SECS=${{ github.event_name == 'schedule' && '300' || '30' }}
+          go test -fuzz=FuzzReadFromReader -fuzztime=${FUZZ_SECS}s ./pkg/gitops/
+
+      # Upload any crash reproducers so they can be inspected in the Actions UI.
+      - name: Upload fuzz corpus / findings
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: fuzz-findings
+          path: testdata/fuzz/
+          retention-days: 14
