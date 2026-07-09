@@ -172,6 +172,31 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 }
 ```
 
+### OpenCode
+
+[OpenCode](https://opencode.ai) is an open-source AI coding agent.
+Add the following to your project's `opencode.json` or `opencode.jsonc`:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "kubestellar-ops": {
+      "type": "local",
+      "command": ["kubestellar-ops", "--mcp-server"],
+      "enabled": true
+    },
+    "kubestellar-deploy": {
+      "type": "local",
+      "command": ["kubestellar-deploy", "--mcp-server"],
+      "enabled": true
+    }
+  }
+}
+```
+
+After adding, run `opencode mcp list` and verify both servers show as connected.
+
 ### Generic MCP Client (stdio)
 
 ```bash
