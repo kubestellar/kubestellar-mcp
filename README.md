@@ -197,6 +197,48 @@ Add the following to your project's `opencode.json` or `opencode.jsonc`:
 
 After adding, run `opencode mcp list` and verify both servers show as connected.
 
+> **For your AI agent** — Copy and paste this message into your OpenCode session to have it configure the MCP tools automatically:
+>
+> ```
+> Install kubestellar-ops and kubestellar-deploy:
+>
+>   # macOS — Homebrew
+>   brew tap kubestellar/tap
+>   brew install kubestellar-ops kubestellar-deploy
+>
+>   # Linux — download from GitHub Releases
+>   curl -LO https://github.com/kubestellar/kubestellar-mcp/releases/latest/download/kubestellar-ops_linux_amd64.tar.gz
+>   curl -LO https://github.com/kubestellar/kubestellar-mcp/releases/latest/download/kubestellar-deploy_linux_amd64.tar.gz
+>   tar xzf kubestellar-ops_linux_amd64.tar.gz
+>   tar xzf kubestellar-deploy_linux_amd64.tar.gz
+>   sudo mv kubestellar-ops kubestellar-deploy /usr/local/bin/
+>
+>   # Or build from source (any OS, requires Go 1.26+)
+>   git clone https://github.com/kubestellar/kubestellar-mcp.git
+>   cd kubestellar-mcp
+>   go build -o /usr/local/bin/kubestellar-ops ./cmd/kubestellar-ops
+>   go build -o /usr/local/bin/kubestellar-deploy ./cmd/kubestellar-deploy
+>
+> Then create opencode.jsonc in the project root with:
+>   {
+>     "$schema": "https://opencode.ai/config.json",
+>     "mcp": {
+>       "kubestellar-ops": {
+>         "type": "local",
+>         "command": ["kubestellar-ops", "--mcp-server"],
+>         "enabled": true
+>       },
+>       "kubestellar-deploy": {
+>         "type": "local",
+>         "command": ["kubestellar-deploy", "--mcp-server"],
+>         "enabled": true
+>       }
+>     }
+>   }
+>
+> Verify with: opencode mcp list
+> ```
+
 ### Generic MCP Client (stdio)
 
 ```bash
