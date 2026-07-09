@@ -131,10 +131,6 @@ func (s *Server) handleKustomizeBuild(ctx context.Context, args json.RawMessage)
 	}, nil
 }
 
-// TODO(#377): Namespace validation for kustomize is deferred because namespace is
-// embedded in unstructured YAML output from `kustomize build`. Parsing the full
-// manifest to extract namespace(s) would require non-trivial YAML parsing.
-// Consider adding validation in a follow-up PR if needed.
 // handleKustomizeApply applies kustomize output to clusters
 func (s *Server) handleKustomizeApply(ctx context.Context, args json.RawMessage) (interface{}, error) {
 	var params struct {
@@ -168,6 +164,9 @@ func (s *Server) handleKustomizeApply(ctx context.Context, args json.RawMessage)
 
 	manifest, resourceCount, err := parseKustomizeBuildResult(buildResult)
 	if err != nil {
+		return nil, err
+	}
+	if err := validateManifestDocs(manifest); err != nil {
 		return nil, err
 	}
 
@@ -244,7 +243,6 @@ func (s *Server) applyKustomize(ctx context.Context, cluster, path, manifest str
 	return result
 }
 
-// TODO(#377): Namespace validation for kustomize is deferred — see handleKustomizeApply.
 // handleKustomizeDelete deletes resources from kustomize output
 func (s *Server) handleKustomizeDelete(ctx context.Context, args json.RawMessage) (interface{}, error) {
 	var params struct {
@@ -278,6 +276,9 @@ func (s *Server) handleKustomizeDelete(ctx context.Context, args json.RawMessage
 
 	manifest, resourceCount, err := parseKustomizeBuildResult(buildResult)
 	if err != nil {
+		return nil, err
+	}
+	if err := validateManifestDocs(manifest); err != nil {
 		return nil, err
 	}
 

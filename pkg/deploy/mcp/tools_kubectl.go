@@ -499,3 +499,27 @@ func parseYAML(data []byte, v interface{}) error {
 	}
 	return json.Unmarshal(jsonData, v)
 }
+
+// validateManifestDocs validates every --- separated document in a built manifest,
+// enforcing the same sensitive-kind and namespace rules used by the kubectl handlers.
+// Called by kustomize handlers before piping built output to kubectl apply/delete.
+func validateManifestDocs(manifest string) error {
+	for _, doc := range strings.Split(manifest, "---") {
+		doc = strings.TrimSpace(doc)
+		if doc == "" {
+			continue
+		}
+		if kind, blocked := manifestSensitiveKind(doc); blocked {
+			return sensitiveKindError(kind)
+		}
+		obj := &unstructured.Unstructured{}
+		if err := unstructuredFromYAML(doc, obj); err == nil {
+			if ns := obj.GetNamespace(); ns != "" {
+				if err := server.ValidateNamespace(ns); err != nil {
+					return fmt.Errorf("invalid namespace in manifest: %w", err)
+				}
+			}
+		}
+	}
+	return nil
+}
