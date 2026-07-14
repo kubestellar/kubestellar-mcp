@@ -5,11 +5,13 @@ on:
     types: [opened, edited, synchronize, reopened]
 
 permissions:
-  checks: write
-  pull-requests: read
+  contents: read
 
 jobs:
   verify:
+    permissions:
+      checks: write
+      pull-requests: read
     runs-on: ubuntu-latest
     steps:
       - name: Verify PR metadata
