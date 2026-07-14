@@ -13,8 +13,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Verify PR metadata
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
           echo "✅ PR verification passed"
-          echo "PR #${{ github.event.pull_request.number }}"
-          echo "Title: ${{ github.event.pull_request.title }}"
-          echo "Author: ${{ github.event.pull_request.user.login }}"
+          echo "PR #${PR_NUMBER}"
+          echo "Title: ${PR_TITLE}"
+          echo "Author: ${PR_AUTHOR}"
