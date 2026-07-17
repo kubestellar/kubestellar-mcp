@@ -32,16 +32,25 @@ func TestHandleKustomizeBuildValidatesPath(t *testing.T) {
 }
 
 func TestHandleKustomizeBuildRejectsResolvedPathOutsideAllowedDirectories(t *testing.T) {
+	// Isolate this test from the ambient $TMPDIR. resolveKustomizePath allows
+	// paths under both the working directory and os.TempDir(); when the repo
+	// checkout itself lives under the real $TMPDIR (e.g. /tmp/kubestellar-mcp),
+	// the "outside" directory below would also fall inside os.TempDir() and be
+	// accepted by the security check, causing the test to fail for the wrong
+	// reason. Point TMPDIR at a fresh isolated dir before any os.TempDir()
+	// call so the temp allowance covers only that isolated tree.
+	isolatedTmp := t.TempDir()
+	t.Setenv("TMPDIR", isolatedTmp)
+
 	server := newHelmTestServer(t, map[string]string{})
 
 	workingDir, err := os.Getwd()
 	require.NoError(t, err)
 
-	// Create outsideDir in the real TMPDIR before we redirect TMPDIR below.
-	// Using os.MkdirTemp("", ...) places it at the root of the current TMPDIR
-	// (e.g. /tmp/outside-*), so it is never a descendant of the narrower
-	// per-test subdirectory we assign to TMPDIR next.
-	outsideDir, err := os.MkdirTemp("", "outside-kustomization-*")
+	// Place the "outside" directory in a location that is neither under the
+	// working directory nor under the isolated TMPDIR.
+	outsideRoot := filepath.Dir(workingDir)
+	outsideDir, err := os.MkdirTemp(outsideRoot, "outside-kustomization-*")
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = os.RemoveAll(outsideDir) })
 
