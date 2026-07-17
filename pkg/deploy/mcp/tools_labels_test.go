@@ -112,6 +112,46 @@ func TestHandleLabelValidation(t *testing.T) {
 			},
 			want: "labels are required",
 		},
+		{
+			name: "add blocked system namespace",
+			call: func() error {
+				_, err := s.handleAddLabels(context.Background(), json.RawMessage(`{"kind":"pod","name":"demo","namespace":"kube-system","labels":{"env":"prod"}}`))
+				return err
+			},
+			want: "invalid namespace",
+		},
+		{
+			name: "add invalid namespace format",
+			call: func() error {
+				_, err := s.handleAddLabels(context.Background(), json.RawMessage(`{"kind":"pod","name":"demo","namespace":"Invalid_NS","labels":{"env":"prod"}}`))
+				return err
+			},
+			want: "invalid namespace",
+		},
+		{
+			name: "add openshift-prefixed namespace",
+			call: func() error {
+				_, err := s.handleAddLabels(context.Background(), json.RawMessage(`{"kind":"pod","name":"demo","namespace":"openshift-monitoring","labels":{"env":"prod"}}`))
+				return err
+			},
+			want: "invalid namespace",
+		},
+		{
+			name: "remove blocked system namespace",
+			call: func() error {
+				_, err := s.handleRemoveLabels(context.Background(), json.RawMessage(`{"kind":"pod","name":"demo","namespace":"kube-public","labels":["env"]}`))
+				return err
+			},
+			want: "invalid namespace",
+		},
+		{
+			name: "remove invalid namespace format",
+			call: func() error {
+				_, err := s.handleRemoveLabels(context.Background(), json.RawMessage(`{"kind":"pod","name":"demo","namespace":"Invalid_NS","labels":["env"]}`))
+				return err
+			},
+			want: "invalid namespace",
+		},
 	}
 
 	for _, tt := range tests {
