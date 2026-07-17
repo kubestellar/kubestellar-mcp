@@ -190,7 +190,7 @@ func TestReadFromPathPropagatesReadFromFileErrors(t *testing.T) {
 	}
 }
 
-func TestCleanupRemovesTempDirAndIsIdempotent(t *testing.T) {
+func TestCleanupRemovesTempDirAndIsIdempotent_Pure(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "kubestellar-cleanup-*")
 	if err != nil {
 		t.Fatalf("MkdirTemp: %v", err)
