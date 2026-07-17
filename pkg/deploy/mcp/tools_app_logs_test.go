@@ -52,7 +52,7 @@ func startPodsAndLogsServer(t *testing.T, pods []corev1.Pod, logLines map[string
 			w.Header().Set("Content-Type", "text/plain")
 			w.WriteHeader(http.StatusOK)
 			for _, line := range logLines[podName][container] {
-				fmt.Fprintln(w, line)
+				_, _ = fmt.Fprintln(w, line)
 			}
 			return
 		}
