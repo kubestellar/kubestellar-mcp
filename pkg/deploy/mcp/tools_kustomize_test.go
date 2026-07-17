@@ -37,9 +37,20 @@ func TestHandleKustomizeBuildRejectsResolvedPathOutsideAllowedDirectories(t *tes
 	workingDir, err := os.Getwd()
 	require.NoError(t, err)
 
-	outsideDir, err := os.MkdirTemp(filepath.Dir(workingDir), "outside-kustomization-*")
+	// Create outsideDir in the real TMPDIR before we redirect TMPDIR below.
+	// Using os.MkdirTemp("", ...) places it at the root of the current TMPDIR
+	// (e.g. /tmp/outside-*), so it is never a descendant of the narrower
+	// per-test subdirectory we assign to TMPDIR next.
+	outsideDir, err := os.MkdirTemp("", "outside-kustomization-*")
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = os.RemoveAll(outsideDir) })
+
+	// Redirect TMPDIR to a fresh, test-scoped subdirectory.  resolveKustomizePath
+	// calls os.TempDir() at runtime, so it will now see this narrow directory
+	// instead of the ambient /tmp.  outsideDir lives at the parent level and is
+	// therefore outside both allowed bases, making the test pass regardless of
+	// where the repository checkout lives on disk.
+	t.Setenv("TMPDIR", t.TempDir())
 
 	require.NoError(t, os.WriteFile(filepath.Join(outsideDir, "kustomization.yaml"), []byte("resources: []\n"), 0o644))
 
