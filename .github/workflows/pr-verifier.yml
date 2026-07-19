@@ -5,22 +5,10 @@ on:
     types: [opened, edited, synchronize, reopened]
 
 permissions:
-  contents: read
+  checks: write
+  pull-requests: read
 
 jobs:
   verify:
-    permissions:
-      checks: write
-      pull-requests: read
-    runs-on: ubuntu-latest
-    steps:
-      - name: Verify PR metadata
-        env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
-        run: |
-          echo "✅ PR verification passed"
-          echo "PR #${PR_NUMBER}"
-          echo "Title: ${PR_TITLE}"
-          echo "Author: ${PR_AUTHOR}"
+    uses: kubestellar/infra/.github/workflows/reusable-pr-verifier.yml@main
+    secrets: inherit
