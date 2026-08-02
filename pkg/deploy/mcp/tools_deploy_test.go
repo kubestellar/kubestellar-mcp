@@ -138,6 +138,41 @@ metadata:
 	assert.Contains(t, err.Error(), "no clusters found matching requirements")
 }
 
+func TestHandleDeployAppRejectsSensitiveKinds(t *testing.T) {
+	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+	manifest := `apiVersion: v1
+kind: Secret
+metadata:
+  name: demo-secret
+`
+
+	_, err := server.handleDeployApp(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+		"manifest": manifest,
+		"clusters": []string{"alpha"},
+		"dry_run":  true,
+	}))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "blocked via MCP kubectl tools")
+}
+
+func TestHandleDeployAppRejectsSystemNamespaces(t *testing.T) {
+	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+	manifest := `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-config
+  namespace: kube-system
+`
+
+	_, err := server.handleDeployApp(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+		"manifest": manifest,
+		"clusters": []string{"alpha"},
+		"dry_run":  true,
+	}))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid namespace in manifest")
+}
+
 func TestApplyManifestDryRunDefaultsNamespace(t *testing.T) {
 	server := newHelmTestServer(t, map[string]string{})
 	manifest := `apiVersion: v1
