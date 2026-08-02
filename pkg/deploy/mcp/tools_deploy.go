@@ -107,6 +107,10 @@ func (s *Server) handleDeployApp(ctx context.Context, args json.RawMessage) (int
 		return nil, fmt.Errorf("invalid arguments: %w", err)
 	}
 
+	if err := validateManifestDocs(params.Manifest); err != nil {
+		return nil, err
+	}
+
 	// Determine target clusters
 	targetClusters := params.Clusters
 	if len(targetClusters) == 0 {
