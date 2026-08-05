@@ -40,12 +40,20 @@ func isHelmBlockedIP(ip net.IP) bool {
 }
 
 // validateHelmChartRef ensures the chart positional argument is safe.
-// It blocks local filesystem paths and, for oci:// references, applies the
-// same IP-blocking rules as validateHelmRepoURL to prevent SSRF via OCI
+// It blocks local filesystem paths (including nested path traversal), flag
+// injection via leading "-", and for oci:// references applies the same
+// IP-blocking rules as validateHelmRepoURL to prevent SSRF via OCI
 // registries that resolve to private/internal addresses (see #246).
 func validateHelmChartRef(chart string) error {
-	// Block local filesystem paths.
-	if strings.HasPrefix(chart, "/") || strings.HasPrefix(chart, "./") || strings.HasPrefix(chart, "../") {
+	// Block flag injection: chart is passed as a helm argv element and a
+	// leading "-" would be parsed as a CLI flag (same class as #269).
+	if strings.HasPrefix(chart, "-") {
+		return fmt.Errorf("helm chart ref %q must not begin with '-' (possible flag injection)", chart)
+	}
+
+	// Block local filesystem paths and any ".." segment (not only a "../" prefix),
+	// so values like foo/../../../etc/passwd cannot bypass the check.
+	if strings.HasPrefix(chart, "/") || strings.HasPrefix(chart, "./") || strings.Contains(chart, "..") {
 		return fmt.Errorf("helm chart ref %q is a local path \u2014 only remote chart names or oci:// references are allowed", chart)
 	}
 
