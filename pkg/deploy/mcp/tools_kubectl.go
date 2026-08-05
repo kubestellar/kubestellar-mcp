@@ -51,6 +51,15 @@ func isSensitiveKind(kind string) bool {
 	return sensitiveKinds[strings.ToLower(kind)]
 }
 
+func isNamespaceKind(kind string) bool {
+	switch strings.ToLower(kind) {
+	case "namespace", "namespaces", "ns":
+		return true
+	default:
+		return false
+	}
+}
+
 func sensitiveKindError(kind string) error {
 	return fmt.Errorf("%q resources are blocked via MCP kubectl tools to prevent privilege escalation; use kubectl directly for this sensitive operation", kind)
 }
@@ -94,7 +103,13 @@ func (s *Server) handleDeleteResource(ctx context.Context, args json.RawMessage)
 	}
 
 	// Validate namespace to prevent access to system namespaces (#377).
-	if params.Namespace != "" {
+	// For kind Namespace the protected value is name (cluster-scoped), not the
+	// namespace field — otherwise deleting kube-system etc. would be allowed.
+	if isNamespaceKind(params.Kind) {
+		if err := server.ValidateNamespace(params.Name); err != nil {
+			return nil, fmt.Errorf("invalid namespace: %w", err)
+		}
+	} else if params.Namespace != "" {
 		if err := server.ValidateNamespace(params.Namespace); err != nil {
 			return nil, fmt.Errorf("invalid namespace: %w", err)
 		}
@@ -337,7 +352,13 @@ func (s *Server) applyManifestDynamic(ctx context.Context, clusterName, manifest
 		}
 
 		// Validate namespace from manifest to prevent access to system namespaces (#377).
-		if namespace != "" {
+		// For kind Namespace the protected value is metadata.name (cluster-scoped).
+		if isNamespaceKind(kind) {
+			if err := server.ValidateNamespace(name); err != nil {
+				return []ApplyResult{{Cluster: clusterName, Status: "failed",
+					Message: fmt.Sprintf("invalid namespace in manifest: %v", err)}}, nil
+			}
+		} else if namespace != "" {
 			if err := server.ValidateNamespace(namespace); err != nil {
 				return []ApplyResult{{Cluster: clusterName, Status: "failed",
 					Message: fmt.Sprintf("invalid namespace in manifest: %v", err)}}, nil
@@ -514,7 +535,11 @@ func validateManifestDocs(manifest string) error {
 		}
 		obj := &unstructured.Unstructured{}
 		if err := unstructuredFromYAML(doc, obj); err == nil {
-			if ns := obj.GetNamespace(); ns != "" {
+			if isNamespaceKind(obj.GetKind()) {
+				if err := server.ValidateNamespace(obj.GetName()); err != nil {
+					return fmt.Errorf("invalid namespace in manifest: %w", err)
+				}
+			} else if ns := obj.GetNamespace(); ns != "" {
 				if err := server.ValidateNamespace(ns); err != nil {
 					return fmt.Errorf("invalid namespace in manifest: %w", err)
 				}
