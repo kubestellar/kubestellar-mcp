@@ -43,6 +43,9 @@ func (s *Server) handleAddLabels(ctx context.Context, args json.RawMessage) (int
 	if len(params.Labels) == 0 {
 		return nil, fmt.Errorf("labels are required")
 	}
+	if isSensitiveKind(params.Kind) {
+		return nil, sensitiveKindError(params.Kind)
+	}
 
 	// Validate namespace to prevent access to system namespaces (#377).
 	if params.Namespace != "" {
@@ -109,6 +112,12 @@ func (s *Server) addLabelsInCluster(ctx context.Context, client *kubernetes.Clie
 		Labels:    labels,
 	}
 
+	if isSensitiveKind(kind) {
+		result.Status = "failed"
+		result.Message = sensitiveKindError(kind).Error()
+		return result, nil
+	}
+
 	if dryRun {
 		result.Status = "would-label"
 		result.Message = fmt.Sprintf("Would add labels to %s/%s", kind, name)
@@ -131,8 +140,6 @@ func (s *Server) addLabelsInCluster(ctx context.Context, client *kubernetes.Clie
 		_, err = client.CoreV1().Services(ns).Patch(ctx, name, types.MergePatchType, patch, metav1.PatchOptions{})
 	case "configmap", "configmaps", "cm":
 		_, err = client.CoreV1().ConfigMaps(ns).Patch(ctx, name, types.MergePatchType, patch, metav1.PatchOptions{})
-	case "secret", "secrets":
-		_, err = client.CoreV1().Secrets(ns).Patch(ctx, name, types.MergePatchType, patch, metav1.PatchOptions{})
 	case "pod", "pods":
 		_, err = client.CoreV1().Pods(ns).Patch(ctx, name, types.MergePatchType, patch, metav1.PatchOptions{})
 	case "statefulset", "statefulsets", "sts":
@@ -187,6 +194,9 @@ func (s *Server) handleRemoveLabels(ctx context.Context, args json.RawMessage) (
 	}
 	if len(params.Labels) == 0 {
 		return nil, fmt.Errorf("labels are required")
+	}
+	if isSensitiveKind(params.Kind) {
+		return nil, sensitiveKindError(params.Kind)
 	}
 
 	// Validate namespace to prevent access to system namespaces (#377).
@@ -253,6 +263,12 @@ func (s *Server) removeLabelsInCluster(ctx context.Context, client *kubernetes.C
 		Namespace: namespace,
 	}
 
+	if isSensitiveKind(kind) {
+		result.Status = "failed"
+		result.Message = sensitiveKindError(kind).Error()
+		return result, nil
+	}
+
 	if dryRun {
 		result.Status = "would-unlabel"
 		result.Message = fmt.Sprintf("Would remove labels %v from %s/%s", labelKeys, kind, name)
@@ -279,8 +295,6 @@ func (s *Server) removeLabelsInCluster(ctx context.Context, client *kubernetes.C
 		_, err = client.CoreV1().Services(ns).Patch(ctx, name, types.MergePatchType, patch, metav1.PatchOptions{})
 	case "configmap", "configmaps", "cm":
 		_, err = client.CoreV1().ConfigMaps(ns).Patch(ctx, name, types.MergePatchType, patch, metav1.PatchOptions{})
-	case "secret", "secrets":
-		_, err = client.CoreV1().Secrets(ns).Patch(ctx, name, types.MergePatchType, patch, metav1.PatchOptions{})
 	case "pod", "pods":
 		_, err = client.CoreV1().Pods(ns).Patch(ctx, name, types.MergePatchType, patch, metav1.PatchOptions{})
 	case "statefulset", "statefulsets", "sts":

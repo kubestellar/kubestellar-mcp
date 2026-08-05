@@ -27,9 +27,11 @@ Manage labels on resources across multiple clusters.
 ## Supported Resource Types
 
 - Deployments, StatefulSets, DaemonSets
-- Services, ConfigMaps, Secrets
+- Services, ConfigMaps
 - Pods, Namespaces, Nodes
 - PersistentVolumes, PersistentVolumeClaims
+
+Sensitive kinds (`Secret`, `ServiceAccount`, `ClusterRole`, `ClusterRoleBinding`) are blocked, matching `kubectl_apply` / `delete_resource`.
 
 ## Implementation
 
