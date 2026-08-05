@@ -152,6 +152,38 @@ func TestHandleLabelValidation(t *testing.T) {
 			},
 			want: "invalid namespace",
 		},
+		{
+			name: "add blocks Secret",
+			call: func() error {
+				_, err := s.handleAddLabels(context.Background(), json.RawMessage(`{"kind":"Secret","name":"creds","namespace":"default","labels":{"env":"prod"}}`))
+				return err
+			},
+			want: "blocked",
+		},
+		{
+			name: "add blocks secrets plural",
+			call: func() error {
+				_, err := s.handleAddLabels(context.Background(), json.RawMessage(`{"kind":"secrets","name":"creds","labels":{"env":"prod"}}`))
+				return err
+			},
+			want: "blocked",
+		},
+		{
+			name: "remove blocks Secret",
+			call: func() error {
+				_, err := s.handleRemoveLabels(context.Background(), json.RawMessage(`{"kind":"Secret","name":"creds","namespace":"default","labels":["env"]}`))
+				return err
+			},
+			want: "blocked",
+		},
+		{
+			name: "remove blocks ServiceAccount",
+			call: func() error {
+				_, err := s.handleRemoveLabels(context.Background(), json.RawMessage(`{"kind":"ServiceAccount","name":"default","namespace":"default","labels":["env"]}`))
+				return err
+			},
+			want: "blocked",
+		},
 	}
 
 	for _, tt := range tests {
@@ -161,6 +193,35 @@ func TestHandleLabelValidation(t *testing.T) {
 				t.Fatalf("error = %v, want substring %q", err, tt.want)
 			}
 		})
+	}
+}
+
+func TestLabelOperationsBlockSensitiveKinds(t *testing.T) {
+	s := &Server{}
+
+	addResult, err := s.addLabelsInCluster(context.Background(), nil, "cluster-a", "Secret", "creds", "default", map[string]string{"env": "prod"}, false)
+	if err != nil {
+		t.Fatalf("addLabelsInCluster() unexpected error: %v", err)
+	}
+	if addResult.Status != "failed" || !strings.Contains(addResult.Message, "blocked") {
+		t.Fatalf("expected Secret add to be blocked, got %#v", addResult)
+	}
+
+	// Dry-run must not bypass the sensitive-kind policy.
+	dryAdd, err := s.addLabelsInCluster(context.Background(), nil, "cluster-a", "secrets", "creds", "default", map[string]string{"env": "prod"}, true)
+	if err != nil {
+		t.Fatalf("addLabelsInCluster() dry-run unexpected error: %v", err)
+	}
+	if dryAdd.Status != "failed" || !strings.Contains(dryAdd.Message, "blocked") {
+		t.Fatalf("expected dry-run Secret add to be blocked, got %#v", dryAdd)
+	}
+
+	removeResult, err := s.removeLabelsInCluster(context.Background(), nil, "cluster-a", "Secret", "creds", "default", []string{"env"}, false)
+	if err != nil {
+		t.Fatalf("removeLabelsInCluster() unexpected error: %v", err)
+	}
+	if removeResult.Status != "failed" || !strings.Contains(removeResult.Message, "blocked") {
+		t.Fatalf("expected Secret remove to be blocked, got %#v", removeResult)
 	}
 }
 
