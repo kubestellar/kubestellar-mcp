@@ -52,6 +52,32 @@ func TestHandleNamespaceValidationRemaining(t *testing.T) {
 			},
 			want: "invalid namespace",
 		},
+		// kind: Namespace is cluster-scoped — the protected value is
+		// name, not the namespace field (#kubectl_delete system NS).
+		{
+			name: "delete Namespace kind with blocked name kube-system",
+			call: func() error {
+				_, err := s.handleDeleteResource(context.Background(), json.RawMessage(`{"kind":"Namespace","name":"kube-system"}`))
+				return err
+			},
+			want: "invalid namespace",
+		},
+		{
+			name: "delete ns kind with blocked name kube-public",
+			call: func() error {
+				_, err := s.handleDeleteResource(context.Background(), json.RawMessage(`{"kind":"ns","name":"kube-public"}`))
+				return err
+			},
+			want: "invalid namespace",
+		},
+		{
+			name: "delete namespaces kind with openshift-prefixed name",
+			call: func() error {
+				_, err := s.handleDeleteResource(context.Background(), json.RawMessage(`{"kind":"namespaces","name":"openshift-monitoring"}`))
+				return err
+			},
+			want: "invalid namespace",
+		},
 
 		// handleScaleApp — namespace check is the first non-parse
 		// gate, so simple JSON is sufficient to trigger it.
@@ -166,6 +192,16 @@ func TestValidateManifestDocs(t *testing.T) {
 			name:     "second doc with kube-public is rejected",
 			manifest: "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: ok\n  namespace: default\n---\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: bad\n  namespace: kube-public\n",
 			want:     "invalid namespace in manifest",
+		},
+		{
+			name:     "Namespace kind with blocked name kube-system is rejected",
+			manifest: "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: kube-system\n",
+			want:     "invalid namespace in manifest",
+		},
+		{
+			name:     "Namespace kind with allowed name passes",
+			manifest: "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: my-app\n",
+			want:     "",
 		},
 	}
 
