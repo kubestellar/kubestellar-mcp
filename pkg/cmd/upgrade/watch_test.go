@@ -2,6 +2,8 @@ package upgrade
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -239,7 +241,7 @@ func TestGetUpgradeStatus_EmptyConditions(t *testing.T) {
 		"kind":       "ClusterVersion",
 		"metadata":   map[string]interface{}{"name": "version"},
 		"status": map[string]interface{}{
-			"desired": map[string]interface{}{"version": "4.18.30"},
+			"desired":    map[string]interface{}{"version": "4.18.30"},
 			"conditions": []interface{}{},
 		},
 	}}
@@ -345,6 +347,72 @@ func TestWatchUpgrade_CommandWiring(t *testing.T) {
 	assert.Equal(t, "5s", cmd.Flags().Lookup("interval").Value.String())
 }
 
+func TestWatchUpgrade_KubeconfigLoadError(t *testing.T) {
+	dir := t.TempDir()
+	missing := filepath.Join(dir, "does-not-exist.yaml")
+	explicit := missing
+	ctxName := ""
+	configFlags := &genericclioptions.ConfigFlags{
+		KubeConfig: &explicit,
+		Context:    &ctxName,
+	}
+
+	t.Setenv("KUBECONFIG", missing)
+	t.Setenv("HOME", dir)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := watchUpgrade(ctx, configFlags, 10*time.Millisecond)
+
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "failed to load kubeconfig")
+}
+
+func TestWatchUpgrade_NotOpenShiftCluster(t *testing.T) {
+	dir := t.TempDir()
+	kc := writeMinimalKubeconfig(t, dir)
+	explicit := kc
+	ctxName := "bogus"
+	configFlags := &genericclioptions.ConfigFlags{
+		KubeConfig: &explicit,
+		Context:    &ctxName,
+	}
+
+	t.Setenv("KUBECONFIG", kc)
+	t.Setenv("HOME", dir)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	err := watchUpgrade(ctx, configFlags, 10*time.Millisecond)
+
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "not an OpenShift cluster")
+}
+
+func TestWatchUpgrade_CanceledContext_ClientConfigError(t *testing.T) {
+	dir := t.TempDir()
+	missing := filepath.Join(dir, "nope.yaml")
+	explicit := missing
+	ctxName := ""
+	configFlags := &genericclioptions.ConfigFlags{
+		KubeConfig: &explicit,
+		Context:    &ctxName,
+	}
+
+	t.Setenv("KUBECONFIG", missing)
+	t.Setenv("HOME", dir)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := watchUpgrade(ctx, configFlags, 10*time.Millisecond)
+
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "failed to load kubeconfig")
+}
+
 func TestGetUpgradeStatus_MultipleConditionsWithProgressing(t *testing.T) {
 	cv := &unstructured.Unstructured{Object: map[string]interface{}{
 		"apiVersion": "config.openshift.io/v1",
@@ -382,4 +450,29 @@ func TestGetUpgradeStatus_MultipleConditionsWithProgressing(t *testing.T) {
 	assert.Equal(t, 906, status.Total)
 	assert.Equal(t, "etcd", status.Current)
 	assert.False(t, status.Complete)
+}
+
+func writeMinimalKubeconfig(t *testing.T, dir string) string {
+	t.Helper()
+
+	path := filepath.Join(dir, "kubeconfig")
+	content := `apiVersion: v1
+kind: Config
+clusters:
+- name: bogus
+  cluster:
+    server: http://127.0.0.1:1
+contexts:
+- name: bogus
+  context:
+    cluster: bogus
+    user: bogus
+current-context: bogus
+users:
+- name: bogus
+  user: {}
+`
+
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+	return path
 }
