@@ -35,6 +35,32 @@ func TestNewClientAppliesOptions(t *testing.T) {
 	}
 }
 
+func TestGetModelReturnsConfiguredModel(t *testing.T) {
+	t.Setenv("ANTHROPIC_API_KEY", "secret")
+
+	client, err := NewClient(WithModel("claude-custom"))
+	if err != nil {
+		t.Fatalf("NewClient() unexpected error: %v", err)
+	}
+
+	if got := client.GetModel(); got != "claude-custom" {
+		t.Fatalf("GetModel() = %q, want %q", got, "claude-custom")
+	}
+}
+
+func TestGetModelDefaultsToDefaultModel(t *testing.T) {
+	t.Setenv("ANTHROPIC_API_KEY", "secret")
+
+	client, err := NewClient()
+	if err != nil {
+		t.Fatalf("NewClient() unexpected error: %v", err)
+	}
+
+	if got := client.GetModel(); got != DefaultModel {
+		t.Fatalf("GetModel() = %q, want %q", got, DefaultModel)
+	}
+}
+
 func TestQuerySendsExpectedRequest(t *testing.T) {
 	var captured Request
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

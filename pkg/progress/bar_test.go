@@ -3,6 +3,7 @@ package progress
 import (
 	"bytes"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -98,6 +99,27 @@ func TestBarDoneSetsTotalAndDone(t *testing.T) {
 	}
 	if !strings.HasSuffix(buf.String(), "\n") {
 		t.Fatalf("Done() output = %q, want trailing newline", buf.String())
+	}
+}
+
+func TestBarUpdateSetsCurrentAndDescription(t *testing.T) {
+	var buf bytes.Buffer
+	bar := New(&buf, barTotal)
+
+	bar.Update(barSetCurrent, "downloading")
+
+	if bar.current != barSetCurrent {
+		t.Fatalf("current after Update() = %d, want %d", bar.current, barSetCurrent)
+	}
+	if bar.description != "downloading" {
+		t.Fatalf("description after Update() = %q, want %q", bar.description, "downloading")
+	}
+	output := buf.String()
+	if !strings.Contains(output, "downloading") {
+		t.Fatalf("Update() output = %q, want description", output)
+	}
+	if bar.lastUpdate.IsZero() {
+		t.Fatal("lastUpdate was not set by Update()")
 	}
 }
 
@@ -237,6 +259,28 @@ func TestMultiBarSetStatusUpdatesStatus(t *testing.T) {
 	}
 	if !strings.Contains(buf.String(), "❌") {
 		t.Fatalf("SetStatus() output = %q, want failed icon", buf.String())
+	}
+}
+
+func TestMultiBarDoneIsSafeAndConcurrent(t *testing.T) {
+	var buf bytes.Buffer
+	multi := NewMultiBar(&buf)
+	multi.AddBar("alpha", barTotal)
+
+	var wg sync.WaitGroup
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			multi.Done()
+		}()
+	}
+	wg.Wait()
+
+	// Done() should not panic, not modify bars, and remain safe to call
+	// concurrently alongside other operations that hold the mutex.
+	if len(multi.bars) != 1 {
+		t.Fatalf("len(bars) = %d, want 1 after Done()", len(multi.bars))
 	}
 }
 
