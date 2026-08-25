@@ -241,7 +241,13 @@ case "$cmd" in
     echo "${FAKE_HELM_UPGRADE_STDOUT:-Release \"demo\" has been installed}"
     ;;
   uninstall)
-    echo "release \"$(echo "$@" | awk '{print $1}')\" uninstalled"
+    RELEASE_NAME="$1"
+    CLUSTER=$(prev=""; for i in "$@"; do case "$prev" in --kube-context) echo "$i";; esac; prev="$i"; done)
+    if echo "${FAKE_HELM_UNINSTALL_FAIL_CLUSTERS:-}" | grep -qw "$CLUSTER"; then
+      echo "${FAKE_HELM_UNINSTALL_FAIL_MSG:-Error: uninstall failed for ${RELEASE_NAME}}" >&2
+      exit 1
+    fi
+    echo "release \"${RELEASE_NAME}\" uninstalled"
     ;;
   list)
     echo "${FAKE_HELM_LIST_JSON:-[]}"
