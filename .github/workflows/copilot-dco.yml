@@ -1,9 +1,14 @@
 name: Copilot DCO
 
+permissions:
+  contents: read
+  pull-requests: read
+  statuses: write
+
 on:
   pull_request:
     types: [opened, synchronize, reopened]
 
 jobs:
   copilot-dco:
-    uses: kubestellar/infra/.github/workflows/reusable-copilot-dco.yml@main
+    uses: kubestellar/infra/.github/workflows/reusable-copilot-dco.yml@220beeeb8dae67e2fd8e89338ada8144609fc6ef  # main
