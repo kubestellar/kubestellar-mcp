@@ -4,6 +4,7 @@ package upgrade
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -104,21 +105,46 @@ func watchUpgrade(ctx context.Context, configFlags *genericclioptions.ConfigFlag
 	fmt.Println("Press Ctrl+C to stop")
 	fmt.Println()
 
+	return runWatchLoop(ctx, dynClient, interval, os.Stdout, os.Stderr)
+}
+
+type statusRenderer interface {
+	Render(progress.Status) bool
+}
+
+func runWatchLoop(
+	ctx context.Context,
+	dynClient dynamic.Interface,
+	interval time.Duration,
+	out io.Writer,
+	errOut io.Writer,
+) error {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	bar := progress.NewLiveBar(os.Stdout)
+	bar := progress.NewLiveBar(out)
+	return runWatchLoopWithTicker(ctx, dynClient, ticker.C, out, errOut, bar)
+}
+
+func runWatchLoopWithTicker(
+	ctx context.Context,
+	dynClient dynamic.Interface,
+	ticks <-chan time.Time,
+	out io.Writer,
+	errOut io.Writer,
+	bar statusRenderer,
+) error {
 	lastPct := -1
 
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println("\nStopped watching.")
+			_, _ = fmt.Fprintln(out, "\nStopped watching.")
 			return nil
 		default:
 			status, err := getUpgradeStatus(ctx, dynClient)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "\nError fetching status: %v\n", err)
+				_, _ = fmt.Fprintf(errOut, "\nError fetching status: %v\n", err)
 			} else {
 				// Only render if percentage changed
 				if status.Percent != lastPct || status.Complete {
@@ -129,7 +155,12 @@ func watchUpgrade(ctx context.Context, configFlags *genericclioptions.ConfigFlag
 					}
 				}
 			}
-			<-ticker.C
+			select {
+			case <-ctx.Done():
+				_, _ = fmt.Fprintln(out, "\nStopped watching.")
+				return nil
+			case <-ticks:
+			}
 		}
 	}
 }
