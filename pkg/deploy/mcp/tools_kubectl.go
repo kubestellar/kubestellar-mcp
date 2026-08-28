@@ -162,8 +162,10 @@ func (s *Server) handleDeleteResource(ctx context.Context, args json.RawMessage)
 	}, nil
 }
 
-// deleteResourceInCluster deletes a resource in a single cluster
-func (s *Server) deleteResourceInCluster(ctx context.Context, client *kubernetes.Clientset, clusterName, kind, name, namespace string, dryRun bool) (DeleteResult, error) {
+// deleteResourceInCluster deletes a resource in a single cluster.
+// The client parameter uses kubernetes.Interface (not *kubernetes.Clientset)
+// so callers can pass a fake clientset from k8s.io/client-go/kubernetes/fake in tests.
+func (s *Server) deleteResourceInCluster(ctx context.Context, client kubernetes.Interface, clusterName, kind, name, namespace string, dryRun bool) (DeleteResult, error) {
 	result := DeleteResult{
 		Cluster:   clusterName,
 		Resource:  kind,
