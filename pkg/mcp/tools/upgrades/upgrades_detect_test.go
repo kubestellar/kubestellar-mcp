@@ -159,7 +159,7 @@ func TestDetectClusterType_NodesListError(t *testing.T) {
 	// Unknown (with a "Unable to list nodes" note) and NOT report an error
 	// isErr=true — the doc contract is that detection is best-effort.
 	cs := newFakeClientWithVersion("v1.29.0")
-	cs.Fake.PrependReactor("list", "nodes",
+	cs.PrependReactor("list", "nodes",
 		func(_ k8stesting.Action) (bool, runtime.Object, error) {
 			return true, nil, fmt.Errorf("api unavailable")
 		})
