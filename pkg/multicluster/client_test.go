@@ -70,6 +70,52 @@ func TestGetClientAndConfigCacheByCluster(t *testing.T) {
 	}
 }
 
+func TestGetConfigCacheMissPopulatesFromGetClient(t *testing.T) {
+	manager := newClientManagerFromKubeconfig(t, map[string]string{
+		"alpha": "https://alpha.example.com",
+	}, "alpha")
+
+	// Call GetConfig before GetClient: exercises the cache-miss branch
+	// (exists=false) that delegates to GetClient to build+cache the config.
+	config, err := manager.GetConfig("alpha")
+	if err != nil {
+		t.Fatalf("GetConfig() error = %v", err)
+	}
+	if config == nil {
+		t.Fatal("GetConfig() returned nil config")
+	}
+	if config.Host != "https://alpha.example.com" {
+		t.Fatalf("config host = %q, want https://alpha.example.com", config.Host)
+	}
+
+	// A second call should now hit the cache and return the same pointer.
+	cached, err := manager.GetConfig("alpha")
+	if err != nil {
+		t.Fatalf("GetConfig() second call error = %v", err)
+	}
+	if cached != config {
+		t.Fatal("expected second GetConfig() to return cached pointer")
+	}
+}
+
+func TestGetConfigUnknownContextReturnsError(t *testing.T) {
+	manager := newClientManagerFromKubeconfig(t, map[string]string{
+		"alpha": "https://alpha.example.com",
+	}, "alpha")
+
+	// Exercises the GetClient error passthrough in GetConfig.
+	cfg, err := manager.GetConfig("missing")
+	if err == nil {
+		t.Fatalf("GetConfig(missing) error = nil, want error; got config = %#v", cfg)
+	}
+	if cfg != nil {
+		t.Fatalf("GetConfig(missing) config = %#v, want nil", cfg)
+	}
+	if !strings.Contains(err.Error(), "failed to get config for context missing") {
+		t.Fatalf("GetConfig(missing) error = %v, want missing-context failure", err)
+	}
+}
+
 func TestGetClientUnknownContext(t *testing.T) {
 	manager := newClientManagerFromKubeconfig(t, map[string]string{
 		"alpha": "https://alpha.example.com",
