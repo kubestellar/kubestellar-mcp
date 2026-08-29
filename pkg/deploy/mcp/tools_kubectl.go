@@ -355,15 +355,18 @@ func (s *Server) applyManifestDynamic(ctx context.Context, clusterName, manifest
 
 		// Validate namespace from manifest to prevent access to system namespaces (#377).
 		// For kind Namespace the protected value is metadata.name (cluster-scoped).
+		// Append failure and continue rather than returning early, so prior results are preserved (#626).
 		if isNamespaceKind(kind) {
 			if err := server.ValidateNamespace(name); err != nil {
-				return []ApplyResult{{Cluster: clusterName, Status: "failed",
-					Message: fmt.Sprintf("invalid namespace in manifest: %v", err)}}, nil
+				results = append(results, ApplyResult{Cluster: clusterName, Status: "failed",
+					Message: fmt.Sprintf("invalid namespace in manifest: %v", err)})
+				continue
 			}
 		} else if namespace != "" {
 			if err := server.ValidateNamespace(namespace); err != nil {
-				return []ApplyResult{{Cluster: clusterName, Status: "failed",
-					Message: fmt.Sprintf("invalid namespace in manifest: %v", err)}}, nil
+				results = append(results, ApplyResult{Cluster: clusterName, Status: "failed",
+					Message: fmt.Sprintf("invalid namespace in manifest: %v", err)})
+				continue
 			}
 		}
 
