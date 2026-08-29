@@ -55,13 +55,8 @@ metadata:
 }
 
 // TestApplyManifestDynamic_MultiDocMidStreamNamespaceFailure_PinsBug documents
-// the buggy behavior described in issue #626: a mid-stream validation failure
-// returns a single-element result, discarding both prior and subsequent docs.
-//
-// FIXME(#626): when the production code is fixed to preserve prior results
-// (append + continue, or pre-validate all docs), this test will start failing
-// and its assertions must be updated to expect 3 results (2 would-apply +
-// 1 failed) in document order.
+// the fix for issue #626: a mid-stream validation failure now appends the failure
+// to results and continues, preserving all prior and subsequent results.
 func TestApplyManifestDynamic_MultiDocMidStreamNamespaceFailure_PinsBug(t *testing.T) {
 	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
 
@@ -92,32 +87,19 @@ data:
 	results, err := server.applyManifestDynamic(context.Background(), "alpha", manifest, true)
 	require.NoError(t, err)
 
-	// FIXME(#626): current buggy behavior — the single failure erases all
-	// other results. Once fixed, expect require.Len(t, results, 3) with
-	// results[0] = would-apply cm1, results[1] = failed cm2, results[2] =
-	// would-apply cm3.
-	require.Len(t, results, 1,
-		"pinning bug #626: mid-stream validation failure discards prior/next results")
-	assert.Equal(t, "failed", results[0].Status)
-	assert.Contains(t, results[0].Message, "kube-system")
-
-	// The discarded documents should have been visible to the caller —
-	// this assertion documents what is currently lost.
-	joined := ""
-	for _, r := range results {
-		joined += r.Name + ","
-	}
-	assert.NotContains(t, joined, "cm1",
-		"FIXME(#626): cm1 result is silently discarded today")
-	assert.NotContains(t, joined, "cm3",
-		"FIXME(#626): cm3 result is silently discarded today")
+	// Fixed (#626): all three results are returned — cm1 success, cm2 failure, cm3 success.
+	require.Len(t, results, 3, "#626 fix: mid-stream validation failure must not discard prior/next results")
+	assert.Equal(t, "would-apply", results[0].Status)
+	assert.Equal(t, "cm1", results[0].Name)
+	assert.Equal(t, "failed", results[1].Status)
+	assert.Contains(t, results[1].Message, "kube-system")
+	assert.Equal(t, "would-apply", results[2].Status)
+	assert.Equal(t, "cm3", results[2].Name)
 }
 
 // TestApplyManifestDynamic_MultiDocNamespaceKindMidStream_PinsBug is the
-// isNamespaceKind variant of the multi-doc mid-stream failure: a bad
-// Namespace-kind doc in the middle also truncates results.
-//
-// FIXME(#626): same disposition as above.
+// isNamespaceKind variant of the multi-doc mid-stream failure fix (#626):
+// a bad Namespace-kind doc in the middle no longer truncates results.
 func TestApplyManifestDynamic_MultiDocNamespaceKindMidStream_PinsBug(t *testing.T) {
 	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
 
@@ -141,10 +123,14 @@ metadata:
 	results, err := server.applyManifestDynamic(context.Background(), "alpha", manifest, true)
 	require.NoError(t, err)
 
-	require.Len(t, results, 1,
-		"pinning bug #626: mid-stream Namespace-kind validation failure discards prior/next results")
-	assert.Equal(t, "failed", results[0].Status)
-	assert.Contains(t, strings.ToLower(results[0].Message), "openshift-monitoring")
+	// Fixed (#626): all three results returned — cm-first success, Namespace failure, cm-last success.
+	require.Len(t, results, 3, "#626 fix: mid-stream Namespace-kind validation failure must not discard prior/next results")
+	assert.Equal(t, "would-apply", results[0].Status)
+	assert.Equal(t, "cm-first", results[0].Name)
+	assert.Equal(t, "failed", results[1].Status)
+	assert.Contains(t, strings.ToLower(results[1].Message), "openshift-monitoring")
+	assert.Equal(t, "would-apply", results[2].Status)
+	assert.Equal(t, "cm-last", results[2].Name)
 }
 
 // TestApplyManifestDynamic_InvalidLabelNamespaceRejected covers the RFC 1123
