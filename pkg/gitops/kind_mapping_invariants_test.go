@@ -80,8 +80,8 @@ func TestKindToResource_Plurals(t *testing.T) {
 	// the fallback returns today and is included for diagnostic
 	// clarity in the skip message.
 	broken := []struct {
-		kind    string
-		want    string
+		kind     string
+		want     string
 		gotBuggy string
 	}{
 		// Cluster-scoped, in IsClusterScoped map. Drift detection of
@@ -103,13 +103,6 @@ func TestKindToResource_Plurals(t *testing.T) {
 	for _, tt := range broken {
 		tt := tt
 		t.Run("broken/"+tt.kind, func(t *testing.T) {
-			t.Skipf(
-				"KNOWN BROKEN: kindToResource(%q) currently returns %q, want %q. "+
-					"Fix: add %q -> %q to the static mappings map in "+
-					"pkg/gitops/drift.go::kindToResource. When the fix lands, "+
-					"remove this t.Skip so the assertion enforces the correct value.",
-				tt.kind, tt.gotBuggy, tt.want, tt.kind, tt.want,
-			)
 			got := kindToResource(tt.kind)
 			if got != tt.want {
 				t.Fatalf("kindToResource(%q) = %q, want %q", tt.kind, got, tt.want)
@@ -132,10 +125,7 @@ func TestKindToResource_Plurals(t *testing.T) {
 // today but hardens against future regressions once the six kinds above
 // are fixed.
 func TestKindToResource_InvariantNoDoubleS(t *testing.T) {
-	knownBroken := map[string]bool{
-		"StorageClass":      true,
-		"PriorityClass":     true,
-	}
+	knownBroken := map[string]bool{}
 
 	// The full list of kinds IsClusterScoped currently returns true
 	// for. Kept in sync explicitly rather than reflected out of the

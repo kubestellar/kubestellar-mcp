@@ -281,6 +281,12 @@ func kindToResource(kind string) string {
 		"Namespace":               "namespaces",
 		"NetworkPolicy":           "networkpolicies",
 		"HorizontalPodAutoscaler": "horizontalpodautoscalers",
+		"StorageClass":            "storageclasses",
+		"PriorityClass":           "priorityclasses",
+		"IngressClass":            "ingressclasses",
+		"RuntimeClass":            "runtimeclasses",
+		"PodSecurityPolicy":       "podsecuritypolicies",
+		"Endpoints":               "endpoints",
 	}
 
 	if resource, ok := mappings[kind]; ok {
