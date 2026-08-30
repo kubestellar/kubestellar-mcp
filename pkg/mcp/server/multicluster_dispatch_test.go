@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sort"
+	"sync"
 	"testing"
 
 	"k8s.io/client-go/kubernetes"
@@ -32,6 +33,7 @@ func TestExecuteMultiClusterDispatchesToExecuteAllOnEmptyClusterName(t *testing.
 	// discovered cluster, and (c) invokes the ExecuteFunc with the right
 	// cluster name for each fan-out.
 	discoverSource := ""
+	var mu sync.Mutex
 	execCalls := map[string]int{}
 
 	s := &Server{
@@ -45,7 +47,9 @@ func TestExecuteMultiClusterDispatchesToExecuteAllOnEmptyClusterName(t *testing.
 	}
 
 	results, err := s.executeMultiCluster(context.Background(), "", func(ctx context.Context, client kubernetes.Interface, clusterName string) (interface{}, error) {
+		mu.Lock()
 		execCalls[clusterName]++
+		mu.Unlock()
 		return clusterName + "-ok", nil
 	})
 
