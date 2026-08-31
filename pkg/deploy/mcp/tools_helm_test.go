@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -463,6 +464,59 @@ func TestValidateHelmChartRef_OCIDNSBlocked(t *testing.T) {
 	err := validateHelmChartRef("oci://internal-registry.corp/chart")
 	if err == nil {
 		t.Error("expected error for oci ref resolving to private IP, got nil")
+	}
+}
+
+// Closes previously-uncovered arms in validateHelmChartRef (tools_helm.go:47).
+// The main TestValidateHelmChartRef table + OCIDNSBlocked cover flag/path
+// blocks, IP-literal blocks, and the "resolves to blocked IP" arm. The three
+// remaining reachable arms are:
+//   * url.Parse error on a malformed oci:// ref (invalid percent-encoding)
+//   * helmHostResolver returns an error (DNS lookup failure)
+//   * addr in the resolver result is not a valid IP -> `if ip == nil { continue }`
+//     forcing the loop to skip and fall through to the final `return nil`.
+// These mirror the DNS-error and non-IP-resolver-string cover added for
+// validateHelmRepoURL in #643.
+
+func TestValidateHelmChartRef_OCIInvalidURL(t *testing.T) {
+	// Percent-escape with non-hex chars makes url.Parse fail synchronously
+	// before we ever get to the host / resolver — covers the `url.Parse` error
+	// arm (tools_helm.go ~64).
+	err := validateHelmChartRef("oci://%zz/chart")
+	if err == nil {
+		t.Fatal("expected error for malformed oci:// URL, got nil")
+	}
+	if !strings.Contains(err.Error(), "invalid oci chart ref") {
+		t.Errorf("expected 'invalid oci chart ref' error, got %v", err)
+	}
+}
+
+func TestValidateHelmChartRef_OCIResolverError(t *testing.T) {
+	// helmHostResolver returning a plain error hits the resolver-error arm
+	// (tools_helm.go ~77). The message includes the hostname so we can pin it.
+	setHelmMockResolver(t, func(host string) ([]string, error) {
+		return nil, fmt.Errorf("simulated DNS failure for %s", host)
+	})
+	err := validateHelmChartRef("oci://unresolvable.example.test/chart")
+	if err == nil {
+		t.Fatal("expected error when helmHostResolver fails, got nil")
+	}
+	if !strings.Contains(err.Error(), "could not be resolved") {
+		t.Errorf("expected 'could not be resolved' error, got %v", err)
+	}
+}
+
+func TestValidateHelmChartRef_OCIResolverReturnsNonIPStrings(t *testing.T) {
+	// Resolver returns a mix of non-IP garbage strings AND one valid public IP.
+	// The non-IP entries force the `if ip == nil { continue }` arm inside the
+	// loop (tools_helm.go ~82), and the valid public IP then falls through
+	// isHelmBlockedIP=false, so the function returns nil (accept).
+	setHelmMockResolver(t, func(_ string) ([]string, error) {
+		return []string{"not-an-ip-address", "", "still-garbage", "8.8.8.8"}, nil
+	})
+	err := validateHelmChartRef("oci://mixed-resolver.example.test/chart")
+	if err != nil {
+		t.Errorf("expected nil error when non-IP strings are skipped and a public IP falls through, got %v", err)
 	}
 }
 
