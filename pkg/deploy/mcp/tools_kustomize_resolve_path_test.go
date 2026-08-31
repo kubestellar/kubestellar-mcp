@@ -160,3 +160,56 @@ func TestResolveKustomizePath_CleansTraversalBeforeResolve(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, strings.HasPrefix(got, resolvedWD))
 }
+
+func TestResolveKustomizePath_FailsWhenTempDirCannotBeResolved(t *testing.T) {
+	// os.TempDir() returns $TMPDIR when set. If TMPDIR points at a path
+	// that does not exist on disk, EvalSymlinks(os.TempDir()) fails and
+	// resolveKustomizePath returns the "failed to resolve temp directory"
+	// error. This arm was previously uncovered — a regression here would
+	// mean the security allow-list silently degrades to a single-base
+	// check whenever the temp base cannot be probed, so we lock the
+	// behavior down with a targeted test.
+	//
+	// Use a path pointing INTO an existing tempdir but with a nonexistent
+	// leaf, guaranteeing EvalSymlinks fails without depending on any
+	// system-specific "/nonexistent" prefix.
+	realTmp := t.TempDir()
+	brokenTmp := filepath.Join(realTmp, "definitely-not-a-real-tmpdir")
+	t.Setenv("TMPDIR", brokenTmp)
+
+	// The path we ask about must still exist on disk (so the upstream
+	// EvalSymlinks(absPath) call succeeds and we actually reach the
+	// TempDir resolution). Use the real tempdir the harness gave us.
+	got, err := resolveKustomizePath(realTmp)
+	require.Error(t, err)
+	assert.Empty(t, got)
+	assert.Contains(t, err.Error(), "failed to resolve temp directory",
+		"broken TMPDIR must surface as a temp-dir resolution error, not a false accept or a different error")
+}
+
+func TestResolveKustomizePath_FailsWhenWorkingDirIsUnavailable(t *testing.T) {
+	// If os.Getwd() fails (because the process's current directory was
+	// unlinked out from under it), resolveKustomizePath cannot determine
+	// one of its two allow-list bases and must return the "failed to
+	// determine working directory" error. This arm was previously
+	// uncovered.
+	//
+	// Reproduce the state safely: create a scratch dir, chdir into it via
+	// t.Chdir (which restores CWD on cleanup), then remove the scratch dir
+	// so a subsequent Getwd cannot resolve it. We pass an ABSOLUTE path
+	// that DOES exist so the earlier EvalSymlinks(absPath) succeeds and
+	// execution reaches the os.Getwd() call we want to fail.
+	scratchParent := t.TempDir()
+	scratchDir := filepath.Join(scratchParent, "will-be-removed")
+	require.NoError(t, os.Mkdir(scratchDir, 0o755))
+	t.Chdir(scratchDir)
+	require.NoError(t, os.Remove(scratchDir))
+
+	// scratchParent still exists, so EvalSymlinks succeeds on it and we
+	// reach the Getwd branch.
+	got, err := resolveKustomizePath(scratchParent)
+	require.Error(t, err)
+	assert.Empty(t, got)
+	assert.Contains(t, err.Error(), "failed to determine working directory",
+		"unlinked CWD must surface as a working-directory error, not leak the Getwd errno detail")
+}
