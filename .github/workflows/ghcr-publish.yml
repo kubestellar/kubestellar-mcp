@@ -31,8 +31,10 @@ jobs:
 
       - name: Determine version
         id: version
+        env:
+          TAG_INPUT: ${{ github.event.inputs.tag || github.event.release.tag_name }}
         run: |
-          TAG="${{ github.event.inputs.tag || github.event.release.tag_name }}"
+          TAG="$TAG_INPUT"
           # Strip 'v' prefix for Docker tag
           VERSION="${TAG#v}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
