@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"sync"
+	"time"
 
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/cluster"
 	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/protocol"
+	"github.com/kubestellar/kubestellar-mcp/pkg/metrics"
 )
 
 const (
@@ -26,21 +28,21 @@ const (
 
 // Type aliases so tool registry files continue to compile unchanged.
 type (
-	Request         = protocol.Request
-	Response        = protocol.Response
-	Error           = protocol.Error
-	ServerInfo      = protocol.ServerInfo
+	Request          = protocol.Request
+	Response         = protocol.Response
+	Error            = protocol.Error
+	ServerInfo       = protocol.ServerInfo
 	InitializeResult = protocol.InitializeResult
-	Capabilities    = protocol.Capabilities
-	ToolsCapability = protocol.ToolsCapability
-	Tool            = protocol.Tool
-	InputSchema     = protocol.InputSchema
-	Property        = protocol.Property
-	Items           = protocol.Items
-	ToolsListResult = protocol.ToolsListResult
-	CallToolParams  = protocol.CallToolParams
-	CallToolResult  = protocol.CallToolResult
-	ContentBlock    = protocol.ContentBlock
+	Capabilities     = protocol.Capabilities
+	ToolsCapability  = protocol.ToolsCapability
+	Tool             = protocol.Tool
+	InputSchema      = protocol.InputSchema
+	Property         = protocol.Property
+	Items            = protocol.Items
+	ToolsListResult  = protocol.ToolsListResult
+	CallToolParams   = protocol.CallToolParams
+	CallToolResult   = protocol.CallToolResult
+	ContentBlock     = protocol.ContentBlock
 )
 
 type discoverer interface {
@@ -139,7 +141,6 @@ func (s *Server) handleToolsList(req *Request) {
 	s.sendResult(req.ID, ToolsListResult{Tools: registeredTools()})
 }
 
-
 func (s *Server) handleToolsCall(ctx context.Context, req *Request) {
 	var params CallToolParams
 	if err := json.Unmarshal(req.Params, &params); err != nil {
@@ -153,11 +154,25 @@ func (s *Server) handleToolsCall(ctx context.Context, req *Request) {
 		return
 	}
 
+	start := time.Now()
 	result, isError := handler(ctx, s, params.Arguments)
+	metrics.RecordToolCall(params.Name, clusterArg(params.Arguments), time.Since(start), isError, "")
+
 	s.sendResult(req.ID, CallToolResult{
 		Content: []ContentBlock{{Type: "text", Text: result}},
 		IsError: isError,
 	})
+}
+
+// clusterArg extracts a "cluster" argument from tool call arguments, if
+// present, so single-cluster-scoped calls can be attributed to that cluster
+// in metrics. It returns "" when absent, which RecordToolCall normalizes to
+// a bounded "none" label value.
+func clusterArg(args map[string]interface{}) string {
+	if v, ok := args["cluster"].(string); ok {
+		return v
+	}
+	return ""
 }
 
 func (s *Server) sendResult(id interface{}, result interface{}) {
