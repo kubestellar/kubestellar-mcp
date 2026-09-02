@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -19,6 +20,7 @@ import (
 	"github.com/kubestellar/kubestellar-mcp/pkg/cmd/clusters"
 	"github.com/kubestellar/kubestellar-mcp/pkg/cmd/upgrade"
 	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/server"
+	"github.com/kubestellar/kubestellar-mcp/pkg/metrics"
 )
 
 type mcpServerRunner interface {
@@ -31,15 +33,18 @@ var (
 	allClusters   bool
 	targetCluster string
 	mcpServer     bool
+	metricsAddr   string
 
 	// Kubernetes config flags
 	configFlags *genericclioptions.ConfigFlags
 
-	newQueryCommand           = ai.NewQueryCommand
-	newMCPServer              = func(kubeconfig string) mcpServerRunner { return server.NewServer(kubeconfig) }
-	signalNotify              = signal.Notify
-	stderr          io.Writer = os.Stderr
-	exitFunc                  = os.Exit
+	newQueryCommand                 = ai.NewQueryCommand
+	newMCPServer                    = func(kubeconfig string) mcpServerRunner { return server.NewServer(kubeconfig) }
+	startMetricsServer              = metrics.StartServer
+	shutdownMetricsServer           = metrics.Shutdown
+	signalNotify                    = signal.Notify
+	stderr                io.Writer = os.Stderr
+	exitFunc                        = os.Exit
 )
 
 // rootCmd represents the base command
@@ -84,6 +89,23 @@ Examples:
 			// Handle shutdown gracefully
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
+
+			// Only start the /metrics endpoint when an operator explicitly
+			// configures an address; otherwise no HTTP listener is opened
+			// and no metrics data is exposed outside the process.
+			if metricsAddr != "" {
+				metricsSrv, err := startMetricsServer(metricsAddr)
+				if err != nil {
+					_, _ = fmt.Fprintf(stderr, "metrics server error: %v\n", err)
+					exitFunc(1)
+					return
+				}
+				defer func() {
+					shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+					defer shutdownCancel()
+					_ = shutdownMetricsServer(shutdownCtx, metricsSrv)
+				}()
+			}
 
 			sigCh := make(chan os.Signal, 1)
 			signalNotify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -140,6 +162,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&allClusters, "all-clusters", false, "Operate on all discovered clusters")
 	rootCmd.PersistentFlags().StringVar(&targetCluster, "target-cluster", "", "Target specific cluster by name")
 	rootCmd.PersistentFlags().BoolVar(&mcpServer, "mcp-server", false, "Run as MCP server (for Claude Code integration)")
+	rootCmd.PersistentFlags().StringVar(&metricsAddr, "metrics-addr", "", "Address to serve Prometheus /metrics on (e.g. 127.0.0.1:9090); disabled unless explicitly set")
 
 	// Add subcommands
 	rootCmd.AddCommand(clusters.NewClustersCommand(configFlags))

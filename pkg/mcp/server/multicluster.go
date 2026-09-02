@@ -7,6 +7,8 @@ import (
 	"sync"
 
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/kubestellar/kubestellar-mcp/pkg/metrics"
 )
 
 // ClusterResult represents the result of an operation on a single cluster
@@ -68,6 +70,8 @@ func (s *Server) executeAll(ctx context.Context, fn ExecuteFunc) ([]ClusterResul
 	if len(clusters) == 0 {
 		return nil, fmt.Errorf("no clusters found from any discovery source")
 	}
+
+	metrics.SetActiveClusters(len(clusters))
 
 	results := make([]ClusterResult, 0, len(clusters))
 	sem := make(chan struct{}, maxConcurrentClusterOperations)
