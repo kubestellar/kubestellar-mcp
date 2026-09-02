@@ -6,13 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"sync"
 
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/cluster"
 	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/protocol"
@@ -186,7 +186,7 @@ func (s *Server) send(resp Response) {
 
 	data, err := json.Marshal(resp)
 	if err != nil {
-		log.Printf("Failed to marshal MCP response: %v", err)
+		klog.Errorf("Failed to marshal MCP response: %v", err)
 		return
 	}
 	_, _ = fmt.Fprintf(s.writer, "%s\n", data)
