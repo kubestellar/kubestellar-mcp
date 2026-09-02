@@ -16,6 +16,7 @@
 6. [Container Health Verification](#container-health-verification)
 7. [Diagnosing Silent Failures](#diagnosing-silent-failures)
 8. [Escalation](#escalation)
+9. [Release Rollback](release-rollback.md) (separate runbook, for a bad automated nightly/weekly release)
 
 ---
 
