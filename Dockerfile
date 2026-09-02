@@ -23,4 +23,9 @@ LABEL io.modelcontextprotocol.server.name="io.github.kubestellar/kubestellar-mcp
 
 USER nonroot:nonroot
 
+# The MCP server uses stdio transport (not HTTP), so a process-existence check
+# is the appropriate liveness signal. This catches OOM kills, panics, and hangs.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD pgrep -x kubestellar-ops > /dev/null || exit 1
+
 ENTRYPOINT ["kubestellar-ops", "--mcp-server"]
