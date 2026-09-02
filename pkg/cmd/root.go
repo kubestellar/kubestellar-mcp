@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/klog/v2"
 
 	"github.com/kubestellar/kubestellar-mcp/internal/version"
 	"github.com/kubestellar/kubestellar-mcp/pkg/cmd/ai"
@@ -123,6 +125,12 @@ func Execute() error {
 
 func init() {
 	cobra.OnInitialize(initConfig)
+
+	// Wire klog's flags (--v, --logtostderr, etc.) into the cobra flag set so
+	// operators can control log verbosity consistently across all packages.
+	klogFlags := flag.NewFlagSet("klog", flag.ContinueOnError)
+	klog.InitFlags(klogFlags)
+	rootCmd.PersistentFlags().AddGoFlagSet(klogFlags)
 
 	// Add persistent flags from cli-runtime (includes kubeconfig, context, namespace, etc.)
 	configFlags = genericclioptions.NewConfigFlags(true)

@@ -2,9 +2,11 @@ package server
 
 import (
 	"bytes"
-	"log"
+	"flag"
 	"strings"
 	"testing"
+
+	"k8s.io/klog/v2"
 )
 
 // TestServerSendMarshalError covers the json.Marshal error branch in
@@ -28,17 +30,18 @@ func TestServerSendMarshalError(t *testing.T) {
 	var writerBuf bytes.Buffer
 	s := &Server{writer: &writerBuf}
 
-	// Redirect the standard logger so we can observe the log line
-	// produced by the marshal-error arm.
+	// Redirect klog's output so we can observe the log line produced by
+	// the marshal-error arm. klog writes to stderr by default
+	// (--logtostderr=true), so we must disable that before SetOutput
+	// takes effect.
 	var logBuf bytes.Buffer
-	origOutput := log.Writer()
-	origFlags := log.Flags()
-	log.SetOutput(&logBuf)
-	log.SetFlags(0)
-	defer func() {
-		log.SetOutput(origOutput)
-		log.SetFlags(origFlags)
-	}()
+	fs := flag.NewFlagSet("test", flag.ContinueOnError)
+	klog.InitFlags(fs)
+	if err := fs.Set("logtostderr", "false"); err != nil {
+		t.Fatalf("failed to disable logtostderr: %v", err)
+	}
+	klog.SetOutput(&logBuf)
+	defer klog.SetOutput(nil)
 
 	// A channel value is not JSON-marshalable, so json.Marshal returns
 	// an *UnsupportedTypeError and send hits its error arm.
@@ -48,6 +51,7 @@ func TestServerSendMarshalError(t *testing.T) {
 		ID:      1,
 		Result:  unmarshalable,
 	})
+	klog.Flush()
 
 	if writerBuf.Len() != 0 {
 		t.Errorf("expected writer to receive nothing on marshal error, got %q", writerBuf.String())
