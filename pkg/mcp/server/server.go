@@ -10,6 +10,9 @@ import (
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -148,15 +151,33 @@ func (s *Server) handleToolsCall(ctx context.Context, req *Request) {
 		return
 	}
 
+	// Root span for the tool-dispatch request path. tool.name is bounded:
+	// it is either a registered tool name or the fixed literal below, never
+	// arbitrary caller-supplied text.
+	ctx, span := tracer.Start(ctx, "mcp.tool.call", trace.WithAttributes(
+		attribute.String("tool.name", params.Name),
+	))
+	defer span.End()
+
 	handler := findToolHandler(params.Name)
 	if handler == nil {
+		span.SetStatus(codes.Error, "unknown tool")
 		s.sendError(req.ID, -32602, fmt.Sprintf("Unknown tool: %s", params.Name), nil)
 		return
 	}
 
+	cluster := clusterArg(params.Arguments)
+	if cluster != "" {
+		span.SetAttributes(attribute.String("k8s.cluster.name", cluster))
+	}
+
 	start := time.Now()
 	result, isError := handler(ctx, s, params.Arguments)
-	metrics.RecordToolCall(params.Name, clusterArg(params.Arguments), time.Since(start), isError, "")
+	metrics.RecordToolCall(params.Name, cluster, time.Since(start), isError, "")
+
+	if isError {
+		span.SetStatus(codes.Error, "tool call returned an error result")
+	}
 
 	s.sendResult(req.ID, CallToolResult{
 		Content: []ContentBlock{{Type: "text", Text: result}},

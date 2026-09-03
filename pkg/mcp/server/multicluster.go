@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"sync"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/metrics"
@@ -38,8 +41,14 @@ func (s *Server) executeMultiCluster(ctx context.Context, clusterName string, fn
 
 // executeSingle runs the operation on a single cluster
 func (s *Server) executeSingle(ctx context.Context, clusterName string, fn ExecuteFunc) ([]ClusterResult, error) {
+	ctx, span := tracer.Start(ctx, "mcp.cluster.dispatch", trace.WithAttributes(
+		attribute.String("k8s.cluster.name", clusterName),
+	))
+	defer span.End()
+
 	client, err := s.getClientForCluster(clusterName)
 	if err != nil {
+		span.SetStatus(codes.Error, "failed to get client for cluster")
 		return []ClusterResult{{
 			Cluster: clusterName,
 			Error:   err.Error(),
@@ -48,6 +57,7 @@ func (s *Server) executeSingle(ctx context.Context, clusterName string, fn Execu
 
 	result, err := fn(ctx, client, clusterName)
 	if err != nil {
+		span.SetStatus(codes.Error, "cluster operation failed")
 		return []ClusterResult{{
 			Cluster: clusterName,
 			Error:   err.Error(),
@@ -85,8 +95,14 @@ func (s *Server) executeAll(ctx context.Context, fn ExecuteFunc) ([]ClusterResul
 			defer wg.Done()
 			defer func() { <-sem }()
 
+			clusterCtx, span := tracer.Start(ctx, "mcp.cluster.dispatch", trace.WithAttributes(
+				attribute.String("k8s.cluster.name", clusterName),
+			))
+			defer span.End()
+
 			client, err := s.getClientForCluster(clusterName)
 			if err != nil {
+				span.SetStatus(codes.Error, "failed to get client for cluster")
 				mu.Lock()
 				results = append(results, ClusterResult{
 					Cluster: clusterName,
@@ -96,9 +112,10 @@ func (s *Server) executeAll(ctx context.Context, fn ExecuteFunc) ([]ClusterResul
 				return
 			}
 
-			result, err := fn(ctx, client, clusterName)
+			result, err := fn(clusterCtx, client, clusterName)
 			mu.Lock()
 			if err != nil {
+				span.SetStatus(codes.Error, "cluster operation failed")
 				results = append(results, ClusterResult{
 					Cluster: clusterName,
 					Error:   err.Error(),
