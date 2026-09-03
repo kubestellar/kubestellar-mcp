@@ -1,7 +1,6 @@
 package multicluster
 
 import (
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -154,12 +153,6 @@ func newClientManagerFromKubeconfig(t *testing.T, contexts map[string]string, cu
 func newClientManagerTestDir(t *testing.T) string {
 	t.Helper()
 
-	dir, err := os.MkdirTemp(".", "client-manager-test-*")
-	if err != nil {
-		t.Fatalf("MkdirTemp() error = %v", err)
-	}
-	t.Cleanup(func() {
-		_ = os.RemoveAll(dir)
-	})
+	dir := t.TempDir()
 	return dir
 }

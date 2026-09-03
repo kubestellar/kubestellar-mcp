@@ -121,13 +121,7 @@ func TestResolveManifestPathAllowsRepoRelativePath(t *testing.T) {
 }
 
 func TestResetTempDirRemovesPreviousDirectory(t *testing.T) {
-	dir, err := os.MkdirTemp(".", "manifest-reader-test-*")
-	if err != nil {
-		t.Fatalf("MkdirTemp() error = %v", err)
-	}
-	defer func() {
-		_ = os.RemoveAll(dir)
-	}()
+	dir := t.TempDir()
 
 	reader := NewManifestReader()
 	reader.tempDir = dir
