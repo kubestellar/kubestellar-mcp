@@ -1,0 +1,117 @@
+{
+  "title": "kubestellar-mcp: MCP Server Overview",
+  "description": "Overview of MCP tool-dispatch traffic, latency, and errors, backed by the bounded metrics exposed by pkg/metrics when an operator sets --metrics-addr. This dashboard is provided as an importable artifact only; it does not scrape or ship data anywhere on its own.",
+  "schemaVersion": 39,
+  "editable": true,
+  "tags": ["kubestellar-mcp", "mcp-server"],
+  "timezone": "browser",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "type": "datasource",
+        "query": "prometheus",
+        "label": "Prometheus datasource"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Tool call rate (by tool, status)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum by (tool, status) (rate(mcpserver_tool_calls_total[5m]))",
+          "legendFormat": "{{tool}} - {{status}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Tool call error rate (%)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "100 * sum by (tool) (rate(mcpserver_tool_errors_total[5m])) / sum by (tool) (rate(mcpserver_tool_calls_total[5m]))",
+          "legendFormat": "{{tool}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "percent" }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Tool call latency (p50 / p95 / p99)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(mcpserver_tool_duration_seconds_bucket[5m])))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(mcpserver_tool_duration_seconds_bucket[5m])))",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(mcpserver_tool_duration_seconds_bucket[5m])))",
+          "legendFormat": "p99"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s" }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Errors by kind (rate)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum by (error_kind) (rate(mcpserver_tool_errors_total[5m]))",
+          "legendFormat": "{{error_kind}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Active clusters",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "expr": "mcpserver_active_clusters"
+        }
+      ]
+    }
+  ]
+}
