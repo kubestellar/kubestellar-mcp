@@ -53,6 +53,23 @@ install: build
 lint:
 	golangci-lint run ./...
 
+.PHONY: dashboard-lint
+dashboard-lint:
+	@fail=0; \
+	for f in docs/dashboards/*.json; do \
+		echo "checking $$f"; \
+		if ! jq empty "$$f" >/dev/null 2>&1; then \
+			echo "  invalid JSON: $$f"; fail=1; continue; \
+		fi; \
+		if [ "$$(jq 'has("title")' "$$f")" != "true" ]; then \
+			echo "  missing \"title\": $$f"; fail=1; \
+		fi; \
+		if [ "$$(jq 'has("panels")' "$$f")" != "true" ]; then \
+			echo "  missing \"panels\": $$f"; fail=1; \
+		fi; \
+	done; \
+	exit $$fail
+
 .PHONY: help
 help:
 	@echo "Available targets:"
@@ -64,3 +81,4 @@ help:
 	@echo "  test          - Run tests"
 	@echo "  install       - Install to GOPATH/bin"
 	@echo "  lint          - Run linter"
+	@echo "  dashboard-lint - Validate docs/dashboards/*.json syntax and required fields"
