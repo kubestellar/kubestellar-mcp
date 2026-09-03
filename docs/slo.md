@@ -77,15 +77,15 @@ When the error budget for SLO 1 drops below 50%, the team should:
 
 ## Alerting Guidance
 
-Since the MCP server has no HTTP interface and no Prometheus metrics endpoint (it is a stdio tool, not a daemon), SLO compliance is assessed via:
+The MCP server's primary transport is still stdio, and no `/metrics` listener is opened unless an operator explicitly passes `--metrics-addr` (see `pkg/metrics`) — so out of the box, SLO compliance is assessed via:
 
 - **MCP client-side instrumentation:** Claude Code and other MCP clients can record tool-call latency and error rates.
 - **CI integration tests:** `build-test.yml` runs `go test -race ./...` (covering cluster discovery and tool accuracy paths) on every push and pull request to `main`. This is event-driven, not scheduled — there is currently no `schedule:`-triggered workflow that runs the test suite independent of a code change. If several days pass with no commits, there is no standing automated check re-validating SLO 2/SLO 4 behavior against environmental drift (e.g., Kubernetes API or dependency behavior changes) in that window.
-- **Container exit code monitoring:** If run in Docker or a process supervisor, monitor for non-zero exit codes.
+- **Container exit code / HEALTHCHECK monitoring:** the Dockerfile's `HEALTHCHECK` (process-existence check, since there's no HTTP endpoint to probe) surfaces OOM kills, panics, and hangs; see the [Container Health Verification](../runbooks/mcp-server-operations.md#container-health-verification) section of the operations runbook.
+
+**If an operator opts in to `--metrics-addr`:** a Prometheus `/metrics` endpoint is available today, exposing `mcpserver_tool_calls_total`, `mcpserver_tool_duration_seconds`, `mcpserver_tool_errors_total`, and `mcpserver_active_clusters` (see `pkg/metrics/metrics.go` and the importable Grafana dashboard at [`docs/dashboards/mcpserver-overview.json`](dashboards/mcpserver-overview.json)). These metrics directly back SLO 1 (Tool Response Availability, via `..._calls_total`/`..._errors_total`) and SLO 2 (Cluster Discovery Latency, via `..._duration_seconds`). No `PrometheusRule`/alert-rule resources are shipped in this repository, since it ships no Kubernetes Deployment or Helm chart to attach one to — an operator who scrapes this endpoint into their own Prometheus should define alert rules against these metric names, aligned with the SLO targets above, and link back to the [MCP Server Operations Runbook](../runbooks/mcp-server-operations.md) for diagnosis steps.
 
 **Recommendation (not implemented here, decision left to a maintainer):** add a lightweight `schedule:`-triggered workflow (e.g., daily) that runs the existing integration test suite against a disposable cluster (kind/k3d), independent of whether code changed, to close the gap above. This is a suggestion only — no such workflow is added by this change.
-
-If metrics infrastructure is added in future, expose a Prometheus `/metrics` endpoint and add `PrometheusRule` resources aligned with the SLOs above.
 
 ---
 
