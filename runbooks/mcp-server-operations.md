@@ -15,8 +15,9 @@
 5. [Multi-Cluster Connectivity Loss](#multi-cluster-connectivity-loss)
 6. [Container Health Verification](#container-health-verification)
 7. [Diagnosing Silent Failures](#diagnosing-silent-failures)
-8. [Escalation](#escalation)
-9. [Release Rollback](release-rollback.md) (separate runbook, for a bad automated nightly/weekly release)
+8. [Detecting a Failed Scheduled Security Scan](#detecting-a-failed-scheduled-security-scan)
+9. [Escalation](#escalation)
+10. [Release Rollback](release-rollback.md) (separate runbook, for a bad automated nightly/weekly release)
 
 ---
 
@@ -225,6 +226,41 @@ If integrating with an MCP client (e.g., Claude Code), check that the client rep
 5. If the server hangs on requests: restart it. The MCP server is stateless between requests; restarts are safe.
 
 ---
+
+## Detecting a Failed Scheduled Security Scan
+
+**Symptom:** No symptom is surfaced automatically — this is the problem. `codeql.yml`
+(weekly, Monday 04:00 UTC) and `scorecard.yml` (weekly, Monday 06:00 UTC) both run
+unattended on a cron schedule in addition to their push/PR triggers, and neither
+workflow has a step that alerts a human on failure (tracked in
+[#730](https://github.com/kubestellar/kubestellar-mcp/issues/730), the same gap
+class as the release-workflow alert gap in
+[#694](https://github.com/kubestellar/kubestellar-mcp/issues/694)). A failed weekly
+run is visible only as a red X in the Actions tab, so it can go unnoticed
+indefinitely unless someone is watching.
+
+### Interim manual safeguards (until an automated alert exists)
+
+1. **Enable per-repo/per-user "Failed workflows only" notifications:** GitHub
+   Settings → Notifications → Actions → "Only notify for failed workflows".
+   This surfaces a failed scheduled run in your notification feed without
+   needing to poll the Actions tab.
+2. **Periodically check scheduled-run status directly:**
+   ```bash
+   gh run list --repo kubestellar/kubestellar-mcp --workflow codeql.yml --limit 5
+   gh run list --repo kubestellar/kubestellar-mcp --workflow scorecard.yml --limit 5
+   ```
+   A `failure` conclusion on the most recent scheduled (non-push, non-PR) run
+   means the weekly scan did not complete; investigate before assuming the
+   codebase is clean.
+3. **If CodeQL's weekly run has failed silently:** treat `main` as unscanned
+   for the affected window. Re-run manually via `workflow_dispatch` once the
+   underlying failure (e.g. a toolchain or query-pack change) is fixed, rather
+   than waiting for the next Monday's cron.
+4. **If Scorecard's weekly run has failed silently:** the public
+   supply-chain score badge may be stale rather than reflecting current
+   `main`. Do not treat an unexpectedly high/unchanged score as confirmation
+   of a clean posture without checking the run actually succeeded.
 
 ## Escalation
 
