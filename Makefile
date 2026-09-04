@@ -70,6 +70,20 @@ dashboard-lint:
 	done; \
 	exit $$fail
 
+.PHONY: alert-lint
+alert-lint:
+	@fail=0; \
+	for f in docs/alerts/*.yaml; do \
+		echo "checking $$f"; \
+		if ! python3 -c "import sys, yaml; yaml.safe_load(open(sys.argv[1]))" "$$f" >/dev/null 2>&1; then \
+			echo "  invalid YAML: $$f"; fail=1; continue; \
+		fi; \
+		if ! python3 -c "import sys, yaml; d = yaml.safe_load(open(sys.argv[1])); sys.exit(0 if d.get('spec', {}).get('groups') else 1)" "$$f"; then \
+			echo "  missing spec.groups: $$f"; fail=1; \
+		fi; \
+	done; \
+	exit $$fail
+
 .PHONY: help
 help:
 	@echo "Available targets:"
@@ -82,3 +96,4 @@ help:
 	@echo "  install       - Install to GOPATH/bin"
 	@echo "  lint          - Run linter"
 	@echo "  dashboard-lint - Validate docs/dashboards/*.json syntax and required fields"
+	@echo "  alert-lint    - Validate docs/alerts/*.yaml syntax and required fields"

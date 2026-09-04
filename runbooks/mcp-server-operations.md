@@ -15,9 +15,10 @@
 5. [Multi-Cluster Connectivity Loss](#multi-cluster-connectivity-loss)
 6. [Container Health Verification](#container-health-verification)
 7. [Diagnosing Silent Failures](#diagnosing-silent-failures)
-8. [Detecting a Failed Scheduled Security Scan](#detecting-a-failed-scheduled-security-scan)
-9. [Escalation](#escalation)
-10. [Release Rollback](release-rollback.md) (separate runbook, for a bad automated nightly/weekly release)
+8. [Using the Metrics Endpoint](#using-the-metrics-endpoint)
+9. [Detecting a Failed Scheduled Security Scan](#detecting-a-failed-scheduled-security-scan)
+10. [Escalation](#escalation)
+11. [Release Rollback](release-rollback.md) (separate runbook, for a bad automated nightly/weekly release)
 
 ---
 
@@ -224,6 +225,36 @@ If integrating with an MCP client (e.g., Claude Code), check that the client rep
    ```
 
 5. If the server hangs on requests: restart it. The MCP server is stateless between requests; restarts are safe.
+
+6. If `--metrics-addr` was set for this run, check `mcpserver_tool_errors_total` and `mcpserver_tool_calls_total` (see [Using the Metrics Endpoint](#using-the-metrics-endpoint) below) to see whether failures are concentrated on a specific tool, cluster, or `error_kind` before digging into logs further.
+
+---
+
+## Using the Metrics Endpoint
+
+**Availability:** The `/metrics` endpoint is opt-in. It is only served when the operator passes `--metrics-addr <host:port>` at startup; by default no listener is started and no metrics are exposed (see `pkg/metrics`).
+
+### Enabling for a diagnostic session
+
+```bash
+kubestellar-ops --mcp-server --metrics-addr 127.0.0.1:9090
+curl -s http://127.0.0.1:9090/metrics | grep mcpserver_
+```
+
+### What to look for
+
+- `mcpserver_tool_calls_total{tool,cluster,status}` — call volume and success/error split per tool and cluster.
+- `mcpserver_tool_errors_total{tool,cluster,error_kind}` — error volume by tool, cluster, and a closed `error_kind` enum.
+- `mcpserver_tool_duration_seconds{tool,cluster}` — latency histogram; compare against [SLO 1/2](../docs/slo.md) targets.
+- `mcpserver_active_clusters` — reachable cluster count from the most recent discovery; a sudden drop indicates connectivity loss (see [Multi-Cluster Connectivity Loss](#multi-cluster-connectivity-loss)).
+
+### Dashboard
+
+A ready-to-import Grafana dashboard for these metrics is at
+[`docs/dashboards/mcpserver-overview.json`](../docs/dashboards/mcpserver-overview.json)
+(see [`docs/dashboards/README.md`](../docs/dashboards/README.md)). It requires a
+Prometheus instance already scraping this server's `/metrics` endpoint — no
+scrape config or backend is bundled with this repository.
 
 ---
 
