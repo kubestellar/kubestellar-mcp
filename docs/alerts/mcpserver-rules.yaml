@@ -1,0 +1,80 @@
+# PrometheusRule for kubestellar-mcp, aligned with the SLOs in ../slo.md.
+#
+# This is a static, importable artifact only. Nothing in this repository
+# applies this rule or ships data anywhere; a maintainer who already runs
+# Prometheus (or Prometheus Operator) and has opted the MCP server into the
+# metrics endpoint (`--metrics-addr`, see ../../pkg/metrics) can apply this
+# as-is, or adapt it for a plain Prometheus rule_files entry.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kubestellar-mcp-rules
+  labels:
+    app.kubernetes.io/name: kubestellar-mcp
+    app.kubernetes.io/component: mcp-server
+spec:
+  groups:
+    - name: kubestellar-mcp.slo
+      rules:
+        # SLO 1 — Tool Response Availability (../slo.md): 30-day target
+        # >=95% success (5% error budget), 7-day target >=90% success.
+        - alert: MCPServerHighToolErrorRate
+          expr: |
+            sum(rate(mcpserver_tool_errors_total[1h]))
+            /
+            sum(rate(mcpserver_tool_calls_total[1h]))
+            > 0.05
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: "kubestellar-mcp tool error rate exceeds the SLO 1 budget"
+            description: >-
+              Tool-call error rate has been above 5% for 1h, which exceeds
+              the SLO 1 30-day error budget in docs/slo.md. Check
+              mcpserver_tool_errors_total by tool/error_kind to find the
+              affected tool(s).
+
+        - alert: MCPServerCriticalToolErrorRate
+          expr: |
+            sum(rate(mcpserver_tool_errors_total[15m]))
+            /
+            sum(rate(mcpserver_tool_calls_total[15m]))
+            > 0.10
+          for: 15m
+          labels:
+            severity: critical
+          annotations:
+            summary: "kubestellar-mcp tool error rate exceeds the SLO 1 7-day budget"
+            description: >-
+              Tool-call error rate has been above 10% for 15m, which
+              exceeds the SLO 1 7-day floor in docs/slo.md. Follow
+              runbooks/mcp-server-operations.md#diagnosing-silent-failures.
+
+        # SLO 1 latency companion — p95 tool latency budget.
+        - alert: MCPServerHighToolLatencyP95
+          expr: |
+            histogram_quantile(0.95, sum by (le) (rate(mcpserver_tool_duration_seconds_bucket[15m]))) > 2
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "kubestellar-mcp p95 tool latency is elevated"
+            description: >-
+              p95 tool-call latency has exceeded 2s for 15m. Compare
+              against docs/slo.md SLO 2 targets and check for cluster API
+              server slowness or connectivity issues.
+
+        # Signals a possible discovery/connectivity regression (see
+        # runbooks/mcp-server-operations.md#multi-cluster-connectivity-loss).
+        - alert: MCPServerActiveClustersDroppedToZero
+          expr: mcpserver_active_clusters == 0
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: "kubestellar-mcp reports zero reachable clusters"
+            description: >-
+              mcpserver_active_clusters has been 0 for 10m. This usually
+              indicates a kubeconfig or connectivity problem; see
+              runbooks/mcp-server-operations.md#multi-cluster-connectivity-loss.
