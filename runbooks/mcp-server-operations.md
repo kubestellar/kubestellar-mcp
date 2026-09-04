@@ -173,7 +173,14 @@ The MCP server is designed to continue serving requests for healthy clusters whe
 
 ## Container Health Verification
 
-The container runs as a non-root user (`nonroot:65532`). Because the MCP server uses stdio transport, there is no HTTP endpoint to probe. Use the following to verify the container is alive and responsive:
+The container runs as a non-root user (`nonroot:65532`). The MCP server's primary interface is stdio transport, which has no HTTP endpoint to probe. However, if the operator started the server with `--metrics-addr` (see [Using the Metrics Endpoint](#using-the-metrics-endpoint) below), a `/healthz` liveness endpoint is also available on that same opt-in listener:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:9090/healthz
+# Expected: 200
+```
+
+`/healthz` only confirms the metrics HTTP listener itself is alive — it does not check any downstream dependency (e.g. cluster API reachability), so a 200 here is not a substitute for the `mcpserver_tool_errors_total` / `mcpserver_active_clusters` checks below. When `--metrics-addr` is not set (the default), fall back to the process-level checks:
 
 ### Check the process is running
 
@@ -232,7 +239,7 @@ If integrating with an MCP client (e.g., Claude Code), check that the client rep
 
 ## Using the Metrics Endpoint
 
-**Availability:** The `/metrics` endpoint is opt-in. It is only served when the operator passes `--metrics-addr <host:port>` at startup; by default no listener is started and no metrics are exposed (see `pkg/metrics`).
+**Availability:** The `/metrics` endpoint is opt-in. It is only served when the operator passes `--metrics-addr <host:port>` at startup; by default no listener is started and no metrics are exposed (see `pkg/metrics`). The same listener also serves `/healthz` (see [Container Health Verification](#container-health-verification) above) — a plain liveness check with no dependency gating.
 
 ### Enabling for a diagnostic session
 

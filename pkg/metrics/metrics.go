@@ -104,9 +104,23 @@ func SetActiveClusters(n int) {
 	ActiveClusters.Set(float64(n))
 }
 
-// StartServer starts an HTTP server exposing the /metrics endpoint on addr
-// and returns it so the caller can shut it down gracefully. It must only be
-// called when an operator has explicitly configured a metrics address.
+// healthzHandler answers a liveness-only check: it reports 200 OK whenever
+// the metrics HTTP server itself is able to handle a request. It does not
+// gate on any downstream dependency (e.g. Kubernetes API reachability),
+// because this listener has no fixed downstream dependency to check - the
+// server's actual traffic path is the stdio MCP transport, which this
+// opt-in HTTP listener does not front. Use mcpserver_tool_errors_total /
+// mcpserver_active_clusters (see /metrics) to assess tool-dispatch health.
+func healthzHandler(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("ok\n"))
+}
+
+// StartServer starts an HTTP server exposing the /metrics and /healthz
+// endpoints on addr and returns it so the caller can shut it down
+// gracefully. It must only be called when an operator has explicitly
+// configured a metrics address.
 func StartServer(addr string) (*http.Server, error) {
 	if addr == "" {
 		return nil, errors.New("metrics: addr must not be empty")
@@ -114,6 +128,7 @@ func StartServer(addr string) (*http.Server, error) {
 
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.HandlerFor(Registry, promhttp.HandlerOpts{}))
+	mux.HandleFunc("/healthz", healthzHandler)
 	srv := &http.Server{
 		Addr:              addr,
 		Handler:           mux,
