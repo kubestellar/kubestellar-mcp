@@ -16,7 +16,7 @@
 6. [Container Health Verification](#container-health-verification)
 7. [Diagnosing Silent Failures](#diagnosing-silent-failures)
 8. [Using the Metrics Endpoint](#using-the-metrics-endpoint)
-9. [Detecting a Failed Scheduled Security Scan](#detecting-a-failed-scheduled-security-scan)
+9. [Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage)](#detecting-a-failed-scheduled-workflow-security-scans-stale-triage)
 10. [Escalation](#escalation)
 11. [Release Rollback](release-rollback.md) (separate runbook, for a bad automated nightly/weekly release)
 
@@ -258,17 +258,18 @@ scrape config or backend is bundled with this repository.
 
 ---
 
-## Detecting a Failed Scheduled Security Scan
+## Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage)
 
 **Symptom:** No symptom is surfaced automatically — this is the problem. `codeql.yml`
-(weekly, Monday 04:00 UTC) and `scorecard.yml` (weekly, Monday 06:00 UTC) both run
-unattended on a cron schedule in addition to their push/PR triggers, and neither
-workflow has a step that alerts a human on failure (tracked in
-[#730](https://github.com/kubestellar/kubestellar-mcp/issues/730), the same gap
-class as the release-workflow alert gap in
-[#694](https://github.com/kubestellar/kubestellar-mcp/issues/694)). A failed weekly
-run is visible only as a red X in the Actions tab, so it can go unnoticed
-indefinitely unless someone is watching.
+(weekly, Monday 04:00 UTC), `scorecard.yml` (weekly, Monday 06:00 UTC), and
+`stale.yml` (daily, midnight UTC) all run unattended on a cron schedule in
+addition to their other triggers, and none of them has a step that alerts a
+human on failure (tracked in [#730](https://github.com/kubestellar/kubestellar-mcp/issues/730)
+for `codeql.yml`/`scorecard.yml` and [#753](https://github.com/kubestellar/kubestellar-mcp/issues/753)
+for `stale.yml`, the same gap class as the release-workflow alert gap in
+[#694](https://github.com/kubestellar/kubestellar-mcp/issues/694)). A failed
+scheduled run is visible only as a red X in the Actions tab, so it can go
+unnoticed indefinitely unless someone is watching.
 
 ### Interim manual safeguards (until an automated alert exists)
 
@@ -280,10 +281,11 @@ indefinitely unless someone is watching.
    ```bash
    gh run list --repo kubestellar/kubestellar-mcp --workflow codeql.yml --limit 5
    gh run list --repo kubestellar/kubestellar-mcp --workflow scorecard.yml --limit 5
+   gh run list --repo kubestellar/kubestellar-mcp --workflow stale.yml --limit 5
    ```
-   A `failure` conclusion on the most recent scheduled (non-push, non-PR) run
-   means the weekly scan did not complete; investigate before assuming the
-   codebase is clean.
+   A `failure` conclusion on the most recent scheduled (non-push, non-PR,
+   non-`workflow_dispatch`) run means the scan/triage did not complete;
+   investigate before assuming everything is up to date.
 3. **If CodeQL's weekly run has failed silently:** treat `main` as unscanned
    for the affected window. Re-run manually via `workflow_dispatch` once the
    underlying failure (e.g. a toolchain or query-pack change) is fixed, rather
@@ -292,6 +294,13 @@ indefinitely unless someone is watching.
    supply-chain score badge may be stale rather than reflecting current
    `main`. Do not treat an unexpectedly high/unchanged score as confirmation
    of a clean posture without checking the run actually succeeded.
+5. **If `stale.yml`'s daily run has failed silently:** issue/PR staleness
+   labeling and auto-closing (delegated to `kubestellar/infra`'s
+   `reusable-stale.yml`) has stopped accumulating repo-wide. This runs daily,
+   so a silent failure compounds faster than the weekly scans above — check
+   run status more frequently, and re-run manually via `workflow_dispatch`
+   once the underlying failure is fixed rather than waiting for the next
+   midnight cron.
 
 ## Escalation
 
