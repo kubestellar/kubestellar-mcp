@@ -7,6 +7,30 @@ regression. The release pipeline runs **unattended on a schedule** (nightly at
 release can both go undetected longer and be immediately superseded by the next
 scheduled run before a fix lands. Follow these steps in order.
 
+## 0. Detecting a silently-failed (not just bad) release run
+
+The steps below assume you already know a release shipped a regression.
+There is a distinct, currently-undetected failure mode: the scheduled
+`release.yml` run fails outright (e.g. an expired `WORKFLOW_SYNC_TOKEN`, a
+GoReleaser/Homebrew publish error, or the version-bump logic erroring) and
+no release is cut at all. The workflow's `notify` job only writes a
+`$GITHUB_STEP_SUMMARY` on that run — nothing pages anyone, and scheduled
+runs are easy to miss since no one is watching the Actions tab by default.
+See kubestellar-mcp#771, which tracks adding an automated `if: failure()`
+alert step; until that lands, check for this manually:
+
+1. Compare the most recent GitHub Release timestamp under **Releases**
+   against the cron schedule (nightly `0 5 * * *`, weekly `0 5 * * 0`,
+   UTC). If more than ~36 hours have passed since the last nightly slot
+   with no new release *and* there were merged commits since the last
+   release, the nightly run likely failed rather than legitimately having
+   nothing to ship.
+2. Check **Actions → Release** run history for recent red (failed) runs.
+3. If a run failed, open an issue documenting the failure (link the failed
+   run) so a maintainer can fix the underlying cause, then trigger a
+   manual `workflow_dispatch` run once the fix lands rather than waiting
+   for the next cron slot.
+
 ## 1. Stop the bleeding: pause the next scheduled run
 
 The nightly/weekly cron in `release.yml` will otherwise re-publish before a fix
