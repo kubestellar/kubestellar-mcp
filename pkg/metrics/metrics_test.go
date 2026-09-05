@@ -158,6 +158,47 @@ func TestPromHTTPHandlerAvailable(t *testing.T) {
 	}
 }
 
+// TestHealthzHandler verifies the /healthz liveness handler returns 200 OK
+// and does not depend on any downstream state (metrics registry, clusters).
+func TestHealthzHandler(t *testing.T) {
+	req, err := http.NewRequest(http.MethodGet, "/healthz", nil)
+	if err != nil {
+		t.Fatalf("http.NewRequest error = %v", err)
+	}
+	rec := &discardResponseWriter{header: http.Header{}}
+	healthzHandler(rec, req)
+	if rec.status != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.status, http.StatusOK)
+	}
+}
+
+// TestStartServerServesHealthzEndpoint verifies StartServer wires up
+// /healthz alongside /metrics.
+func TestStartServerServesHealthzEndpoint(t *testing.T) {
+	srv, err := StartServer("127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("StartServer() error = %v", err)
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = Shutdown(ctx, srv)
+	}()
+	if srv.Handler == nil {
+		t.Fatal("expected non-nil handler")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, "/healthz", nil)
+	if err != nil {
+		t.Fatalf("http.NewRequest error = %v", err)
+	}
+	rec := &discardResponseWriter{header: http.Header{}}
+	srv.Handler.ServeHTTP(rec, req)
+	if rec.status != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.status, http.StatusOK)
+	}
+}
+
 // discardResponseWriter is a minimal http.ResponseWriter for smoke-testing
 // handler wiring without a real network listener.
 type discardResponseWriter struct {

@@ -114,6 +114,7 @@ func StartServer(addr string) (*http.Server, error) {
 
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.HandlerFor(Registry, promhttp.HandlerOpts{}))
+	mux.HandleFunc("/healthz", healthzHandler)
 	srv := &http.Server{
 		Addr:              addr,
 		Handler:           mux,
@@ -136,6 +137,16 @@ func StartServer(addr string) (*http.Server, error) {
 	}
 
 	return srv, nil
+}
+
+// healthzHandler answers a plain liveness check: 200 OK if this process is
+// up enough to handle HTTP requests. It intentionally does not check any
+// downstream dependency (the metrics listener has no fixed downstream to
+// probe) - it is a liveness signal only, not a readiness/dependency check.
+func healthzHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("ok"))
 }
 
 // Shutdown gracefully stops a metrics server started by StartServer.

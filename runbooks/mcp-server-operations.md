@@ -173,7 +173,15 @@ The MCP server is designed to continue serving requests for healthy clusters whe
 
 ## Container Health Verification
 
-The container runs as a non-root user (`nonroot:65532`). Because the MCP server uses stdio transport, there is no HTTP endpoint to probe. Use the following to verify the container is alive and responsive:
+The container runs as a non-root user (`nonroot:65532`). The MCP server itself uses stdio transport, so there is no HTTP endpoint tied to tool traffic. However, if the operator has opted in with `--metrics-addr`, the metrics HTTP listener also serves `GET /healthz` (plain liveness only — 200 OK if the process can handle HTTP requests, with no dependency check) alongside `/metrics`. Use the following to verify the container is alive and responsive:
+
+```bash
+# Only if the server was started with --metrics-addr:
+curl -sf http://<metrics-addr>/healthz
+# Expected: "ok" with HTTP 200
+```
+
+If `--metrics-addr` was not configured, fall back to the process checks below.
 
 ### Check the process is running
 
