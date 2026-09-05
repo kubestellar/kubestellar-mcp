@@ -16,7 +16,7 @@
 6. [Container Health Verification](#container-health-verification)
 7. [Diagnosing Silent Failures](#diagnosing-silent-failures)
 8. [Using the Metrics Endpoint](#using-the-metrics-endpoint)
-9. [Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage)](#detecting-a-failed-scheduled-workflow-security-scans-stale-triage)
+9. [Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage, Release)](#detecting-a-failed-scheduled-workflow-security-scans-stale-triage-release)
 10. [Escalation](#escalation)
 11. [Release Rollback](release-rollback.md) (separate runbook, for a bad automated nightly/weekly release)
 
@@ -258,18 +258,31 @@ scrape config or backend is bundled with this repository.
 
 ---
 
-## Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage)
+## Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage, Release)
 
 **Symptom:** No symptom is surfaced automatically — this is the problem. `codeql.yml`
-(weekly, Monday 04:00 UTC), `scorecard.yml` (weekly, Monday 06:00 UTC), and
-`stale.yml` (daily, midnight UTC) all run unattended on a cron schedule in
-addition to their other triggers, and none of them has a step that alerts a
-human on failure (tracked in [#730](https://github.com/kubestellar/kubestellar-mcp/issues/730)
-for `codeql.yml`/`scorecard.yml` and [#753](https://github.com/kubestellar/kubestellar-mcp/issues/753)
-for `stale.yml`, the same gap class as the release-workflow alert gap in
-[#694](https://github.com/kubestellar/kubestellar-mcp/issues/694)). A failed
-scheduled run is visible only as a red X in the Actions tab, so it can go
-unnoticed indefinitely unless someone is watching.
+(weekly, Monday 04:00 UTC), `scorecard.yml` (weekly, Monday 06:00 UTC),
+`stale.yml` (daily, midnight UTC), and `release.yml` (nightly 05:00 UTC and
+weekly Sunday 05:00 UTC) all run unattended on a cron schedule in addition to
+their other triggers, and none of them has a step that alerts a human on
+failure (tracked in [#730](https://github.com/kubestellar/kubestellar-mcp/issues/730)
+for `codeql.yml`/`scorecard.yml`, [#753](https://github.com/kubestellar/kubestellar-mcp/issues/753)
+for `stale.yml`, and [#694](https://github.com/kubestellar/kubestellar-mcp/issues/694)
+for `release.yml`, all the same gap class). A failed scheduled run is visible
+only as a red X in the Actions tab — for `release.yml` the `notify` job's
+`if: always()` step only ever writes a `GITHUB_STEP_SUMMARY`, which nobody is
+watching at 5 AM UTC — so a failure can go unnoticed indefinitely unless
+someone is watching.
+
+> A same-shape automated fix (an `if: failure()` step in each workflow's
+> terminal job that opens/updates a tracking issue via `gh issue create`) was
+> drafted for `release.yml` but the push was rejected: `refusing to allow a
+> GitHub App to create or update workflow` `.github/workflows/release.yml`
+> `without` `workflows` `permission`. This token has `contents`/`issues`
+> write but not the `workflows` scope required to touch files under
+> `.github/workflows/`, so only this documentation-based interim safeguard
+> can be delivered by automation; a maintainer with that scope should apply
+> the workflow-file fix directly.
 
 ### Interim manual safeguards (until an automated alert exists)
 
@@ -282,6 +295,7 @@ unnoticed indefinitely unless someone is watching.
    gh run list --repo kubestellar/kubestellar-mcp --workflow codeql.yml --limit 5
    gh run list --repo kubestellar/kubestellar-mcp --workflow scorecard.yml --limit 5
    gh run list --repo kubestellar/kubestellar-mcp --workflow stale.yml --limit 5
+   gh run list --repo kubestellar/kubestellar-mcp --workflow release.yml --limit 5
    ```
    A `failure` conclusion on the most recent scheduled (non-push, non-PR,
    non-`workflow_dispatch`) run means the scan/triage did not complete;
@@ -301,6 +315,17 @@ unnoticed indefinitely unless someone is watching.
    run status more frequently, and re-run manually via `workflow_dispatch`
    once the underlying failure is fixed rather than waiting for the next
    midnight cron.
+6. **Check `release.yml`'s unattended runs directly:**
+   ```bash
+   gh run list --repo kubestellar/kubestellar-mcp --workflow release.yml --limit 5
+   ```
+   A `failure` conclusion on the most recent scheduled (non-`workflow_dispatch`)
+   run means the nightly/weekly release did not ship. This is the fastest-moving
+   gap of the four: `ghcr-publish.yml` and the Homebrew tap publish step are
+   downstream of a successful `release.yml` run, so a `release.yml` failure
+   silently means those never fire either. Follow
+   [`runbooks/release-rollback.md`](release-rollback.md) if a *bad* (not
+   failed) release shipped instead.
 
 ## Escalation
 
