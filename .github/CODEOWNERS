@@ -5,3 +5,8 @@
 /cmd/ @clubanderson @dumb0002 @pdettori
 /pkg/ @clubanderson @dumb0002 @pdettori
 /commands/ @clubanderson @dumb0002 @pdettori
+
+# CI/CD workflows and repo automation — require @clubanderson specifically,
+# preserving the historical root CODEOWNERS rule this file supersedes (#745).
+# This more specific path rule overrides the "*" default above.
+/.github/ @clubanderson
