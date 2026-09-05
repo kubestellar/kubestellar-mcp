@@ -34,6 +34,14 @@ Additional documentation lives in [`docs/`](docs/):
 
 If you are contributing new MCP capabilities, start with [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md); it is the best guide to how the servers are organized and where new tools should be added.
 
+### Operations
+
+- [`docs/slo.md`](docs/slo.md) - Service Level Objectives and Indicators
+- [`docs/alerts/`](docs/alerts/README.md) - importable Prometheus alert rules aligned with the SLOs
+- [`docs/dashboards/`](docs/dashboards/README.md) - importable Grafana dashboard
+- [`runbooks/`](runbooks/) - operational runbooks (startup/shutdown, cluster discovery failures, credential rotation, connectivity loss, release rollback)
+- [`docs/postmortem-template.md`](docs/postmortem-template.md) - incident postmortem template
+
 ## Installation
 
 ### Homebrew (Recommended)
