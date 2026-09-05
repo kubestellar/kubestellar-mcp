@@ -51,7 +51,11 @@ spec:
               exceeds the SLO 1 7-day floor in docs/slo.md. Follow
               runbooks/mcp-server-operations.md#diagnosing-silent-failures.
 
-        # SLO 1 latency companion — p95 tool latency budget.
+        # General tool-latency proxy — NOT a direct measurement of SLO 2.
+        # mcpserver_tool_duration_seconds covers all tool calls; SLO 2's SLI
+        # (initialize receipt -> first tools/list response) has no dedicated
+        # metric today, so this alert only approximates overall latency
+        # health using SLO 2's p95 threshold as a convenient reference point.
         - alert: MCPServerHighToolLatencyP95
           expr: |
             histogram_quantile(0.95, sum by (le) (rate(mcpserver_tool_duration_seconds_bucket[15m]))) > 2
@@ -61,9 +65,11 @@ spec:
           annotations:
             summary: "kubestellar-mcp p95 tool latency is elevated"
             description: >-
-              p95 tool-call latency has exceeded 2s for 15m. Compare
-              against docs/slo.md SLO 2 targets and check for cluster API
-              server slowness or connectivity issues.
+              p95 latency across all tool calls has exceeded 2s for 15m
+              (docs/slo.md SLO 2's p95 target used as a reference
+              threshold; this metric does not isolate discovery/handshake
+              latency specifically). Check for cluster API server
+              slowness or connectivity issues.
 
         # Signals a possible discovery/connectivity regression (see
         # runbooks/mcp-server-operations.md#multi-cluster-connectivity-loss).
