@@ -17,8 +17,9 @@
 7. [Diagnosing Silent Failures](#diagnosing-silent-failures)
 8. [Using the Metrics Endpoint](#using-the-metrics-endpoint)
 9. [Detecting a Failed Scheduled Security Scan](#detecting-a-failed-scheduled-security-scan)
-10. [Escalation](#escalation)
-11. [Release Rollback](release-rollback.md) (separate runbook, for a bad automated nightly/weekly release)
+10. [Detecting a Failed Scheduled Stale-Issue Run](#detecting-a-failed-scheduled-stale-issue-run)
+11. [Escalation](#escalation)
+12. [Release Rollback](release-rollback.md) (separate runbook, for a bad automated nightly/weekly release)
 
 ---
 
@@ -292,6 +293,41 @@ indefinitely unless someone is watching.
    supply-chain score badge may be stale rather than reflecting current
    `main`. Do not treat an unexpectedly high/unchanged score as confirmation
    of a clean posture without checking the run actually succeeded.
+
+## Detecting a Failed Scheduled Stale-Issue Run
+
+**Symptom:** No symptom is surfaced automatically — this is the problem.
+`stale.yml` runs the reusable `kubestellar/infra` stale-issue workflow daily
+(`0 0 * * *`) in addition to its `workflow_dispatch` trigger, and — like
+`codeql.yml`/`scorecard.yml` (see above) and `release.yml`
+([`release-rollback.md`](release-rollback.md)) — has no step that alerts a
+human on failure (tracked in
+[#753](https://github.com/kubestellar/kubestellar-mcp/issues/753), the same
+gap class as [#694](https://github.com/kubestellar/kubestellar-mcp/issues/694)
+and [#730](https://github.com/kubestellar/kubestellar-mcp/issues/730)). A
+failed daily run is visible only as a red X in the Actions tab, and because
+it runs daily rather than weekly, a silent failure compounds faster before
+anyone notices via routine repo browsing.
+
+### Interim manual safeguards (until an automated alert exists)
+
+1. **Enable per-repo/per-user "Failed workflows only" notifications:** GitHub
+   Settings → Notifications → Actions → "Only notify for failed workflows".
+   This surfaces a failed scheduled run in your notification feed without
+   needing to poll the Actions tab.
+2. **Periodically check scheduled-run status directly:**
+   ```bash
+   gh run list --repo kubestellar/kubestellar-mcp --workflow stale.yml --limit 5
+   ```
+   A `failure` conclusion on the most recent scheduled (non-`workflow_dispatch`)
+   run means the daily stale-issue triage did not complete; issues/PRs that
+   should have been labeled, warned, or closed may be silently piling up.
+3. **If the daily run has failed silently for multiple days:** treat the
+   backlog of untriaged stale issues/PRs as larger than the workflow's normal
+   cadence would suggest. Re-run manually via `workflow_dispatch` once the
+   underlying failure (e.g. an `infra` reusable-workflow change or a
+   permissions regression) is fixed, rather than waiting for the next
+   midnight cron.
 
 ## Escalation
 
