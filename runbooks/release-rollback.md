@@ -98,3 +98,46 @@ File a postmortem using `docs/postmortem-template.md` for any rollback that
 reached users (i.e. anything beyond a caught-in-CI failure). Reference the
 yanked release tag, the GHCR/Homebrew rollback actions taken, and any gaps
 this runbook didn't cover.
+
+## Detecting a Failed Scheduled Release (Interim Manual Safeguards)
+
+**Symptom:** No symptom is surfaced automatically — this is the problem.
+`release.yml` runs unattended on two cron schedules (nightly `0 5 * * *`,
+weekly `0 5 * * 0`) in addition to manual `workflow_dispatch`. If the
+`determine-version` or `release` job fails outright on one of these
+unattended runs, the `notify` job (which runs `if: always()`) only ever
+writes a `GITHUB_STEP_SUMMARY` — there is no issue creation, PR comment, or
+other push notification (tracked in
+[#694](https://github.com/kubestellar/kubestellar-mcp/issues/694), the same
+gap class as the scheduled-scan alert gap resolved for `codeql.yml` /
+`scorecard.yml` in [#730](https://github.com/kubestellar/kubestellar-mcp/issues/730)
+and for `stale.yml` in [#753](https://github.com/kubestellar/kubestellar-mcp/issues/753)).
+Nobody is watching the Actions tab at 5 AM UTC, so a failed release can go
+unnoticed indefinitely — and because `ghcr-publish.yml` and the Homebrew tap
+publish only fire after a *successful* `release.yml` run, a silent failure
+there means those downstream steps never even start.
+
+### Interim manual safeguards (until an automated alert exists)
+
+1. **Enable per-repo/per-user "Failed workflows only" notifications:** GitHub
+   Settings → Notifications → Actions → "Only notify for failed workflows".
+   This surfaces a failed scheduled `release.yml` run in your notification
+   feed without needing to poll the Actions tab.
+2. **Periodically check scheduled-run status directly:**
+   ```bash
+   gh run list --repo kubestellar/kubestellar-mcp --workflow release.yml --limit 5
+   ```
+   A `failure` conclusion on the most recent scheduled (non-`workflow_dispatch`)
+   run means no release was cut for that cycle — check whether it was a
+   benign no-op ("no changes since last release") by inspecting the run's job
+   summary, or a genuine failure requiring re-run.
+3. **If a scheduled run has failed silently:** do not wait for the next cron
+   cycle. Investigate and fix the underlying failure, then trigger a
+   `workflow_dispatch` run (matching the intended `release_type`) so the fix
+   reaches users as quickly as possible, per step 6 above.
+4. **A real workflow-file fix is blocked for this agent:** adding a
+   `failure()`-gated alert step to `release.yml` itself requires the
+   `workflows` GitHub App permission, which this agent's token does not hold
+   (same constraint noted on #730/#753). The concrete diff is posted on
+   [#694](https://github.com/kubestellar/kubestellar-mcp/issues/694) for a
+   maintainer (or a token with `workflows` scope) to apply directly.
