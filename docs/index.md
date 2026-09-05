@@ -64,6 +64,14 @@ Ask Claude:
 
 - [Architecture and Developer Guide](./ARCHITECTURE.md)
 
+## Operations
+
+- [MCP Server Operations Runbook](../runbooks/mcp-server-operations.md) - cluster discovery failures, credential rotation, connectivity loss, container health verification
+- [Release Rollback Runbook](../runbooks/release-rollback.md) - rolling back a bad automated nightly/weekly release
+- [SLOs and Alerting Guidance](./slo.md)
+- [Alert Rules](./alerts/README.md) and [Grafana Dashboard](./dashboards/README.md) for the opt-in `/metrics` endpoint
+- [Postmortem Template](./postmortem-template.md)
+
 ## Installation
 
 ### Homebrew (Recommended)
