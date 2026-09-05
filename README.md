@@ -34,6 +34,17 @@ Additional documentation lives in [`docs/`](docs/):
 
 If you are contributing new MCP capabilities, start with [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md); it is the best guide to how the servers are organized and where new tools should be added.
 
+### Operations
+
+Start here during an incident or when auditing operational readiness:
+
+- [`runbooks/mcp-server-operations.md`](runbooks/mcp-server-operations.md) - cluster discovery failures, credential rotation, multi-cluster connectivity loss, container health verification, and diagnosing silent failures
+- [`runbooks/release-rollback.md`](runbooks/release-rollback.md) - rolling back a bad automated nightly/weekly release (GHCR image, Homebrew formula, docs version branch)
+- [`docs/slo.md`](docs/slo.md) - Service Level Indicators/Objectives and alerting guidance
+- [`docs/alerts/README.md`](docs/alerts/README.md) - importable `PrometheusRule` alert rules aligned with the SLOs above
+- [`docs/dashboards/README.md`](docs/dashboards/README.md) - importable Grafana dashboard for the opt-in `/metrics` endpoint
+- [`docs/postmortem-template.md`](docs/postmortem-template.md) - template for writing a postmortem after a user-impacting incident
+
 ## Installation
 
 ### Homebrew (Recommended)
