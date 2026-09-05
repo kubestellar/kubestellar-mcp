@@ -156,12 +156,31 @@ func (s *Server) handleToolsCall(ctx context.Context, req *Request) {
 
 	start := time.Now()
 	result, isError := handler(ctx, s, params.Arguments)
-	metrics.RecordToolCall(params.Name, clusterArg(params.Arguments), time.Since(start), isError, "")
+	metrics.RecordToolCall(params.Name, clusterArg(params.Arguments), time.Since(start), isError, errKindFromContext(ctx, isError))
 
 	s.sendResult(req.ID, CallToolResult{
 		Content: []ContentBlock{{Type: "text", Text: result}},
 		IsError: isError,
 	})
+}
+
+// errKindFromContext classifies a tool-call error as metrics.ErrorKindTimeout
+// when the request context was canceled or hit its deadline by the time the
+// handler returned. This uses the objective ctx.Err() signal rather than any
+// handler-provided or string-matched error content, so it works uniformly
+// across all tool handlers without requiring changes to the ToolHandler
+// signature. When isError is false, or the context carries no error, an
+// empty ErrorKind is returned and RecordToolCall normalizes it to "unknown".
+func errKindFromContext(ctx context.Context, isError bool) metrics.ErrorKind {
+	if !isError {
+		return ""
+	}
+	switch ctx.Err() {
+	case context.DeadlineExceeded, context.Canceled:
+		return metrics.ErrorKindTimeout
+	default:
+		return ""
+	}
 }
 
 // clusterArg extracts a "cluster" argument from tool call arguments, if
