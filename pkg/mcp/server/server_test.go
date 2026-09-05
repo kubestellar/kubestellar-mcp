@@ -10,6 +10,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kubestellar/kubestellar-mcp/pkg/metrics"
 )
 
 type rpcEnvelope struct {
@@ -113,6 +115,32 @@ func TestRunHandlesParseErrorsAndRequests(t *testing.T) {
 	assert.Equal(t, -32601, responses[2].Error.Code)
 	assert.Contains(t, responses[2].Error.Message, "Method not found")
 	assert.Equal(t, "missing-1", responses[2].ID)
+}
+
+func TestErrKindFromContextNotAnError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	assert.Equal(t, metrics.ErrorKind(""), errKindFromContext(ctx, false))
+}
+
+func TestErrKindFromContextDeadlineExceeded(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 0)
+	defer cancel()
+	<-ctx.Done()
+
+	assert.Equal(t, metrics.ErrorKindTimeout, errKindFromContext(ctx, true))
+}
+
+func TestErrKindFromContextCanceled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	assert.Equal(t, metrics.ErrorKindTimeout, errKindFromContext(ctx, true))
+}
+
+func TestErrKindFromContextLiveContextIsUnknown(t *testing.T) {
+	assert.Equal(t, metrics.ErrorKind(""), errKindFromContext(context.Background(), true))
 }
 
 func decodeResponses(t *testing.T, output string) []rpcEnvelope {
