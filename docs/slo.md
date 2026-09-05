@@ -77,7 +77,7 @@ When the error budget for SLO 1 drops below 50%, the team should:
 
 ## Alerting Guidance
 
-Since the MCP server has no HTTP interface and no Prometheus metrics endpoint (it is a stdio tool, not a daemon), SLO compliance is assessed via:
+The MCP server's primary transport is stdio, not a daemon, so most tool-call traffic has no HTTP interface to probe. An operator-opted-in Prometheus `/metrics` endpoint does exist (see below), but it is optional and not enabled by default. SLO compliance is assessed via:
 
 - **MCP client-side instrumentation:** Claude Code and other MCP clients can record tool-call latency and error rates.
 - **CI integration tests:** `build-test.yml` runs `go test -race ./...` (covering cluster discovery and tool accuracy paths) on every push and pull request to `main`. This is event-driven, not scheduled — there is currently no `schedule:`-triggered workflow that runs the test suite independent of a code change. If several days pass with no commits, there is no standing automated check re-validating SLO 2/SLO 4 behavior against environmental drift (e.g., Kubernetes API or dependency behavior changes) in that window.
