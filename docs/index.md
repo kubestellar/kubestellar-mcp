@@ -64,6 +64,14 @@ Ask Claude:
 
 - [Architecture and Developer Guide](./ARCHITECTURE.md)
 
+## Operations
+
+- [Service Level Objectives (SLOs/SLIs)](./slo.md)
+- [Alert rules](./alerts/README.md) - importable `PrometheusRule` aligned with the SLOs above
+- [Grafana dashboard](./dashboards/README.md) - importable overview dashboard for `pkg/metrics` series
+- [Runbooks](https://github.com/kubestellar/kubestellar-mcp/tree/main/runbooks) - startup/shutdown, cluster discovery failures, credential rotation, connectivity loss, release rollback
+- [Postmortem template](./postmortem-template.md) - used for incident writeups
+
 ## Installation
 
 ### Homebrew (Recommended)
