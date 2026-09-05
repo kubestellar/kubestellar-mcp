@@ -7,6 +7,39 @@ regression. The release pipeline runs **unattended on a schedule** (nightly at
 release can both go undetected longer and be immediately superseded by the next
 scheduled run before a fix lands. Follow these steps in order.
 
+## 0. Detect that a scheduled run failed
+
+**Symptom:** No symptom is surfaced automatically. `release.yml`'s `notify` job
+(`if: always()`) only ever writes a `GITHUB_STEP_SUMMARY`; there is no
+`if: failure()` step that opens an issue, pings a channel, or otherwise pushes
+a notification to a human (tracked in
+[#694](https://github.com/kubestellar/kubestellar-mcp/issues/694)). A failed
+nightly or weekly run is visible only as a red X in the Actions tab, and the
+step summary it does write is easy to miss since nobody is watching the
+Actions tab at 05:00 UTC.
+
+### Interim manual safeguards (until an automated alert exists)
+
+1. **Enable per-repo/per-user "Failed workflows only" notifications:** GitHub
+   Settings → Notifications → Actions → "Only notify for failed workflows".
+   This surfaces a failed scheduled `release.yml` run in your notification
+   feed without needing to poll the Actions tab.
+2. **Periodically check scheduled-run status directly:**
+   ```bash
+   gh run list --repo kubestellar/kubestellar-mcp --workflow release.yml --limit 5
+   ```
+   A `failure` conclusion on the most recent scheduled (non-`workflow_dispatch`)
+   run means the nightly/weekly release did not complete; do not assume the
+   next scheduled run "self-heals" the situation — investigate first, since a
+   failed `determine-version`/`release` job also means `ghcr-publish.yml`'s
+   downstream Homebrew/GHCR steps never fired for that cycle.
+3. **If the failure was transient** (e.g. a flaky network call), re-run via
+   `workflow_dispatch` with the appropriate `release_type` rather than waiting
+   for the next cron window, once the underlying cause is understood.
+4. **If the failure indicates a real regression**, do not re-run blindly —
+   follow steps 1–7 below once a fix is ready, rather than retrying the same
+   broken build.
+
 ## 1. Stop the bleeding: pause the next scheduled run
 
 The nightly/weekly cron in `release.yml` will otherwise re-publish before a fix
