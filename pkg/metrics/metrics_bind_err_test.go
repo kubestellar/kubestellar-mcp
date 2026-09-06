@@ -19,7 +19,7 @@ func TestStartServerReturnsBindError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("net.Listen() error = %v", err)
 	}
-	defer l.Close()
+	defer func() { _ = l.Close() }()
 
 	addr := l.Addr().String()
 
