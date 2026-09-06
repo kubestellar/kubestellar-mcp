@@ -158,6 +158,50 @@ func TestPromHTTPHandlerAvailable(t *testing.T) {
 	}
 }
 
+// TestHealthzHandlerReturnsOK verifies the /healthz liveness handler
+// responds 200 without touching any dependency (see healthzHandler doc).
+func TestHealthzHandlerReturnsOK(t *testing.T) {
+	req, err := http.NewRequest(http.MethodGet, "/healthz", nil)
+	if err != nil {
+		t.Fatalf("http.NewRequest error = %v", err)
+	}
+	rec := &discardResponseWriter{header: http.Header{}}
+	healthzHandler(rec, req)
+	if rec.status != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.status, http.StatusOK)
+	}
+}
+
+// TestStartServerServesHealthzEndpoint verifies StartServer wires /healthz
+// into the mux alongside /metrics.
+func TestStartServerServesHealthzEndpoint(t *testing.T) {
+	srv, err := StartServer("127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("StartServer() error = %v", err)
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = Shutdown(ctx, srv)
+	}()
+
+	mux, ok := srv.Handler.(*http.ServeMux)
+	if !ok {
+		t.Fatalf("srv.Handler is %T, want *http.ServeMux", srv.Handler)
+	}
+	req, err := http.NewRequest(http.MethodGet, "/healthz", nil)
+	if err != nil {
+		t.Fatalf("http.NewRequest error = %v", err)
+	}
+	handler, pattern := mux.Handler(req)
+	if pattern != "/healthz" {
+		t.Fatalf("mux did not resolve /healthz, got pattern %q", pattern)
+	}
+	if handler == nil {
+		t.Fatal("expected non-nil handler for /healthz")
+	}
+}
+
 // discardResponseWriter is a minimal http.ResponseWriter for smoke-testing
 // handler wiring without a real network listener.
 type discardResponseWriter struct {

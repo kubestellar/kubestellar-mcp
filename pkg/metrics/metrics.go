@@ -104,9 +104,22 @@ func SetActiveClusters(n int) {
 	ActiveClusters.Set(float64(n))
 }
 
-// StartServer starts an HTTP server exposing the /metrics endpoint on addr
-// and returns it so the caller can shut it down gracefully. It must only be
-// called when an operator has explicitly configured a metrics address.
+// healthzHandler serves a minimal liveness check: 200 OK once the listener
+// goroutine has accepted the request. This intentionally does not probe any
+// downstream dependency (kubeconfig, cluster API servers, etc.) - the
+// metrics/health HTTP listener has no single fixed dependency required to
+// serve traffic, so this is a liveness signal ("the process is up and this
+// listener is responsive"), not a readiness/dependency check.
+func healthzHandler(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("ok\n"))
+}
+
+// StartServer starts an HTTP server exposing the /metrics endpoint and a
+// minimal /healthz liveness endpoint on addr, and returns it so the caller
+// can shut it down gracefully. It must only be called when an operator has
+// explicitly configured a metrics address.
 func StartServer(addr string) (*http.Server, error) {
 	if addr == "" {
 		return nil, errors.New("metrics: addr must not be empty")
@@ -114,6 +127,7 @@ func StartServer(addr string) (*http.Server, error) {
 
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.HandlerFor(Registry, promhttp.HandlerOpts{}))
+	mux.HandleFunc("/healthz", healthzHandler)
 	srv := &http.Server{
 		Addr:              addr,
 		Handler:           mux,

@@ -173,7 +173,16 @@ The MCP server is designed to continue serving requests for healthy clusters whe
 
 ## Container Health Verification
 
-The container runs as a non-root user (`nonroot:65532`). Because the MCP server uses stdio transport, there is no HTTP endpoint to probe. Use the following to verify the container is alive and responsive:
+The container runs as a non-root user (`nonroot:65532`). The MCP server's primary transport is stdio, and by default there is no HTTP endpoint to probe. However, if the server was started with `--metrics-addr` (see [Using the Metrics Endpoint](#using-the-metrics-endpoint)), that opt-in listener also serves a lightweight `/healthz` liveness endpoint:
+
+```bash
+curl -sf http://<metrics-addr>/healthz
+# Expected: "ok" with HTTP 200
+```
+
+`/healthz` is a liveness-only check (the HTTP listener itself is up) — it does not verify kubeconfig validity or cluster reachability, since this listener has no single fixed dependency required to serve traffic. Use `clusters health --all-clusters` (below) or the `mcpserver_active_clusters` metric for that.
+
+If `--metrics-addr` was not configured, or for the stdio transport itself, use the following to verify the container is alive and responsive:
 
 ### Check the process is running
 
@@ -232,13 +241,14 @@ If integrating with an MCP client (e.g., Claude Code), check that the client rep
 
 ## Using the Metrics Endpoint
 
-**Availability:** The `/metrics` endpoint is opt-in. It is only served when the operator passes `--metrics-addr <host:port>` at startup; by default no listener is started and no metrics are exposed (see `pkg/metrics`).
+**Availability:** The `/metrics` endpoint is opt-in. It is only served when the operator passes `--metrics-addr <host:port>` at startup; by default no listener is started and no metrics are exposed (see `pkg/metrics`). The same opt-in listener also serves `/healthz` (plain-text `200 OK`, liveness only — see [Container Health Verification](#container-health-verification)).
 
 ### Enabling for a diagnostic session
 
 ```bash
 kubestellar-ops --mcp-server --metrics-addr 127.0.0.1:9090
 curl -s http://127.0.0.1:9090/metrics | grep mcpserver_
+curl -sf http://127.0.0.1:9090/healthz
 ```
 
 ### What to look for
