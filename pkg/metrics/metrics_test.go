@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"testing"
@@ -107,6 +108,53 @@ func TestSetActiveClusters(t *testing.T) {
 	}
 	if got := m[0].GetGauge().GetValue(); got != 3 {
 		t.Errorf("ActiveClusters = %v, want 3", got)
+	}
+}
+
+func TestRecordAIQuerySuccess(t *testing.T) {
+	RecordAIQuery("claude", 40*time.Millisecond, nil)
+
+	families := gather(t)
+
+	found := false
+	for _, m := range families["mcpserver_ai_query_total"].GetMetric() {
+		if labelValue(m, "provider") == "claude" && labelValue(m, "status") == "success" {
+			found = true
+			if m.GetCounter().GetValue() < 1 {
+				t.Errorf("expected counter >= 1, got %v", m.GetCounter().GetValue())
+			}
+		}
+	}
+	if !found {
+		t.Fatal("expected mcpserver_ai_query_total series for claude/success")
+	}
+
+	durFound := false
+	for _, m := range families["mcpserver_ai_query_duration_seconds"].GetMetric() {
+		if labelValue(m, "provider") == "claude" {
+			durFound = true
+			if m.GetHistogram().GetSampleCount() < 1 {
+				t.Errorf("expected at least one observation, got %v", m.GetHistogram().GetSampleCount())
+			}
+		}
+	}
+	if !durFound {
+		t.Fatal("expected mcpserver_ai_query_duration_seconds series for claude")
+	}
+}
+
+func TestRecordAIQueryError(t *testing.T) {
+	RecordAIQuery("claude", 5*time.Millisecond, errors.New("boom"))
+
+	families := gather(t)
+	found := false
+	for _, m := range families["mcpserver_ai_query_total"].GetMetric() {
+		if labelValue(m, "provider") == "claude" && labelValue(m, "status") == "error" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("expected mcpserver_ai_query_total series for claude/error")
 	}
 }
 
