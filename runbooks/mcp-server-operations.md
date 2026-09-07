@@ -174,7 +174,7 @@ The MCP server is designed to continue serving requests for healthy clusters whe
 
 ## Container Health Verification
 
-The container runs as a non-root user (`nonroot:65532`). Because the MCP server uses stdio transport, there is no HTTP endpoint to probe. Use the following to verify the container is alive and responsive:
+The container runs as a non-root user (`nonroot:65532`). The MCP server uses stdio transport by default, with no HTTP endpoint to probe unless an operator has explicitly started it with `--metrics-addr` (see `docs/slo.md`). Use the following to verify the container is alive and responsive:
 
 ### Check the process is running
 
@@ -194,6 +194,17 @@ docker inspect <container_id> --format '{{.State.ExitCode}}'
 ### Verify stdin/stdout connectivity
 
 If integrating with an MCP client (e.g., Claude Code), check that the client reports the server as connected. A connected server responds to `initialize` requests within 5 seconds under normal load.
+
+### Optional HTTP liveness check (when `--metrics-addr` is set)
+
+If the server was started with `--metrics-addr`, it also serves a lightweight `/healthz` liveness endpoint alongside `/metrics`:
+
+```bash
+curl -sf http://<metrics-addr>/healthz
+# Expected: HTTP 200, body "ok"
+```
+
+`/healthz` only confirms the HTTP listener/process is alive (no clusters or downstream dependencies are checked) — it is not a substitute for the tool-level diagnostics above. When `--metrics-addr` is not set, this endpoint does not exist and the process/exit-code checks above are the only options.
 
 ---
 

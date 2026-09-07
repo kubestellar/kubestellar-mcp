@@ -13,7 +13,9 @@ Alert rules aligned with the SLOs in [`../slo.md`](../slo.md):
 
 - `MCPServerHighToolErrorRate` / `MCPServerCriticalToolErrorRate` — tool
   error rate versus the SLO 1 error budget.
-- `MCPServerHighToolLatencyP95` — p95 tool latency versus SLO targets.
+- `MCPServerHighToolLatencyP95` — p95 tool latency (all tool calls) using
+  SLO 2's p95 target as a reference threshold; it is a general latency
+  proxy, not a direct measurement of SLO 2's discovery-latency SLI.
 - `MCPServerActiveClustersDroppedToZero` — reachable-cluster count drop,
   cross-referenced with the connectivity-loss runbook section.
 

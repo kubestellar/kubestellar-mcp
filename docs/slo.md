@@ -77,12 +77,14 @@ When the error budget for SLO 1 drops below 50%, the team should:
 
 ## Alerting Guidance
 
-Since the MCP server has no HTTP interface and no Prometheus metrics endpoint (it is a stdio tool, not a daemon), SLO compliance is assessed via:
+By default the MCP server has no HTTP interface and no Prometheus metrics endpoint (it is a stdio tool, not a daemon). SLO compliance is assessed via:
 
 - **MCP client-side instrumentation:** Claude Code and other MCP clients can record tool-call latency and error rates.
 - **CI integration tests:** `build-test.yml` runs `go test -race ./...` (covering cluster discovery and tool accuracy paths) on every push and pull request to `main`. This is event-driven, not scheduled — there is currently no `schedule:`-triggered workflow that runs the test suite independent of a code change. If several days pass with no commits, there is no standing automated check re-validating SLO 2/SLO 4 behavior against environmental drift (e.g., Kubernetes API or dependency behavior changes) in that window.
 - **Container exit code monitoring:** If run in Docker or a process supervisor, monitor for non-zero exit codes.
-- **Prometheus metrics (opt-in):** when an operator starts the server with `--metrics-addr`, `pkg/metrics` exposes `mcpserver_tool_calls_total`, `mcpserver_tool_errors_total`, `mcpserver_tool_duration_seconds`, and `mcpserver_active_clusters` on `/metrics`. See [`docs/dashboards/`](dashboards/README.md) for an importable Grafana dashboard and [`docs/alerts/`](alerts/README.md) for `PrometheusRule` alert rules aligned with SLO 1/2 above. Neither is applied automatically; both require an operator-configured Prometheus.
+- **Prometheus metrics (opt-in):** when an operator starts the server with `--metrics-addr`, `pkg/metrics` exposes `mcpserver_tool_calls_total`, `mcpserver_tool_errors_total`, `mcpserver_tool_duration_seconds`, and `mcpserver_active_clusters` on `/metrics` (plus a `/healthz` liveness handler). See [`docs/dashboards/`](dashboards/README.md) for an importable Grafana dashboard and [`docs/alerts/`](alerts/README.md) for `PrometheusRule` alert rules aligned with SLO 1/2 above. Neither is applied automatically; both require an operator-configured Prometheus, and none of this is enabled unless `--metrics-addr` is set.
+
+**Note on `mcpserver_tool_duration_seconds` vs. SLO 2:** this metric (and the `MCPServerHighToolLatencyP95` alert built on it) measures end-to-end latency across *all* tool calls. It is a general latency proxy, not a direct measurement of SLO 2's SLI (time from `initialize` receipt to first `tools/list` response). No metric in this repository currently isolates discovery/handshake latency specifically. The alert's 2s threshold is set to match SLO 2's p95 target as a reference point only — treat a firing alert as "overall tool latency is elevated," not as direct evidence of an SLO 2 breach. Adding a dedicated discovery-latency metric is left as a suggestion for a maintainer; it is not implemented here.
 
 **Recommendation (not implemented here, decision left to a maintainer):** add a lightweight `schedule:`-triggered workflow (e.g., daily) that runs the existing integration test suite against a disposable cluster (kind/k3d), independent of whether code changed, to close the gap above. This is a suggestion only — no such workflow is added by this change.
 
