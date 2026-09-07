@@ -61,12 +61,32 @@ This document defines Service Level Indicators (SLIs) and Service Level Objectiv
 
 ---
 
+### SLO 5 — AI Provider Query Availability
+
+**SLI:** Proportion of AI provider query invocations (`mcpserver_ai_query_total`, recorded by `pkg/ai/claude/client.go` via `metrics.RecordAIQuery`) that complete without error.
+
+**Measurement:** `sum(rate(mcpserver_ai_query_total{status="error"}[<window>])) / sum(rate(mcpserver_ai_query_total[<window>]))`, opt-in via `--metrics-addr` per [`docs/slo.md`](#alerting-guidance) below. Only emitted when the AI provider path is exercised; excluded from the SLO when the feature is not enabled.
+
+**Objective:**
+
+| Window | Target |
+|--------|--------|
+| 30-day rolling | ≥ 95% of AI provider query invocations succeed |
+| 7-day rolling | ≥ 90% of AI provider query invocations succeed |
+
+These targets mirror SLO 1 and are the basis for the existing `MCPServerHighAIQueryErrorRate` alert in [`docs/alerts/mcpserver-rules.yaml`](alerts/mcpserver-rules.yaml) (5% over 1h).
+
+**Exclusions:** Same as SLO 1 — failures attributable to the underlying cluster/API server, not the AI provider integration itself, are excluded.
+
+---
+
 ## Error Budget Policy
 
 | SLO | 30-day budget (5% = 36 hours) |
 |-----|-------------------------------|
 | Tool Response Availability | 36 hours of degraded availability per 30 days |
 | Cluster Discovery Latency (p95) | Up to 5% of requests may exceed 2 s |
+| AI Provider Query Availability | 36 hours of degraded availability per 30 days |
 
 When the error budget for SLO 1 drops below 50%, the team should:
 1. Halt non-critical feature work.
@@ -82,7 +102,7 @@ Since the MCP server has no HTTP interface and no Prometheus metrics endpoint (i
 - **MCP client-side instrumentation:** Claude Code and other MCP clients can record tool-call latency and error rates.
 - **CI integration tests:** `build-test.yml` runs `go test -race ./...` (covering cluster discovery and tool accuracy paths) on every push and pull request to `main`. This is event-driven, not scheduled — there is currently no `schedule:`-triggered workflow that runs the test suite independent of a code change. If several days pass with no commits, there is no standing automated check re-validating SLO 2/SLO 4 behavior against environmental drift (e.g., Kubernetes API or dependency behavior changes) in that window.
 - **Container exit code monitoring:** If run in Docker or a process supervisor, monitor for non-zero exit codes.
-- **Prometheus metrics (opt-in):** when an operator starts the server with `--metrics-addr`, `pkg/metrics` exposes `mcpserver_tool_calls_total`, `mcpserver_tool_errors_total`, `mcpserver_tool_duration_seconds`, `mcpserver_active_clusters`, `mcpserver_ai_query_total`, and `mcpserver_ai_query_duration_seconds` on `/metrics`. See [`docs/dashboards/`](dashboards/README.md) for an importable Grafana dashboard and [`docs/alerts/`](alerts/README.md) for `PrometheusRule` alert rules aligned with SLO 1/2 above (the AI-query error-rate alert is not yet tied to a numbered SLO here). Neither is applied automatically; both require an operator-configured Prometheus.
+- **Prometheus metrics (opt-in):** when an operator starts the server with `--metrics-addr`, `pkg/metrics` exposes `mcpserver_tool_calls_total`, `mcpserver_tool_errors_total`, `mcpserver_tool_duration_seconds`, `mcpserver_active_clusters`, `mcpserver_ai_query_total`, and `mcpserver_ai_query_duration_seconds` on `/metrics`. See [`docs/dashboards/`](dashboards/README.md) for an importable Grafana dashboard and [`docs/alerts/`](alerts/README.md) for `PrometheusRule` alert rules aligned with SLO 1/2/5 above. Neither is applied automatically; both require an operator-configured Prometheus.
 
 **Recommendation (not implemented here, decision left to a maintainer):** add a lightweight `schedule:`-triggered workflow (e.g., daily) that runs the existing integration test suite against a disposable cluster (kind/k3d), independent of whether code changed, to close the gap above. This is a suggestion only — no such workflow is added by this change.
 

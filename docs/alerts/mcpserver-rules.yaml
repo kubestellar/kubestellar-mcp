@@ -67,11 +67,11 @@ spec:
               to check for cluster API server slowness or connectivity
               issues.
 
-        # AI provider query error rate. mcpserver_ai_query_total/
+        # AI provider query error rate (SLO 5 — AI Provider Query
+        # Availability, ../slo.md). mcpserver_ai_query_total/
         # mcpserver_ai_query_duration_seconds are recorded by
-        # pkg/ai/claude/client.go via metrics.RecordAIQuery; this is not
-        # yet tied to a numbered SLO in ../slo.md, so it uses the same 5%
-        # warning threshold as SLO 1 pending a dedicated SLO.
+        # pkg/ai/claude/client.go via metrics.RecordAIQuery; this mirrors
+        # the SLO 1 30-day error-budget threshold.
         - alert: MCPServerHighAIQueryErrorRate
           expr: |
             sum(rate(mcpserver_ai_query_total{status="error"}[1h]))
@@ -84,7 +84,8 @@ spec:
           annotations:
             summary: "kubestellar-mcp AI provider query error rate is elevated"
             description: >-
-              AI provider query error rate has been above 5% for 1h. See
+              AI provider query error rate has been above 5% for 1h, which
+              exceeds the SLO 5 30-day error budget in ../slo.md. See
               runbooks/mcp-server-operations.md#using-the-metrics-endpoint
               to inspect mcpserver_ai_query_total{provider,status} and
               isolate the affected provider.
