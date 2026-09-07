@@ -31,9 +31,9 @@ spec:
             summary: "kubestellar-mcp tool error rate exceeds the SLO 1 budget"
             description: >-
               Tool-call error rate has been above 5% for 1h, which exceeds
-              the SLO 1 30-day error budget in docs/slo.md. Check
-              mcpserver_tool_errors_total by tool/error_kind to find the
-              affected tool(s).
+              the SLO 1 30-day error budget in docs/slo.md. Follow
+              runbooks/mcp-server-operations.md#diagnosing-high-tool-error-rate-or-latency
+              to isolate the affected tool/cluster.
 
         - alert: MCPServerCriticalToolErrorRate
           expr: |
@@ -62,8 +62,10 @@ spec:
             summary: "kubestellar-mcp p95 tool latency is elevated"
             description: >-
               p95 tool-call latency has exceeded 2s for 15m. Compare
-              against docs/slo.md SLO 2 targets and check for cluster API
-              server slowness or connectivity issues.
+              against docs/slo.md SLO 2 targets and follow
+              runbooks/mcp-server-operations.md#diagnosing-high-tool-error-rate-or-latency
+              to check for cluster API server slowness or connectivity
+              issues.
 
         # Signals a possible discovery/connectivity regression (see
         # runbooks/mcp-server-operations.md#multi-cluster-connectivity-loss).
