@@ -16,9 +16,10 @@
 6. [Container Health Verification](#container-health-verification)
 7. [Diagnosing Silent Failures](#diagnosing-silent-failures)
 8. [Using the Metrics Endpoint](#using-the-metrics-endpoint)
-9. [Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage, Release)](#detecting-a-failed-scheduled-workflow-security-scans-stale-triage-release)
-10. [Escalation](#escalation)
-11. [Release Rollback](release-rollback.md) (separate runbook, for a bad automated nightly/weekly release)
+9. [Diagnosing High Tool Error Rate or Latency](#diagnosing-high-tool-error-rate-or-latency)
+10. [Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage, Release)](#detecting-a-failed-scheduled-workflow-security-scans-stale-triage-release)
+11. [Escalation](#escalation)
+12. [Release Rollback](release-rollback.md) (separate runbook, for a bad automated nightly/weekly release)
 
 ---
 
@@ -255,6 +256,46 @@ A ready-to-import Grafana dashboard for these metrics is at
 (see [`docs/dashboards/README.md`](../docs/dashboards/README.md)). It requires a
 Prometheus instance already scraping this server's `/metrics` endpoint — no
 scrape config or backend is bundled with this repository.
+
+---
+
+## Diagnosing High Tool Error Rate or Latency
+
+**Symptom:** The `MCPServerHighToolErrorRate` or `MCPServerHighToolLatencyP95`
+alert in [`docs/alerts/mcpserver-rules.yaml`](../docs/alerts/mcpserver-rules.yaml)
+has fired (see [SLO 1/2](../docs/slo.md)).
+
+### Steps
+
+1. Enable the metrics endpoint if it is not already running for this
+   deployment (see [Using the Metrics Endpoint](#using-the-metrics-endpoint)
+   above).
+
+2. Isolate the affected tool and cluster:
+   ```bash
+   curl -s http://127.0.0.1:9090/metrics | grep 'mcpserver_tool_errors_total\|mcpserver_tool_duration_seconds'
+   ```
+   Compare `mcpserver_tool_errors_total{tool,cluster,error_kind}` and
+   `mcpserver_tool_duration_seconds{tool,cluster}` across tools/clusters —
+   a spike concentrated on one `cluster` label usually points to that
+   cluster's API server rather than the MCP server itself.
+
+3. If errors/latency are concentrated on one cluster:
+   ```bash
+   kubectl --context <context-name> get --raw='/readyz?verbose'
+   ```
+   A slow or degraded cluster API server is excluded from the SLO 1 error
+   budget (see [SLO 1 exclusions](../docs/slo.md#slis-and-slos)), but still
+   merits following up with that cluster's owner.
+
+4. If errors/latency span multiple clusters and tools: check for a recent
+   `kubestellar-ops` binary/image upgrade, and follow
+   [Diagnosing Silent Failures](#diagnosing-silent-failures) for panic/log
+   inspection.
+
+5. If `error_kind` shows a concentration of `timeout`: confirm the target
+   cluster is reachable at all per
+   [Multi-Cluster Connectivity Loss](#multi-cluster-connectivity-loss).
 
 ---
 
