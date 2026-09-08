@@ -1,0 +1,36 @@
+# Minimum allowed Go coverage by package directory.
+# Format: <package-path> <minimum-percent>
+# Lines beginning with # and blank lines are ignored.
+#
+# Enforced by scripts/check-go-package-coverage.sh (run from build-test.yml
+# after the total-coverage ratchet). Package coverage may rise above these
+# floors, but must never drop below them. When it rises, follow the
+# ::notice:: printed by CI and update the floor in a follow-up ratchet PR.
+#
+# See kubestellar-mcp#802 for background: the total-only 95% floor in
+# .github/go-coverage-ratchet.txt masked pkg/deploy/mcp at 94%.
+
+# --- Tier 1: Deploy / MCP tool surface (kubectl, helm, kustomize, gitops) ---
+pkg/deploy/mcp 94.0
+pkg/mcp/server 96.9
+pkg/mcp/protocol 100.0
+pkg/mcp/tools/upgrades 97.0
+
+# --- Tier 1: Core packages ---
+pkg/gitops 96.3
+pkg/multicluster 97.5
+pkg/cluster 100.0
+pkg/ai/claude 99.3
+
+# --- Tier 2: CLI / commands ---
+pkg/cmd 97.2
+pkg/cmd/ai 97.0
+pkg/cmd/clusters 95.4
+pkg/cmd/upgrade 98.2
+pkg/deploy/cmd 100.0
+cmd/kubestellar-deploy 100.0
+cmd/kubestellar-ops 100.0
+
+# --- Tier 2: Supporting packages ---
+pkg/metrics 100.0
+pkg/progress 95.9
