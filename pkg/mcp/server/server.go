@@ -156,7 +156,8 @@ func (s *Server) handleToolsCall(ctx context.Context, req *Request) {
 
 	start := time.Now()
 	result, isError := handler(ctx, s, params.Arguments)
-	metrics.RecordToolCall(params.Name, clusterArg(params.Arguments), time.Since(start), isError, "")
+	cluster := metrics.BoundedClusterLabel(clusterArg(params.Arguments))
+	metrics.RecordToolCall(params.Name, cluster, time.Since(start), isError, "")
 
 	s.sendResult(req.ID, CallToolResult{
 		Content: []ContentBlock{{Type: "text", Text: result}},
@@ -166,8 +167,10 @@ func (s *Server) handleToolsCall(ctx context.Context, req *Request) {
 
 // clusterArg extracts a "cluster" argument from tool call arguments, if
 // present, so single-cluster-scoped calls can be attributed to that cluster
-// in metrics. It returns "" when absent, which RecordToolCall normalizes to
-// a bounded "none" label value.
+// in metrics. It returns "" when absent. The returned value is passed
+// through metrics.BoundedClusterLabel before use as a label, which maps ""
+// to the bounded "none" value and any name outside the last-discovered
+// cluster set to a bounded "other" sentinel.
 func clusterArg(args map[string]interface{}) string {
 	if v, ok := args["cluster"].(string); ok {
 		return v

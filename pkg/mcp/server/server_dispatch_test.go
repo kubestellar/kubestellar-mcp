@@ -11,6 +11,8 @@ import (
 	"testing"
 	"testing/iotest"
 
+	"github.com/kubestellar/kubestellar-mcp/pkg/cluster"
+	"github.com/kubestellar/kubestellar-mcp/pkg/metrics"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -146,4 +148,53 @@ func TestRunHandlesEOFCleanly(t *testing.T) {
 	}
 	assert.NoError(t, s.Run(context.Background()))
 	assert.Empty(t, buf.String())
+}
+
+// TestHandleToolsCallBoundsClusterMetricLabel verifies that handleToolsCall
+// runs a client-supplied "cluster" tool argument through
+// metrics.BoundedClusterLabel before recording it, so an arbitrary,
+// never-discovered cluster string can never create a new "cluster" label
+// value on mcpserver_tool_calls_total (see issue #790).
+func TestHandleToolsCallBoundsClusterMetricLabel(t *testing.T) {
+	metrics.SetKnownClusters([]string{"prod"})
+	defer metrics.SetKnownClusters(nil)
+
+	s := &Server{discoverer: &mockDiscoverer{
+		clusters: []cluster.ClusterInfo{{Name: "prod", Context: "prod-ctx", Current: true}},
+		health:   &cluster.HealthInfo{Status: "Healthy"},
+	}, writer: &bytes.Buffer{}}
+
+	params, err := json.Marshal(CallToolParams{
+		Name:      "get_cluster_health",
+		Arguments: map[string]interface{}{"cluster": "client-supplied-unbounded-value"},
+	})
+	require.NoError(t, err)
+
+	s.handleToolsCall(context.Background(), &Request{ID: "bound-1", Params: params})
+
+	families, err := metrics.Registry.Gather()
+	require.NoError(t, err)
+
+	var sawOther, sawRawArg bool
+	for _, f := range families {
+		if f.GetName() != "mcpserver_tool_calls_total" {
+			continue
+		}
+		for _, m := range f.GetMetric() {
+			for _, l := range m.GetLabel() {
+				if l.GetName() != "cluster" {
+					continue
+				}
+				switch l.GetValue() {
+				case "other":
+					sawOther = true
+				case "client-supplied-unbounded-value":
+					sawRawArg = true
+				}
+			}
+		}
+	}
+
+	assert.True(t, sawOther, "expected a bounded 'other' cluster label series")
+	assert.False(t, sawRawArg, "raw client-supplied cluster string must never become a label value")
 }

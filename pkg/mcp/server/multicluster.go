@@ -72,6 +72,11 @@ func (s *Server) executeAll(ctx context.Context, fn ExecuteFunc) ([]ClusterResul
 	}
 
 	metrics.SetActiveClusters(len(clusters))
+	names := make([]string, 0, len(clusters))
+	for _, c := range clusters {
+		names = append(names, c.Name)
+	}
+	metrics.SetKnownClusters(names)
 
 	results := make([]ClusterResult, 0, len(clusters))
 	sem := make(chan struct{}, maxConcurrentClusterOperations)

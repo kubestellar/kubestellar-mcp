@@ -111,6 +111,49 @@ func TestSetActiveClusters(t *testing.T) {
 	}
 }
 
+func TestBoundedClusterLabelKnownClusterPassesThrough(t *testing.T) {
+	SetKnownClusters([]string{"prod-east", "prod-west"})
+	defer SetKnownClusters(nil)
+
+	if got := BoundedClusterLabel("prod-east"); got != "prod-east" {
+		t.Errorf("BoundedClusterLabel(%q) = %q, want unchanged known cluster name", "prod-east", got)
+	}
+}
+
+func TestBoundedClusterLabelUnknownClusterCollapsesToOther(t *testing.T) {
+	SetKnownClusters([]string{"prod-east"})
+	defer SetKnownClusters(nil)
+
+	// An arbitrary, never-seen-before client-supplied string must not
+	// create a new label value - this is the cardinality vector being
+	// closed.
+	for _, unknown := range []string{"attacker-supplied-1", "attacker-supplied-2", "prod-west"} {
+		if got := BoundedClusterLabel(unknown); got != "other" {
+			t.Errorf("BoundedClusterLabel(%q) = %q, want %q", unknown, got, "other")
+		}
+	}
+}
+
+func TestBoundedClusterLabelEmptyStaysEmpty(t *testing.T) {
+	SetKnownClusters([]string{"prod-east"})
+	defer SetKnownClusters(nil)
+
+	if got := BoundedClusterLabel(""); got != "" {
+		t.Errorf("BoundedClusterLabel(\"\") = %q, want \"\" (caller/RecordToolCall normalizes to unknownCluster)", got)
+	}
+}
+
+func TestBoundedClusterLabelBeforeDiscoveryCollapsesToOther(t *testing.T) {
+	// Before any SetKnownClusters call (e.g. before the first multi-cluster
+	// discovery), the cache is empty/nil and every non-empty cluster
+	// argument must still be bounded rather than passed through raw.
+	SetKnownClusters(nil)
+
+	if got := BoundedClusterLabel("prod-east"); got != "other" {
+		t.Errorf("BoundedClusterLabel(%q) with no known clusters = %q, want %q", "prod-east", got, "other")
+	}
+}
+
 func TestRecordAIQuerySuccess(t *testing.T) {
 	RecordAIQuery("claude", 40*time.Millisecond, nil)
 

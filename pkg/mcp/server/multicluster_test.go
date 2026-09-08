@@ -13,6 +13,7 @@ import (
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/cluster"
+	"github.com/kubestellar/kubestellar-mcp/pkg/metrics"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -95,6 +96,33 @@ func TestExecuteAllAggregatesResultsAndErrors(t *testing.T) {
 	assert.Equal(t, map[string]string{"status": "alpha-ok"}, results[0].Result)
 	assert.Equal(t, ClusterResult{Cluster: "beta", Error: "client unavailable"}, results[1])
 	assert.Equal(t, ClusterResult{Cluster: "gamma", Error: "fan-out failed"}, results[2])
+}
+
+// TestExecuteAllPopulatesBoundedClusterLabelCache verifies that discovering
+// clusters here also refreshes the cache metrics.BoundedClusterLabel reads
+// from - the shared mechanism that keeps the "cluster" metric label bounded
+// across the request path, regardless of what a client sends in tool
+// arguments.
+func TestExecuteAllPopulatesBoundedClusterLabelCache(t *testing.T) {
+	defer metrics.SetKnownClusters(nil)
+
+	s := &Server{
+		discoverer: stubDiscoverer{discoverClusters: func(source string) ([]cluster.ClusterInfo, error) {
+			return []cluster.ClusterInfo{{Name: "alpha"}, {Name: "beta"}}, nil
+		}},
+		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
+			return k8sfake.NewSimpleClientset(), nil
+		},
+	}
+
+	_, err := s.executeAll(context.Background(), func(ctx context.Context, client kubernetes.Interface, clusterName string) (interface{}, error) {
+		return nil, nil
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, "alpha", metrics.BoundedClusterLabel("alpha"))
+	assert.Equal(t, "beta", metrics.BoundedClusterLabel("beta"))
+	assert.Equal(t, "other", metrics.BoundedClusterLabel("not-discovered"))
 }
 
 func TestExecuteAllDiscoveryFailures(t *testing.T) {

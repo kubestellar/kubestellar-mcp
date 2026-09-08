@@ -3,8 +3,9 @@
 //
 // Metrics are always recorded in-process using closed, bounded label sets
 // (tool names come from the fixed tool registry; error kinds are a short
-// enum; cluster names are capped by the discovered cluster set). No raw
-// error messages or unbounded values are ever used as label values.
+// enum; cluster names are capped by the discovered cluster set via
+// BoundedClusterLabel). No raw error messages or unbounded values are ever
+// used as label values.
 //
 // The /metrics HTTP endpoint is only served when an operator explicitly
 // configures --metrics-addr. When no address is configured, no listener is
@@ -15,6 +16,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -37,6 +39,56 @@ const (
 // unknownCluster is the label value used when a tool call is not scoped to
 // a specific cluster, keeping the "cluster" label bounded.
 const unknownCluster = "none"
+
+// otherCluster is the label value used for a client-supplied cluster name
+// that isn't in the most recently discovered cluster set, keeping the
+// "cluster" label bounded regardless of what a client sends.
+const otherCluster = "other"
+
+// knownClusters caches the most recently discovered cluster names so
+// BoundedClusterLabel can validate a client-supplied cluster argument
+// against a closed set before it is used as a metric label value. It is
+// populated by SetKnownClusters at the same call site that already reports
+// the active-cluster count. Before the first discovery (or if discovery
+// has never included a given name), any non-empty cluster argument maps to
+// otherCluster - this is the safe, bounded default.
+var (
+	knownClustersMu sync.RWMutex
+	knownClusters   map[string]struct{}
+)
+
+// SetKnownClusters replaces the cached set of known cluster names used by
+// BoundedClusterLabel. Call this whenever the discovered cluster set
+// changes (e.g. alongside SetActiveClusters).
+func SetKnownClusters(names []string) {
+	set := make(map[string]struct{}, len(names))
+	for _, n := range names {
+		set[n] = struct{}{}
+	}
+	knownClustersMu.Lock()
+	knownClusters = set
+	knownClustersMu.Unlock()
+}
+
+// BoundedClusterLabel normalizes a client-supplied cluster name for use as
+// a metric label: empty stays "" (RecordToolCall maps that to
+// unknownCluster), a name present in the most recently discovered cluster
+// set is returned unchanged, and anything else - including cluster names
+// that don't exist - collapses to the fixed otherCluster sentinel so the
+// label cardinality stays capped by the discovered cluster set rather than
+// by arbitrary client input.
+func BoundedClusterLabel(cluster string) string {
+	if cluster == "" {
+		return ""
+	}
+	knownClustersMu.RLock()
+	_, ok := knownClusters[cluster]
+	knownClustersMu.RUnlock()
+	if !ok {
+		return otherCluster
+	}
+	return cluster
+}
 
 // Registry is the Prometheus registry used for MCP server metrics. It is
 // intentionally separate from prometheus.DefaultRegisterer so that this
