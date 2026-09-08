@@ -67,6 +67,12 @@ type Server struct {
 	reader                *bufio.Reader
 	writer                io.Writer
 	mu                    sync.Mutex
+
+	// clusterLabelMu guards the cached set of known cluster names/contexts
+	// used to bound the "cluster" metric label (see clusterMetricLabel).
+	clusterLabelMu       sync.Mutex
+	clusterLabelSet      map[string]bool
+	clusterLabelCachedAt time.Time
 }
 
 // NewServer creates a new MCP server
@@ -156,7 +162,7 @@ func (s *Server) handleToolsCall(ctx context.Context, req *Request) {
 
 	start := time.Now()
 	result, isError := handler(ctx, s, params.Arguments)
-	metrics.RecordToolCall(params.Name, clusterArg(params.Arguments), time.Since(start), isError, "")
+	metrics.RecordToolCall(params.Name, s.clusterMetricLabel(params.Arguments), time.Since(start), isError, "")
 
 	s.sendResult(req.ID, CallToolResult{
 		Content: []ContentBlock{{Type: "text", Text: result}},
@@ -173,6 +179,74 @@ func clusterArg(args map[string]interface{}) string {
 		return v
 	}
 	return ""
+}
+
+// clusterLabelCacheTTL bounds how often clusterMetricLabel re-reads cluster
+// names from the discoverer, so validating the "cluster" metric label
+// doesn't add discovery overhead to every tool call.
+const clusterLabelCacheTTL = 30 * time.Second
+
+// unrecognizedClusterLabel is the bounded "cluster" label value recorded
+// when a tool call's "cluster" argument does not match any cluster known to
+// the discoverer.
+const unrecognizedClusterLabel = "unrecognized"
+
+// clusterMetricLabel returns a bounded "cluster" label value for tool-call
+// metrics. The "cluster" tool argument is supplied by the calling client
+// (an LLM, in practice) and is not otherwise validated before this point;
+// forwarding it straight into a Prometheus label would let an arbitrary,
+// unbounded string flow into metric label values, risking cardinality
+// explosion. This caps the label to the set of clusters the discoverer
+// currently knows about (refreshed at most every clusterLabelCacheTTL) plus
+// two closed sentinels ("" -> normalized to "none" by RecordToolCall, and
+// unrecognizedClusterLabel for anything else), matching the bounded-label
+// invariant documented in pkg/metrics.
+func (s *Server) clusterMetricLabel(args map[string]interface{}) string {
+	raw := clusterArg(args)
+	if raw == "" {
+		return ""
+	}
+	if known := s.knownClusterNames(); known != nil && known[raw] {
+		return raw
+	}
+	return unrecognizedClusterLabel
+}
+
+// knownClusterNames returns the set of cluster names and contexts most
+// recently reported by the discoverer, caching the result for
+// clusterLabelCacheTTL. It returns nil if no discoverer is configured or no
+// successful discovery has completed yet.
+func (s *Server) knownClusterNames() map[string]bool {
+	s.clusterLabelMu.Lock()
+	defer s.clusterLabelMu.Unlock()
+
+	if s.discoverer == nil {
+		return nil
+	}
+	if s.clusterLabelSet != nil && time.Since(s.clusterLabelCachedAt) < clusterLabelCacheTTL {
+		return s.clusterLabelSet
+	}
+
+	clusters, err := s.discoverer.DiscoverClusters("all")
+	if err != nil {
+		// Keep serving the previous cache (if any) rather than treating a
+		// transient discovery failure as "no clusters known", which would
+		// relabel every in-flight call as unrecognized.
+		return s.clusterLabelSet
+	}
+
+	set := make(map[string]bool, len(clusters)*2)
+	for _, c := range clusters {
+		if c.Name != "" {
+			set[c.Name] = true
+		}
+		if c.Context != "" {
+			set[c.Context] = true
+		}
+	}
+	s.clusterLabelSet = set
+	s.clusterLabelCachedAt = time.Now()
+	return set
 }
 
 func (s *Server) sendResult(id interface{}, result interface{}) {
