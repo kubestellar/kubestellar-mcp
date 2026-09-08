@@ -30,6 +30,22 @@ func TestIsSensitiveKind(t *testing.T) {
 		{name: "ServiceAccount mixed", kind: "ServiceAccount"},
 		{name: "sa shorthand", kind: "sa"},
 		{name: "SA upper", kind: "SA"},
+		{name: "role", kind: "role"},
+		{name: "roles plural", kind: "roles"},
+		{name: "Role mixed", kind: "Role"},
+		{name: "rolebinding", kind: "rolebinding"},
+		{name: "rolebindings plural", kind: "rolebindings"},
+		{name: "RoleBinding mixed", kind: "RoleBinding"},
+		{name: "mutatingwebhookconfiguration", kind: "mutatingwebhookconfiguration"},
+		{name: "MutatingWebhookConfiguration mixed", kind: "MutatingWebhookConfiguration"},
+		{name: "validatingwebhookconfiguration", kind: "validatingwebhookconfiguration"},
+		{name: "ValidatingWebhookConfiguration mixed", kind: "ValidatingWebhookConfiguration"},
+		{name: "certificatesigningrequest", kind: "certificatesigningrequest"},
+		{name: "CertificateSigningRequest mixed", kind: "CertificateSigningRequest"},
+		{name: "csr shorthand", kind: "csr"},
+		{name: "podsecuritypolicy", kind: "podsecuritypolicy"},
+		{name: "PodSecurityPolicy mixed", kind: "PodSecurityPolicy"},
+		{name: "psp shorthand", kind: "psp"},
 	}
 
 	for _, tt := range blocked {
@@ -44,7 +60,6 @@ func TestIsSensitiveKind_Allowed(t *testing.T) {
 	allowed := []string{
 		"deployment", "Deployment", "pod", "Pod", "service", "Service",
 		"configmap", "ConfigMap", "namespace", "Namespace",
-		"role", "rolebinding", "Role", "RoleBinding",
 		"ingress", "statefulset", "daemonset", "job", "cronjob",
 		"", // empty string
 	}
