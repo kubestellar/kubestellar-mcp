@@ -16,6 +16,10 @@ Alert rules aligned with the SLOs in [`../slo.md`](../slo.md):
 - `MCPServerHighToolLatencyP95` — p95 tool latency versus SLO targets.
 - `MCPServerActiveClustersDroppedToZero` — reachable-cluster count drop,
   cross-referenced with the connectivity-loss runbook section.
+- `MCPServerMetricsScrapeTargetDown` — the `/metrics` scrape target itself is
+  unreachable (via the `up` meta-metric), which every rule above depends on
+  and none of them can detect on their own. Requires the `job` label in the
+  rule expression to be adjusted to match your scrape config/ServiceMonitor.
 
 ## Applying
 
