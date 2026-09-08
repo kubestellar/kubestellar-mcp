@@ -103,3 +103,29 @@ spec:
               mcpserver_active_clusters has been 0 for 10m. This usually
               indicates a kubeconfig or connectivity problem; see
               runbooks/mcp-server-operations.md#multi-cluster-connectivity-loss.
+
+        # All of the rules above are ratio-of-rates or instant-gauge checks
+        # over mcpserver_* series. If the scrape target crashes, hangs, or
+        # otherwise stops being scrapable, those series go stale (Prometheus
+        # default staleness) and drop out of instant-vector evaluation
+        # entirely - the ratio/gauge rules have no data to compare, so a
+        # fully dead process is *silently invisible*, not merely quiet.
+        # `up` is maintained by Prometheus itself per scrape target and
+        # still reports 0 once the target is unreachable, independent of
+        # this server's own registry. Adjust the job label selector below
+        # if your scrape_config/ServiceMonitor uses a different job name
+        # than "kubestellar-mcp".
+        - alert: MCPServerMetricsTargetDown
+          expr: up{job=~".*kubestellar-mcp.*"} == 0
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Prometheus cannot scrape the kubestellar-mcp /metrics endpoint"
+            description: >-
+              The kubestellar-mcp scrape target has been unreachable for
+              10m. Because every other alert in this file depends on live
+              mcpserver_* series, none of them can fire once this target
+              goes fully stale - this is the only rule that catches a
+              crashed, hung, or unreachable process. See
+              runbooks/mcp-server-operations.md#detecting-a-fully-unreachable-metrics-target.

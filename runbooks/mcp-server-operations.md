@@ -17,9 +17,10 @@
 7. [Diagnosing Silent Failures](#diagnosing-silent-failures)
 8. [Using the Metrics Endpoint](#using-the-metrics-endpoint)
 9. [Diagnosing High Tool Error Rate or Latency](#diagnosing-high-tool-error-rate-or-latency)
-10. [Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage, Release)](#detecting-a-failed-scheduled-workflow-security-scans-stale-triage-release)
-11. [Escalation](#escalation)
-12. [Release Rollback](release-rollback.md) (separate runbook, for a bad automated nightly/weekly release)
+10. [Detecting a Fully Unreachable Metrics Target](#detecting-a-fully-unreachable-metrics-target)
+11. [Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage, Release)](#detecting-a-failed-scheduled-workflow-security-scans-stale-triage-release)
+12. [Escalation](#escalation)
+13. [Release Rollback](release-rollback.md) (separate runbook, for a bad automated nightly/weekly release)
 
 ---
 
@@ -257,6 +258,22 @@ A ready-to-import Grafana dashboard for these metrics is at
 (see [`docs/dashboards/README.md`](../docs/dashboards/README.md)). It requires a
 Prometheus instance already scraping this server's `/metrics` endpoint — no
 scrape config or backend is bundled with this repository.
+
+---
+
+## Detecting a Fully Unreachable Metrics Target
+
+**Symptom:** Paged by `MCPServerMetricsTargetDown` (`up{job=~".*kubestellar-mcp.*"} == 0` for 10m), or you notice the Grafana dashboard has stopped updating entirely rather than showing degraded values.
+
+**Why this is a separate alert:** every other rule in [`docs/alerts/mcpserver-rules.yaml`](../docs/alerts/mcpserver-rules.yaml) is a ratio over `rate(mcpserver_*_total[...])` or an instant check on an `mcpserver_*` gauge. Once the scrape target is fully unreachable, Prometheus marks those series stale and they drop out of instant-vector evaluation — the ratio/gauge rules have no data to evaluate, so they cannot fire. A crashed or hung process is otherwise *less* visible than a degraded one. `MCPServerMetricsTargetDown` uses Prometheus's own `up` metric instead, which is maintained per scrape target independent of this server's registry.
+
+### Steps
+
+1. Confirm this is target-unreachability, not a genuine zero-traffic period: `up` is per-target, not per-series, so `up == 0` means the scrape itself failed (connection refused/timeout), not "no tool calls happened."
+2. If running in a container, follow [Container Health Verification](#container-health-verification) above — check `docker inspect ... --format '{{.State.Status}}'` and `{{.State.ExitCode}}` to see whether the process crashed or is still running but unresponsive.
+3. If the process is running but still unscrapable, check that `--metrics-addr` is still passed on this run and that the port is reachable from the Prometheus/scrape-agent network (firewall, NetworkPolicy, or a restart that dropped the flag).
+4. If the process crashed, follow [Diagnosing Silent Failures](#diagnosing-silent-failures) to check for panics before restarting; the MCP server is stateless between requests, so a restart is safe once the cause is understood.
+5. Once the target is reachable again, confirm `up` returns to `1` and that `mcpserver_active_clusters` / `mcpserver_tool_calls_total` resume updating before closing out the page.
 
 ---
 

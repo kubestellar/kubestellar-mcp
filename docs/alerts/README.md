@@ -16,6 +16,14 @@ Alert rules aligned with the SLOs in [`../slo.md`](../slo.md):
 - `MCPServerHighToolLatencyP95` — p95 tool latency versus SLO targets.
 - `MCPServerActiveClustersDroppedToZero` — reachable-cluster count drop,
   cross-referenced with the connectivity-loss runbook section.
+- `MCPServerMetricsTargetDown` — scrape target unreachable (`up == 0`).
+  Every other rule above depends on live `mcpserver_*` series, so none of
+  them can fire once the process has crashed or hung and those series go
+  stale; this is the only rule that catches total target loss. Uses the
+  Prometheus-maintained `up` metric rather than an `mcpserver_*` series
+  for that reason — adjust the `job` label selector if your scrape
+  config/ServiceMonitor names the job differently than
+  `kubestellar-mcp`.
 
 ## Applying
 
