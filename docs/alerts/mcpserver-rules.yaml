@@ -90,6 +90,27 @@ spec:
               to inspect mcpserver_ai_query_total{provider,status} and
               isolate the affected provider.
 
+        # SLO 5 latency companion — mirrors MCPServerHighToolLatencyP95,
+        # backed by AIQueryDurationSeconds (pkg/metrics/metrics.go),
+        # recorded by pkg/ai/claude/client.go via metrics.RecordAIQuery.
+        - alert: MCPServerHighAIQueryLatencyP95
+          expr: |
+            histogram_quantile(0.95, sum by (le) (rate(mcpserver_ai_query_duration_seconds_bucket[15m]))) > 2
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "kubestellar-mcp p95 AI provider query latency is elevated"
+            description: >-
+              p95 AI provider query latency has exceeded 2s for 15m. This
+              can indicate a degraded AI provider endpoint even when
+              queries still succeed (no signal from
+              MCPServerHighAIQueryErrorRate). Compare against SLO 5 in
+              ../slo.md and follow
+              runbooks/mcp-server-operations.md#diagnosing-high-ai-provider-query-error-rate-or-latency
+              to inspect mcpserver_ai_query_duration_seconds{provider}
+              and isolate the affected provider.
+
         # Signals a possible discovery/connectivity regression (see
         # runbooks/mcp-server-operations.md#multi-cluster-connectivity-loss).
         - alert: MCPServerActiveClustersDroppedToZero

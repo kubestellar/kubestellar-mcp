@@ -17,9 +17,10 @@
 7. [Diagnosing Silent Failures](#diagnosing-silent-failures)
 8. [Using the Metrics Endpoint](#using-the-metrics-endpoint)
 9. [Diagnosing High Tool Error Rate or Latency](#diagnosing-high-tool-error-rate-or-latency)
-10. [Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage, Release)](#detecting-a-failed-scheduled-workflow-security-scans-stale-triage-release)
-11. [Escalation](#escalation)
-12. [Release Rollback](release-rollback.md) (separate runbook, for a bad automated nightly/weekly release)
+10. [Diagnosing High AI Provider Query Error Rate or Latency](#diagnosing-high-ai-provider-query-error-rate-or-latency)
+11. [Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage, Release)](#detecting-a-failed-scheduled-workflow-security-scans-stale-triage-release)
+12. [Escalation](#escalation)
+13. [Release Rollback](release-rollback.md) (separate runbook, for a bad automated nightly/weekly release)
 
 ---
 
@@ -297,6 +298,48 @@ has fired (see [SLO 1/2](../docs/slo.md)).
 5. If `error_kind` shows a concentration of `timeout`: confirm the target
    cluster is reachable at all per
    [Multi-Cluster Connectivity Loss](#multi-cluster-connectivity-loss).
+
+---
+
+## Diagnosing High AI Provider Query Error Rate or Latency
+
+**Symptom:** The `MCPServerHighAIQueryErrorRate` or
+`MCPServerHighAIQueryLatencyP95` alert in
+[`docs/alerts/mcpserver-rules.yaml`](../docs/alerts/mcpserver-rules.yaml)
+has fired (see [SLO 5](../docs/slo.md)). Note that these two alerts are
+independent signals: a degraded AI provider endpoint can return slow
+*successful* responses (latency alert only, no error-rate signal) or fail
+outright (error-rate alert), so check both.
+
+### Steps
+
+1. Enable the metrics endpoint if it is not already running for this
+   deployment (see [Using the Metrics Endpoint](#using-the-metrics-endpoint)
+   above).
+
+2. Isolate the affected provider:
+   ```bash
+   curl -s http://127.0.0.1:9090/metrics | grep 'mcpserver_ai_query_total\|mcpserver_ai_query_duration_seconds'
+   ```
+   Compare `mcpserver_ai_query_total{provider,status}` and
+   `mcpserver_ai_query_duration_seconds{provider}` across providers — a
+   spike concentrated on one `provider` label points to that provider's
+   endpoint rather than the MCP server itself.
+
+3. If latency is elevated but errors are not (latency alert only): treat
+   this as a possible upstream AI provider degradation. Check the
+   provider's own status page/dashboard before assuming a local issue.
+
+4. If errors are elevated: check `pkg/ai/claude/client.go` request
+   handling and recent provider API changes (auth, rate limiting, schema).
+   Cross-reference with [Diagnosing Silent Failures](#diagnosing-silent-failures)
+   for panic/log inspection if errors span all providers.
+
+5. Per [SLO 5 exclusions](../docs/slo.md#slo-5--ai-provider-query-availability),
+   failures attributable to the underlying cluster/API server rather than
+   the AI provider integration itself are excluded from this SLO, but still
+   merit follow-up via [Multi-Cluster Connectivity Loss](#multi-cluster-connectivity-loss)
+   if relevant.
 
 ---
 
