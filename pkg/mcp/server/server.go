@@ -157,13 +157,13 @@ func (s *Server) handleToolsCall(ctx context.Context, req *Request) {
 	start := time.Now()
 	result, isError := handler(ctx, s, params.Arguments)
 	duration := time.Since(start)
-	cluster := clusterArg(params.Arguments)
+	cluster := s.boundedClusterLabel(clusterArg(params.Arguments))
 	metrics.RecordToolCall(params.Name, cluster, duration, isError, "")
 
 	// Structured, bounded lifecycle logging: tool and cluster come from
-	// closed/known sets (see clusterArg, metrics package doc), so this never
-	// logs raw error text or unbounded values - only the same status/timing
-	// data already exposed via metrics.
+	// closed/known sets (see clusterArg, boundedClusterLabel, metrics
+	// package doc), so this never logs raw error text or unbounded values -
+	// only the same status/timing data already exposed via metrics.
 	if isError {
 		klog.Errorf("tool call failed: tool=%s cluster=%s duration=%s", params.Name, cluster, duration)
 	} else {
@@ -185,6 +185,39 @@ func clusterArg(args map[string]interface{}) string {
 		return v
 	}
 	return ""
+}
+
+// otherClusterLabel is the bounded label value used in place of a
+// caller-supplied cluster name that does not match any cluster known to
+// this server's kubeconfig.
+const otherClusterLabel = "other"
+
+// boundedClusterLabel validates a caller-supplied cluster name against this
+// server's discovered kubeconfig contexts before it is used as a Prometheus
+// metrics or log label. Tool-call arguments are entirely client-controlled,
+// so passing clusterArg's return value through unchecked would let a caller
+// generate an unbounded number of distinct label values (one per arbitrary
+// string it sends), regardless of the metrics package's "cluster names are
+// capped by the discovered cluster set" invariant. Unrecognized names are
+// mapped to the fixed otherClusterLabel value; "" (no cluster argument) is
+// passed through unchanged so RecordToolCall can normalize it to "none".
+func (s *Server) boundedClusterLabel(cluster string) string {
+	if cluster == "" {
+		return cluster
+	}
+	if s.discoverer == nil {
+		return otherClusterLabel
+	}
+	known, err := s.discoverer.DiscoverClusters("kubeconfig")
+	if err != nil {
+		return otherClusterLabel
+	}
+	for _, c := range known {
+		if c.Name == cluster {
+			return cluster
+		}
+	}
+	return otherClusterLabel
 }
 
 func (s *Server) sendResult(id interface{}, result interface{}) {
