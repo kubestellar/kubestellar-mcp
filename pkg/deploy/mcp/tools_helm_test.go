@@ -434,6 +434,7 @@ func TestValidateHelmChartRef(t *testing.T) {
 		{"blocks flag injection kubeconfig", "--kubeconfig=/tmp/evil", true},
 		{"blocks single-dash flag", "-f", true},
 		{"valid oci reference", "oci://registry.example.com/charts/app", false},
+		{"oci allowed public IP literal", "oci://93.184.216.34/chart", false},
 		{"blocks oci path traversal", "oci://registry.example.com/charts/../../../etc/passwd", true},
 		{"oci no host", "oci://", true},
 		{"oci blocked loopback IP", "oci://127.0.0.1/chart", true},
