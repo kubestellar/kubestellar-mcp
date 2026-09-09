@@ -156,7 +156,19 @@ func (s *Server) handleToolsCall(ctx context.Context, req *Request) {
 
 	start := time.Now()
 	result, isError := handler(ctx, s, params.Arguments)
-	metrics.RecordToolCall(params.Name, clusterArg(params.Arguments), time.Since(start), isError, "")
+	duration := time.Since(start)
+	cluster := clusterArg(params.Arguments)
+	metrics.RecordToolCall(params.Name, cluster, duration, isError, "")
+
+	// Structured, bounded lifecycle logging: tool and cluster come from
+	// closed/known sets (see clusterArg, metrics package doc), so this never
+	// logs raw error text or unbounded values - only the same status/timing
+	// data already exposed via metrics.
+	if isError {
+		klog.Errorf("tool call failed: tool=%s cluster=%s duration=%s", params.Name, cluster, duration)
+	} else {
+		klog.V(2).Infof("tool call succeeded: tool=%s cluster=%s duration=%s", params.Name, cluster, duration)
+	}
 
 	s.sendResult(req.ID, CallToolResult{
 		Content: []ContentBlock{{Type: "text", Text: result}},
