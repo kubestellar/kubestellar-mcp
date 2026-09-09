@@ -15,6 +15,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -37,6 +38,21 @@ const (
 // unknownCluster is the label value used when a tool call is not scoped to
 // a specific cluster, keeping the "cluster" label bounded.
 const unknownCluster = "none"
+
+// otherCluster is the label value used for a client-supplied cluster name
+// that does not match any cluster known from the most recent discovery,
+// keeping the "cluster" label bounded regardless of what a client sends.
+const otherCluster = "other"
+
+// knownClusters caches the cluster names from the most recent multi-cluster
+// discovery (populated via SetActiveClusterNames), so BoundedClusterLabel
+// can validate a client-supplied cluster name before it is ever used as a
+// metric label value. Guarded by knownClustersMu since discovery can run
+// concurrently with tool-call dispatch.
+var (
+	knownClustersMu sync.RWMutex
+	knownClusters   = map[string]struct{}{}
+)
 
 // Registry is the Prometheus registry used for MCP server metrics. It is
 // intentionally separate from prometheus.DefaultRegisterer so that this
@@ -125,6 +141,46 @@ func RecordToolCall(tool, cluster string, duration time.Duration, isError bool, 
 // SetActiveClusters updates the active-cluster gauge.
 func SetActiveClusters(n int) {
 	ActiveClusters.Set(float64(n))
+}
+
+// SetActiveClusterNames updates the active-cluster gauge and replaces the
+// cache of known cluster names used by BoundedClusterLabel. Call this at
+// the same site a multi-cluster discovery completes (e.g. executeAll), so
+// the client-supplied "cluster" argument on later tool calls can be
+// validated against an actual set of discovered clusters rather than
+// trusted as-is.
+func SetActiveClusterNames(names []string) {
+	next := make(map[string]struct{}, len(names))
+	for _, name := range names {
+		next[name] = struct{}{}
+	}
+
+	knownClustersMu.Lock()
+	knownClusters = next
+	knownClustersMu.Unlock()
+
+	ActiveClusters.Set(float64(len(names)))
+}
+
+// BoundedClusterLabel returns cluster unchanged only if it matches a name
+// from the most recently discovered cluster set (see SetActiveClusterNames).
+// Any other non-empty value - including a name that simply hasn't been
+// discovered yet - is mapped to a fixed "other" sentinel, and an empty
+// value is mapped to "none". This keeps the "cluster" label bounded even
+// though the value originates from client-supplied tool arguments.
+func BoundedClusterLabel(cluster string) string {
+	if cluster == "" {
+		return unknownCluster
+	}
+
+	knownClustersMu.RLock()
+	_, known := knownClusters[cluster]
+	knownClustersMu.RUnlock()
+
+	if !known {
+		return otherCluster
+	}
+	return cluster
 }
 
 // RecordAIQuery records a completed AI provider query. provider must be a

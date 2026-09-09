@@ -3,6 +3,7 @@ package metrics
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"testing"
@@ -108,6 +109,55 @@ func TestSetActiveClusters(t *testing.T) {
 	}
 	if got := m[0].GetGauge().GetValue(); got != 3 {
 		t.Errorf("ActiveClusters = %v, want 3", got)
+	}
+}
+
+func TestSetActiveClusterNamesUpdatesGauge(t *testing.T) {
+	SetActiveClusterNames([]string{"prod-east", "prod-west"})
+
+	families := gather(t)
+	m := families["mcpserver_active_clusters"].GetMetric()
+	if len(m) != 1 {
+		t.Fatalf("expected exactly one active-clusters series, got %d", len(m))
+	}
+	if got := m[0].GetGauge().GetValue(); got != 2 {
+		t.Errorf("ActiveClusters = %v, want 2", got)
+	}
+}
+
+func TestBoundedClusterLabel(t *testing.T) {
+	SetActiveClusterNames([]string{"prod-east", "prod-west"})
+
+	tests := []struct {
+		name    string
+		cluster string
+		want    string
+	}{
+		{"empty maps to none", "", unknownCluster},
+		{"known cluster passes through", "prod-east", "prod-east"},
+		{"unknown cluster maps to other", "attacker-controlled-value-1234", otherCluster},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := BoundedClusterLabel(tt.cluster); got != tt.want {
+				t.Errorf("BoundedClusterLabel(%q) = %q, want %q", tt.cluster, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBoundedClusterLabelUnboundedInputStaysBounded(t *testing.T) {
+	SetActiveClusterNames([]string{"prod-east"})
+
+	seen := map[string]struct{}{}
+	for i := 0; i < 1000; i++ {
+		seen[BoundedClusterLabel(fmt.Sprintf("distinct-cluster-%d", i))] = struct{}{}
+	}
+	if len(seen) != 1 {
+		t.Fatalf("expected 1000 distinct client-supplied names to collapse to a single bounded label, got %d distinct values: %v", len(seen), seen)
+	}
+	if _, ok := seen[otherCluster]; !ok {
+		t.Errorf("expected the collapsed label to be %q", otherCluster)
 	}
 }
 

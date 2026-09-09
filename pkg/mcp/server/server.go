@@ -157,7 +157,12 @@ func (s *Server) handleToolsCall(ctx context.Context, req *Request) {
 	start := time.Now()
 	result, isError := handler(ctx, s, params.Arguments)
 	duration := time.Since(start)
-	cluster := clusterArg(params.Arguments)
+	// clusterArg returns a raw, client-supplied string; BoundedClusterLabel
+	// caps it to the most recently discovered cluster set (or "other"/"none")
+	// before it is ever used as a metric or log label value, keeping
+	// cardinality bounded regardless of what a client sends (see
+	// pkg/metrics package doc).
+	cluster := metrics.BoundedClusterLabel(clusterArg(params.Arguments))
 	metrics.RecordToolCall(params.Name, cluster, duration, isError, "")
 
 	// Structured, bounded lifecycle logging: tool and cluster come from

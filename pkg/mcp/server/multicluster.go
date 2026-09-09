@@ -71,7 +71,11 @@ func (s *Server) executeAll(ctx context.Context, fn ExecuteFunc) ([]ClusterResul
 		return nil, fmt.Errorf("no clusters found from any discovery source")
 	}
 
-	metrics.SetActiveClusters(len(clusters))
+	names := make([]string, 0, len(clusters))
+	for _, c := range clusters {
+		names = append(names, c.Name)
+	}
+	metrics.SetActiveClusterNames(names)
 
 	results := make([]ClusterResult, 0, len(clusters))
 	sem := make(chan struct{}, maxConcurrentClusterOperations)
