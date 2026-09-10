@@ -163,11 +163,14 @@ func (s *Server) handleToolsCall(ctx context.Context, req *Request) {
 	// Structured, bounded lifecycle logging: tool and cluster come from
 	// closed/known sets (see clusterArg, boundedClusterLabel, metrics
 	// package doc), so this never logs raw error text or unbounded values -
-	// only the same status/timing data already exposed via metrics.
+	// only the same status/timing data already exposed via metrics. Uses
+	// klog's key/value form (InfoS/ErrorS) rather than Errorf/Infof so the
+	// fields are actually structured (parseable key=value pairs) instead of
+	// baked into a free-form message string.
 	if isError {
-		klog.Errorf("tool call failed: tool=%s cluster=%s duration=%s", params.Name, cluster, duration)
+		klog.ErrorS(nil, "tool call failed", "tool", params.Name, "cluster", cluster, "duration", duration)
 	} else {
-		klog.V(2).Infof("tool call succeeded: tool=%s cluster=%s duration=%s", params.Name, cluster, duration)
+		klog.V(2).InfoS("tool call succeeded", "tool", params.Name, "cluster", cluster, "duration", duration)
 	}
 
 	s.sendResult(req.ID, CallToolResult{
