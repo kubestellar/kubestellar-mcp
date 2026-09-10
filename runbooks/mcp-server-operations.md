@@ -243,6 +243,26 @@ kubestellar-ops --mcp-server --metrics-addr 127.0.0.1:9090
 curl -s http://127.0.0.1:9090/metrics | grep mcpserver_
 ```
 
+`kubestellar-deploy` supports the identical flag and exposes the identical
+`mcpserver_*` metric names (see `pkg/deploy/cmd/root.go`, wired to the same
+`pkg/metrics` package):
+
+```bash
+kubestellar-deploy --mcp-server --metrics-addr 127.0.0.1:9091
+curl -s http://127.0.0.1:9091/metrics | grep mcpserver_
+```
+
+**Shared-registry caveat:** because both binaries emit the same metric
+names with no binary-distinguishing label, running both with `--metrics-addr`
+and scraping them into one Prometheus requires separating them by `job`/
+`instance` label (or a relabel step) — otherwise the alert rules in
+[`docs/alerts/mcpserver-rules.yaml`](../docs/alerts/mcpserver-rules.yaml)
+and the SLOs in [`docs/slo.md`](../docs/slo.md) will blend `kubestellar-ops`
+diagnostic traffic with `kubestellar-deploy` GitOps/blue-green-deploy
+traffic, masking a real outage in one binary with healthy volume from the
+other. See the "Scope note" in `docs/slo.md` for which SLOs are shared and
+which are `kubestellar-ops`-specific.
+
 ### What to look for
 
 - `mcpserver_tool_calls_total{tool,cluster,status}` — call volume and success/error split per tool and cluster.
