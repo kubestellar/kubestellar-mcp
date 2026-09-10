@@ -5,9 +5,36 @@ import (
 	"encoding/json"
 	"testing"
 
+	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kubestellar/kubestellar-mcp/pkg/metrics"
 )
+
+// dispatchMetricFamily gathers a single named metric family from the shared
+// metrics registry, useful for asserting label combinations recorded by
+// handleToolCall without needing a live /metrics endpoint.
+func dispatchMetricFamily(t *testing.T, name string) *dto.MetricFamily {
+	t.Helper()
+	families, err := metrics.Registry.Gather()
+	require.NoError(t, err)
+	for _, f := range families {
+		if f.GetName() == name {
+			return f
+		}
+	}
+	return nil
+}
+
+func dispatchLabelValue(m *dto.Metric, name string) string {
+	for _, l := range m.GetLabel() {
+		if l.GetName() == name {
+			return l.GetValue()
+		}
+	}
+	return ""
+}
 
 // TestHandleToolCallDispatchArmsFormatErrorContent locks in that every tool
 // name registered in handleToolCall's switch actually reaches its handler
@@ -106,4 +133,61 @@ func TestHandleToolCallDispatchArmsHandleMalformedArgs(t *testing.T) {
 	assert.Nil(t, resp.Error)
 	payload := resp.Result.(map[string]interface{})
 	assert.Equal(t, true, payload["isError"])
+}
+
+// TestHandleToolCallRecordsMetricsForKnownTool verifies that a recognized
+// tool name produces both a mcpserver_tool_calls_total series (bounded
+// "none" cluster label, since this dispatch point has no per-request
+// cluster scoping) and a mcpserver_tool_errors_total series when the
+// handler errors, closing the gap where this dispatch path previously
+// recorded nothing at all.
+func TestHandleToolCallRecordsMetricsForKnownTool(t *testing.T) {
+	server := newHelmTestServer(t, map[string]string{})
+
+	resp := server.handleToolCall(context.Background(), &MCPRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Params: mustMarshalJSON(t, map[string]interface{}{
+			"name":      "helm_install",
+			"arguments": map[string]interface{}{},
+		}),
+	})
+	require.NotNil(t, resp)
+	payload := resp.Result.(map[string]interface{})
+	require.Equal(t, true, payload["isError"], "expected helm_install with no args to fail validation")
+
+	found := false
+	for _, m := range dispatchMetricFamily(t, "mcpserver_tool_calls_total").GetMetric() {
+		if dispatchLabelValue(m, "tool") == "helm_install" &&
+			dispatchLabelValue(m, "cluster") == "none" &&
+			dispatchLabelValue(m, "status") == "error" {
+			found = true
+			assert.GreaterOrEqual(t, m.GetCounter().GetValue(), float64(1))
+		}
+	}
+	assert.True(t, found, "expected mcpserver_tool_calls_total series for helm_install/none/error")
+}
+
+// TestHandleToolCallSkipsMetricsForUnknownTool verifies the default arm
+// (unrecognized tool name) returns before any metrics are recorded, so the
+// "tool" label can never take on an unbounded, client-controlled value.
+func TestHandleToolCallSkipsMetricsForUnknownTool(t *testing.T) {
+	server := newHelmTestServer(t, map[string]string{})
+
+	unknownTool := "definitely_not_a_registered_tool"
+	resp := server.handleToolCall(context.Background(), &MCPRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Params: mustMarshalJSON(t, map[string]interface{}{
+			"name":      unknownTool,
+			"arguments": map[string]interface{}{},
+		}),
+	})
+	require.NotNil(t, resp)
+	require.NotNil(t, resp.Error)
+
+	for _, m := range dispatchMetricFamily(t, "mcpserver_tool_calls_total").GetMetric() {
+		assert.NotEqual(t, unknownTool, dispatchLabelValue(m, "tool"),
+			"unknown tool name must never be recorded as a metric label value")
+	}
 }

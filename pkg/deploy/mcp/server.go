@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
 	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/protocol"
+	"github.com/kubestellar/kubestellar-mcp/pkg/metrics"
 	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 	"k8s.io/client-go/rest"
 )
@@ -825,6 +827,8 @@ func (s *Server) handleToolCall(ctx context.Context, req *MCPRequest) *MCPRespon
 	var result interface{}
 	var err error
 
+	start := time.Now()
+
 	switch params.Name {
 	case "get_app_instances":
 		result, err = s.handleGetAppInstances(ctx, params.Arguments)
@@ -884,6 +888,13 @@ func (s *Server) handleToolCall(ctx context.Context, req *MCPRequest) *MCPRespon
 			Error:   &MCPError{Code: -32601, Message: fmt.Sprintf("Unknown tool: %s", params.Name)},
 		}
 	}
+
+	// Record metrics only for recognized tools (the default arm above
+	// returns early for unknown names), keeping the "tool" label bounded to
+	// the fixed set of case values in the switch above. No cluster scoping
+	// is available at this dispatch point, so "none" is used, matching the
+	// bounded-label convention in pkg/metrics.
+	metrics.RecordToolCall(params.Name, "none", time.Since(start), err != nil, "")
 
 	if err != nil {
 		return &MCPResponse{
