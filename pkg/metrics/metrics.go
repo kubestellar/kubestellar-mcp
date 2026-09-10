@@ -140,6 +140,20 @@ func RecordAIQuery(provider string, duration time.Duration, err error) {
 	AIQueryDurationSeconds.WithLabelValues(provider).Observe(duration.Seconds())
 }
 
+// healthzHandler answers a plain liveness probe: 200 OK if the process is
+// up and the HTTP listener is accepting connections. It intentionally does
+// not check any downstream dependency (e.g. cluster reachability) - the
+// metrics HTTP listener has no fixed dependency of its own, and per-cluster
+// health is already reported via the mcpserver_active_clusters gauge and
+// the check_cluster_health tool, not this endpoint. Keeping this a pure
+// liveness check avoids a probe that reports "healthy" without verifying
+// something it doesn't actually depend on.
+func healthzHandler(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("ok\n"))
+}
+
 // StartServer starts an HTTP server exposing the /metrics endpoint on addr
 // and returns it so the caller can shut it down gracefully. It must only be
 // called when an operator has explicitly configured a metrics address.
@@ -150,6 +164,7 @@ func StartServer(addr string) (*http.Server, error) {
 
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.HandlerFor(Registry, promhttp.HandlerOpts{}))
+	mux.HandleFunc("/healthz", healthzHandler)
 	srv := &http.Server{
 		Addr:              addr,
 		Handler:           mux,

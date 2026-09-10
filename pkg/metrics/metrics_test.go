@@ -206,6 +206,23 @@ func TestPromHTTPHandlerAvailable(t *testing.T) {
 	}
 }
 
+// TestHealthzHandlerReturnsOK verifies /healthz is a pure liveness check:
+// 200 OK with no dependency on cluster or tool state.
+func TestHealthzHandlerReturnsOK(t *testing.T) {
+	req, err := http.NewRequest(http.MethodGet, "/healthz", nil)
+	if err != nil {
+		t.Fatalf("http.NewRequest error = %v", err)
+	}
+	rec := &discardResponseWriter{header: http.Header{}}
+	healthzHandler(rec, req)
+	if rec.status != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.status, http.StatusOK)
+	}
+	if ct := rec.Header().Get("Content-Type"); ct == "" {
+		t.Error("expected Content-Type header to be set")
+	}
+}
+
 // discardResponseWriter is a minimal http.ResponseWriter for smoke-testing
 // handler wiring without a real network listener.
 type discardResponseWriter struct {
