@@ -16,11 +16,12 @@
 6. [Container Health Verification](#container-health-verification)
 7. [Diagnosing Silent Failures](#diagnosing-silent-failures)
 8. [Using the Metrics Endpoint](#using-the-metrics-endpoint)
-9. [Diagnosing High Tool Error Rate or Latency](#diagnosing-high-tool-error-rate-or-latency)
-10. [Diagnosing High AI Provider Query Error Rate or Latency](#diagnosing-high-ai-provider-query-error-rate-or-latency)
-11. [Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage, Release)](#detecting-a-failed-scheduled-workflow-security-scans-stale-triage-release)
-12. [Escalation](#escalation)
-13. [Release Rollback](release-rollback.md) (separate runbook, for a bad automated nightly/weekly release)
+9. [Diagnosing a Scrape Target Outage](#diagnosing-a-scrape-target-outage)
+10. [Diagnosing High Tool Error Rate or Latency](#diagnosing-high-tool-error-rate-or-latency)
+11. [Diagnosing High AI Provider Query Error Rate or Latency](#diagnosing-high-ai-provider-query-error-rate-or-latency)
+12. [Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage, Release)](#detecting-a-failed-scheduled-workflow-security-scans-stale-triage-release)
+13. [Escalation](#escalation)
+14. [Release Rollback](release-rollback.md) (separate runbook, for a bad automated nightly/weekly release)
 
 ---
 
@@ -258,6 +259,55 @@ A ready-to-import Grafana dashboard for these metrics is at
 (see [`docs/dashboards/README.md`](../docs/dashboards/README.md)). It requires a
 Prometheus instance already scraping this server's `/metrics` endpoint — no
 scrape config or backend is bundled with this repository.
+
+---
+
+## Diagnosing a Scrape Target Outage
+
+**Symptom:** The `MCPServerScrapeTargetDown` alert in
+[`docs/alerts/mcpserver-rules.yaml`](../docs/alerts/mcpserver-rules.yaml) has
+fired.
+
+This is distinct from every other alert in that file: it fires on the
+standard Prometheus `up` metric for the scrape target itself, not on any
+`mcpserver_*` series. Once the `/metrics` endpoint is unreachable, the
+`mcpserver_*` series it would normally emit go stale and drop out of
+instant-vector queries, so the ratio/gauge-based alerts above cannot fire —
+this is the only alert that still pages when the process is fully down or
+unreachable.
+
+### Steps
+
+1. Confirm the process/container state first, since this alert means the
+   scrape itself is failing, not that error rates are elevated:
+   ```bash
+   docker inspect <container_id> --format '{{.State.Status}}'
+   docker inspect <container_id> --format '{{.State.ExitCode}}'
+   ```
+   See [Container Health Verification](#container-health-verification) for
+   the full sequence.
+
+2. If the container is running, check that `--metrics-addr` is still the
+   flag the process was started with, and that the listener is reachable
+   from the Prometheus scrape target (network policy, port mapping,
+   firewall):
+   ```bash
+   docker exec <container_id> curl -s http://127.0.0.1:<port>/metrics | head
+   ```
+
+3. Check container logs for a panic or fatal error around the time the
+   scrape started failing (see [Diagnosing Silent
+   Failures](#diagnosing-silent-failures)).
+
+4. If the process is gone or hung, restart it — the MCP server is
+   stateless between requests, so restarts are safe (see [Starting and
+   Stopping](#starting-and-stopping)).
+
+5. Once the endpoint is reachable again, confirm the alert clears and check
+   whether any of the ratio/gauge alerts above (`MCPServerHighToolErrorRate`,
+   `MCPServerActiveClustersDroppedToZero`, etc.) also fire once fresh data
+   arrives — the outage window may have hidden a real error-rate or
+   connectivity regression.
 
 ---
 
