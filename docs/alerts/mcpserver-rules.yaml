@@ -124,3 +124,30 @@ spec:
               mcpserver_active_clusters has been 0 for 10m. This usually
               indicates a kubeconfig or connectivity problem; see
               runbooks/mcp-server-operations.md#multi-cluster-connectivity-loss.
+
+        # Every rule above depends on live mcpserver_* samples: if the
+        # /metrics scrape target itself goes down (process crash, network
+        # partition, port/label misconfiguration), rate()/threshold
+        # comparisons over mcpserver_* simply stop producing data instead
+        # of alerting, so none of the rules above fire. `up` is emitted by
+        # Prometheus for every scrape target regardless of which metrics
+        # that target exposes, so it is the only signal that still exists
+        # once the target is unreachable. Adjust the `job` label to match
+        # your scrape config/ServiceMonitor job name for this server.
+        - alert: MCPServerMetricsScrapeTargetDown
+          expr: |
+            up{job=~"kubestellar-mcp.*"} == 0
+            or
+            absent(up{job=~"kubestellar-mcp.*"})
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: "kubestellar-mcp /metrics scrape target is unreachable"
+            description: >-
+              Prometheus has been unable to scrape kubestellar-mcp's
+              /metrics endpoint for 10m (target down, or missing from
+              service discovery entirely). Every other rule in this file
+              depends on live mcpserver_* samples and will not fire on its
+              own while this condition holds. Follow
+              runbooks/mcp-server-operations.md#diagnosing-a-metrics-scrape-target-down-alert.

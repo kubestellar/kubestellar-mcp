@@ -20,6 +20,10 @@ Alert rules aligned with the SLOs in [`../slo.md`](../slo.md):
   SLO 5 targets.
 - `MCPServerActiveClustersDroppedToZero` — reachable-cluster count drop,
   cross-referenced with the connectivity-loss runbook section.
+- `MCPServerMetricsScrapeTargetDown` — fires on the standard Prometheus
+  `up` metric when the `/metrics` scrape target itself is unreachable, so
+  a total outage still pages even though every rule above depends on live
+  `mcpserver_*` samples that go stale/missing when the target is down.
 
 ## Applying
 

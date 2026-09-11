@@ -18,9 +18,10 @@
 8. [Using the Metrics Endpoint](#using-the-metrics-endpoint)
 9. [Diagnosing High Tool Error Rate or Latency](#diagnosing-high-tool-error-rate-or-latency)
 10. [Diagnosing High AI Provider Query Error Rate or Latency](#diagnosing-high-ai-provider-query-error-rate-or-latency)
-11. [Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage, Release)](#detecting-a-failed-scheduled-workflow-security-scans-stale-triage-release)
-12. [Escalation](#escalation)
-13. [Release Rollback](release-rollback.md) (separate runbook, for a bad automated nightly/weekly release)
+11. [Diagnosing a Metrics Scrape Target Down Alert](#diagnosing-a-metrics-scrape-target-down-alert)
+12. [Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage, Release)](#detecting-a-failed-scheduled-workflow-security-scans-stale-triage-release)
+13. [Escalation](#escalation)
+14. [Release Rollback](release-rollback.md) (separate runbook, for a bad automated nightly/weekly release)
 
 ---
 
@@ -340,6 +341,49 @@ outright (error-rate alert), so check both.
    the AI provider integration itself are excluded from this SLO, but still
    merit follow-up via [Multi-Cluster Connectivity Loss](#multi-cluster-connectivity-loss)
    if relevant.
+
+---
+
+## Diagnosing a Metrics Scrape Target Down Alert
+
+**Symptom:** The `MCPServerMetricsScrapeTargetDown` alert in
+[`docs/alerts/mcpserver-rules.yaml`](../docs/alerts/mcpserver-rules.yaml) has
+fired. Every other alert in that file is computed from `mcpserver_*` samples
+(rates, histograms, gauges); if the `/metrics` endpoint itself stops being
+scraped, those queries simply run over stale or missing data instead of
+alerting, so this is often the *only* signal that something is wrong even
+when the underlying failure (crash, network partition) would also be
+degrading SLO 1/2/5.
+
+### Steps
+
+1. Confirm the process is actually running per
+   [Container Health Verification](#container-health-verification). If it
+   exited or was OOM-killed, the scrape target going down is a symptom of
+   that crash, not the root cause — start with
+   [Diagnosing Silent Failures](#diagnosing-silent-failures).
+2. If the process is running, check that `--metrics-addr` is still the
+   flag the process was started with (see
+   [Using the Metrics Endpoint](#using-the-metrics-endpoint)) and that
+   nothing (network policy, firewall, port conflict) blocks Prometheus from
+   reaching that host:port.
+3. Check Prometheus's own target page (`/targets` in the Prometheus UI, or
+   the equivalent in your Prometheus Operator/Grafana Agent setup) for this
+   job. A `context deadline exceeded` or `connection refused` scrape error
+   confirms a reachability problem; a target missing entirely from the list
+   points to a service-discovery/label mismatch instead (check the `job`
+   label used in `docs/alerts/mcpserver-rules.yaml` matches your actual
+   ServiceMonitor/scrape config).
+4. Once the endpoint is reachable again, confirm with:
+   ```bash
+   curl -s http://<metrics-addr>/metrics | grep mcpserver_
+   ```
+5. If the outage overlapped a period where tool calls were still being
+   served (stdio traffic is independent of `--metrics-addr`), note the gap
+   when reviewing SLO 1/2/5 error-budget consumption in
+   [`docs/slo.md`](../docs/slo.md), since the missing samples mean the
+   error budget was not being measured during that window, not that it was
+   necessarily met.
 
 ---
 
