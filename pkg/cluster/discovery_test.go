@@ -224,12 +224,6 @@ func writeTestKubeconfig(t *testing.T, contexts map[string]string, currentContex
 func newTestDir(t *testing.T) string {
 	t.Helper()
 
-	dir, err := os.MkdirTemp(".", "cluster-test-*")
-	if err != nil {
-		t.Fatalf("MkdirTemp() error = %v", err)
-	}
-	t.Cleanup(func() {
-		_ = os.RemoveAll(dir)
-	})
+	dir := t.TempDir()
 	return dir
 }

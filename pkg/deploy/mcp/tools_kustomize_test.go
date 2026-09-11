@@ -258,12 +258,7 @@ func TestHandleKustomizeDeleteRunsKubectlDelete(t *testing.T) {
 func setupFakeKustomize(t *testing.T) string {
 	t.Helper()
 
-	dir, err := os.MkdirTemp(".", "fake-kustomize-*")
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = os.RemoveAll(dir) })
-
-	absDir, err := filepath.Abs(dir)
-	require.NoError(t, err)
+	absDir := t.TempDir()
 
 	logFile := filepath.Join(absDir, "kustomize.log")
 	t.Setenv("FAKE_KUSTOMIZE_LOG", logFile)
@@ -349,9 +344,7 @@ esac
 func createTestKustomization(t *testing.T, filename string) string {
 	t.Helper()
 
-	dir, err := os.MkdirTemp(".", "kustomization-*")
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	dir := t.TempDir()
 
 	content := `apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -360,7 +353,5 @@ resources:
 `
 	require.NoError(t, os.WriteFile(filepath.Join(dir, filename), []byte(content), 0o644))
 
-	absDir, err := filepath.Abs(dir)
-	require.NoError(t, err)
-	return absDir
+	return dir
 }

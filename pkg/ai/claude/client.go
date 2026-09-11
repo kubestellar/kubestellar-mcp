@@ -9,11 +9,20 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"k8s.io/klog/v2"
+
+	"github.com/kubestellar/kubestellar-mcp/pkg/metrics"
 )
 
 const (
 	DefaultBaseURL = "https://api.anthropic.com/v1"
 	DefaultModel   = "claude-sonnet-4-20250514"
+
+	// providerName is the bounded, closed metrics label for this AI
+	// provider. It must stay a fixed constant - never the user-configurable
+	// model string - so the "provider" label cannot grow unbounded.
+	providerName = "claude"
 )
 
 // Client is a Claude API client
@@ -144,7 +153,24 @@ func (c *Client) Chat(ctx context.Context, systemPrompt string, messages []Messa
 	return c.sendRequest(ctx, req)
 }
 
-func (c *Client) sendRequest(ctx context.Context, req Request) (string, error) {
+func (c *Client) sendRequest(ctx context.Context, req Request) (result string, err error) {
+	start := time.Now()
+	defer func() {
+		duration := time.Since(start)
+		metrics.RecordAIQuery(providerName, duration, err)
+
+		// Structured, bounded lifecycle logging: provider is a fixed
+		// constant (never the user-configurable model string) and no raw
+		// error text or request/response content is logged, so this cannot
+		// leak API keys or grow unbounded - mirrors the tool-call lifecycle
+		// logging in pkg/mcp/server.
+		if err != nil {
+			klog.Errorf("ai query failed: provider=%s duration=%s", providerName, duration)
+		} else {
+			klog.V(2).Infof("ai query succeeded: provider=%s duration=%s", providerName, duration)
+		}
+	}()
+
 	body, err := json.Marshal(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal request: %w", err)
@@ -190,7 +216,6 @@ func (c *Client) sendRequest(ctx context.Context, req Request) (string, error) {
 	}
 
 	// Concatenate all text content blocks
-	var result string
 	for _, block := range apiResp.Content {
 		if block.Type == "text" {
 			result += block.Text

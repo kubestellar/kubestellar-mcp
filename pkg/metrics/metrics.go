@@ -71,10 +71,33 @@ var (
 		Name: "mcpserver_active_clusters",
 		Help: "Number of clusters reachable in the most recent multi-cluster discovery.",
 	})
+
+	// AIQueryTotal counts completed AI-provider queries by provider and
+	// outcome status. "provider" must be a short, closed identifier (e.g.
+	// "claude") - never a raw model name or error string.
+	AIQueryTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "mcpserver_ai_query_total",
+		Help: "Total number of AI provider queries, by provider and status.",
+	}, []string{"provider", "status"})
+
+	// AIQueryDurationSeconds observes end-to-end latency of AI provider
+	// queries, from request send to response parse.
+	AIQueryDurationSeconds = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "mcpserver_ai_query_duration_seconds",
+		Help:    "End-to-end latency of AI provider queries, in seconds.",
+		Buckets: prometheus.DefBuckets,
+	}, []string{"provider"})
 )
 
 func init() {
-	Registry.MustRegister(ToolCallsTotal, ToolDurationSeconds, ToolErrorsTotal, ActiveClusters)
+	Registry.MustRegister(
+		ToolCallsTotal,
+		ToolDurationSeconds,
+		ToolErrorsTotal,
+		ActiveClusters,
+		AIQueryTotal,
+		AIQueryDurationSeconds,
+	)
 }
 
 // RecordToolCall records a completed tool invocation. cluster may be empty
@@ -114,6 +137,19 @@ func healthzHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("ok"))
+}
+
+// RecordAIQuery records a completed AI provider query. provider must be a
+// short, closed identifier (e.g. "claude") - never a raw model name or
+// error string, to keep the label bounded.
+func RecordAIQuery(provider string, duration time.Duration, err error) {
+	status := "success"
+	if err != nil {
+		status = "error"
+	}
+
+	AIQueryTotal.WithLabelValues(provider, status).Inc()
+	AIQueryDurationSeconds.WithLabelValues(provider).Observe(duration.Seconds())
 }
 
 // StartServer starts an HTTP server exposing the /metrics endpoint on addr

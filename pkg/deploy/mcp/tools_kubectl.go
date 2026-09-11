@@ -35,16 +35,46 @@ type ApplyResult struct {
 	Message   string `json:"message,omitempty"`
 }
 
+// sensitiveKinds enumerates resource kinds the MCP kubectl surface must NOT
+// mutate on the caller's behalf. The block is scoped by the invariant that
+// creating any listed resource is equivalent to privilege escalation on the
+// target cluster/namespace — either directly (Secret/ServiceAccount/RBAC),
+// via admission-time rewrite (Mutating/ValidatingWebhookConfiguration), or via
+// out-of-band credential minting (CertificateSigningRequest, legacy PSP).
+//
+// Namespaced Role/RoleBinding are included because they can grant `secrets:*`
+// (and thereby defeat the Secret block) with a single follow-up apply — see
+// issue #804.
 var sensitiveKinds = map[string]bool{
+	// Cluster-scoped RBAC
 	"clusterrole":         true,
 	"clusterroles":        true,
 	"clusterrolebinding":  true,
 	"clusterrolebindings": true,
-	"secret":              true,
-	"secrets":             true,
-	"serviceaccount":      true,
-	"serviceaccounts":     true,
-	"sa":                  true,
+	// Namespaced RBAC (grants that equal Secret access via one extra apply)
+	"role":         true,
+	"roles":        true,
+	"rolebinding":  true,
+	"rolebindings": true,
+	// Credentials
+	"secret":          true,
+	"secrets":         true,
+	"serviceaccount":  true,
+	"serviceaccounts": true,
+	"sa":              true,
+	// Admission-time in-cluster code execution
+	"mutatingwebhookconfiguration":    true,
+	"mutatingwebhookconfigurations":   true,
+	"validatingwebhookconfiguration":  true,
+	"validatingwebhookconfigurations": true,
+	// Cert minting
+	"certificatesigningrequest":  true,
+	"certificatesigningrequests": true,
+	"csr":                        true,
+	// Legacy but still present on older clusters
+	"podsecuritypolicy":   true,
+	"podsecuritypolicies": true,
+	"psp":                 true,
 }
 
 func isSensitiveKind(kind string) bool {

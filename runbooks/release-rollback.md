@@ -16,7 +16,7 @@ GoReleaser/Homebrew publish error, or the version-bump logic erroring) and
 no release is cut at all. The workflow's `notify` job only writes a
 `$GITHUB_STEP_SUMMARY` on that run — nothing pages anyone, and scheduled
 runs are easy to miss since no one is watching the Actions tab by default.
-See kubestellar-mcp#771, which tracks adding an automated `if: failure()`
+See kubestellar-mcp#783, which tracks adding an automated `if: failure()`
 alert step; until that lands, check for this manually:
 
 1. Compare the most recent GitHub Release timestamp under **Releases**
