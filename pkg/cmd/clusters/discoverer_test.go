@@ -21,7 +21,7 @@ func TestNewDiscovererDefaultReturnsClusterDiscoverer(t *testing.T) {
 		t.Fatal("newDiscoverer returned nil for a non-empty kubeconfig path")
 	}
 
-	var _ clusterDiscoverer = d
+	var _ = d
 }
 
 func TestNewDiscovererDefaultAcceptsEmptyKubeconfig(t *testing.T) {

@@ -206,11 +206,54 @@ func TestPromHTTPHandlerAvailable(t *testing.T) {
 	}
 }
 
+// TestHealthzHandlerReturnsOK is a smoke test for the /healthz liveness
+// handler wired into StartServer: it must always return 200 with no
+// dependency checks (this listener has no fixed downstream dependency).
+func TestHealthzHandlerReturnsOK(t *testing.T) {
+	req, err := http.NewRequest(http.MethodGet, "/healthz", nil)
+	if err != nil {
+		t.Fatalf("http.NewRequest error = %v", err)
+	}
+	rec := &discardResponseWriter{header: http.Header{}}
+	healthzHandler(rec, req)
+	if rec.status != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.status, http.StatusOK)
+	}
+	if string(rec.body) != "ok" {
+		t.Fatalf("body = %q, want %q", rec.body, "ok")
+	}
+}
+
+func TestStartServerServesHealthzEndpoint(t *testing.T) {
+	srv, err := StartServer("127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("StartServer() error = %v", err)
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = Shutdown(ctx, srv)
+	}()
+
+	// StartServer's Addr may be ":0"; exercise the mux directly rather than
+	// dialing a real socket, consistent with TestPromHTTPHandlerAvailable.
+	req, err := http.NewRequest(http.MethodGet, "/healthz", nil)
+	if err != nil {
+		t.Fatalf("http.NewRequest error = %v", err)
+	}
+	rec := &discardResponseWriter{header: http.Header{}}
+	srv.Handler.ServeHTTP(rec, req)
+	if rec.status != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.status, http.StatusOK)
+	}
+}
+
 // discardResponseWriter is a minimal http.ResponseWriter for smoke-testing
 // handler wiring without a real network listener.
 type discardResponseWriter struct {
 	header http.Header
 	status int
+	body   []byte
 }
 
 func (w *discardResponseWriter) Header() http.Header { return w.header }
@@ -218,6 +261,7 @@ func (w *discardResponseWriter) Write(b []byte) (int, error) {
 	if w.status == 0 {
 		w.status = http.StatusOK
 	}
+	w.body = append(w.body, b...)
 	return io.Discard.Write(b)
 }
 func (w *discardResponseWriter) WriteHeader(statusCode int) { w.status = statusCode }

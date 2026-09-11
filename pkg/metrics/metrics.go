@@ -127,6 +127,18 @@ func SetActiveClusters(n int) {
 	ActiveClusters.Set(float64(n))
 }
 
+// healthzHandler is a minimal liveness probe: it reports 200 OK as soon as
+// the HTTP listener is serving requests. It intentionally does not check
+// any downstream dependency (this listener has no fixed one to check) - it
+// only confirms the process/listener is alive. It is not a substitute for
+// the tool-level and per-cluster diagnostics in
+// runbooks/mcp-server-operations.md.
+func healthzHandler(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("ok"))
+}
+
 // RecordAIQuery records a completed AI provider query. provider must be a
 // short, closed identifier (e.g. "claude") - never a raw model name or
 // error string, to keep the label bounded.
@@ -150,6 +162,7 @@ func StartServer(addr string) (*http.Server, error) {
 
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.HandlerFor(Registry, promhttp.HandlerOpts{}))
+	mux.HandleFunc("/healthz", healthzHandler)
 	srv := &http.Server{
 		Addr:              addr,
 		Handler:           mux,
