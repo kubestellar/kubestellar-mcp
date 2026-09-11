@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
 	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/protocol"
+	"github.com/kubestellar/kubestellar-mcp/pkg/metrics"
 	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 	"k8s.io/client-go/rest"
 )
@@ -825,6 +827,17 @@ func (s *Server) handleToolCall(ctx context.Context, req *MCPRequest) *MCPRespon
 	var result interface{}
 	var err error
 
+	// start/duration bracket the dispatched handler call below so every
+	// recognized tool (fixed switch-case set) is timed and recorded via
+	// metrics.RecordToolCall, matching the sibling kubestellar-mcp server's
+	// instrumentation of pkg/mcp/server.handleToolsCall. The default
+	// (unrecognized-tool) arm returns before this point, so a
+	// client-supplied tool name can never reach RecordToolCall as a label
+	// value. No per-request cluster scoping is available at this dispatch
+	// point, so cluster is left empty and normalized to the bounded "none"
+	// label by RecordToolCall.
+	start := time.Now()
+
 	switch params.Name {
 	case "get_app_instances":
 		result, err = s.handleGetAppInstances(ctx, params.Arguments)
@@ -884,6 +897,8 @@ func (s *Server) handleToolCall(ctx context.Context, req *MCPRequest) *MCPRespon
 			Error:   &MCPError{Code: -32601, Message: fmt.Sprintf("Unknown tool: %s", params.Name)},
 		}
 	}
+
+	metrics.RecordToolCall(params.Name, "", time.Since(start), err != nil, "")
 
 	if err != nil {
 		return &MCPResponse{
