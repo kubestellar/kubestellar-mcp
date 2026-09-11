@@ -10,6 +10,8 @@ import (
 	"os"
 	"time"
 
+	"k8s.io/klog/v2"
+
 	"github.com/kubestellar/kubestellar-mcp/pkg/metrics"
 )
 
@@ -154,7 +156,19 @@ func (c *Client) Chat(ctx context.Context, systemPrompt string, messages []Messa
 func (c *Client) sendRequest(ctx context.Context, req Request) (result string, err error) {
 	start := time.Now()
 	defer func() {
-		metrics.RecordAIQuery(providerName, time.Since(start), err)
+		duration := time.Since(start)
+		metrics.RecordAIQuery(providerName, duration, err)
+
+		// Structured, bounded lifecycle logging: provider is a fixed
+		// constant (never the user-configurable model string) and no raw
+		// error text or request/response content is logged, so this cannot
+		// leak API keys or grow unbounded - mirrors the tool-call lifecycle
+		// logging in pkg/mcp/server.
+		if err != nil {
+			klog.Errorf("ai query failed: provider=%s duration=%s", providerName, duration)
+		} else {
+			klog.V(2).Infof("ai query succeeded: provider=%s duration=%s", providerName, duration)
+		}
 	}()
 
 	body, err := json.Marshal(req)
