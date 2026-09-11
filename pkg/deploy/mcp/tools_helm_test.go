@@ -293,13 +293,7 @@ func newHelmTestServer(t *testing.T, contexts map[string]string) *Server {
 	}
 	config.CurrentContext = firstContext
 
-	dir, err := os.MkdirTemp(".", "helm-kubeconfig-*")
-	if err != nil {
-		t.Fatalf("MkdirTemp() error = %v", err)
-	}
-	t.Cleanup(func() {
-		_ = os.RemoveAll(dir)
-	})
+	dir := t.TempDir()
 
 	kubeconfig := filepath.Join(dir, "config")
 	if err := clientcmd.WriteToFile(*config, kubeconfig); err != nil {

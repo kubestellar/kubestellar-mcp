@@ -222,21 +222,12 @@ func TestHandlePreviewChangesDelegatesToSyncWithDryRun(t *testing.T) {
 
 func setGitOpsTempDir(t *testing.T) {
 	t.Helper()
-	dir, err := os.MkdirTemp(".", "gitops-tmp-*")
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = os.RemoveAll(dir) })
-	absDir, err := filepath.Abs(dir)
-	require.NoError(t, err)
-	t.Setenv("TMPDIR", absDir)
+	t.Setenv("TMPDIR", t.TempDir())
 }
 
 func createGitRepo(t *testing.T, files map[string]string) string {
 	t.Helper()
-	dir, err := os.MkdirTemp(".", "gitops-repo-*")
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = os.RemoveAll(dir) })
-	absDir, err := filepath.Abs(dir)
-	require.NoError(t, err)
+	absDir := t.TempDir()
 
 	for name, content := range files {
 		path := filepath.Join(absDir, name)
