@@ -48,3 +48,8 @@ assignees: ""
 ## Lessons Learned
 
 <!-- What did we learn? What should we do differently? -->
+
+## Postmortem
+
+**Postmortem required?** <!-- Yes (P1/P2, or any user-impacting rollback per runbooks/release-rollback.md) / No (P3/P4) -->  
+**Postmortem link:** <!-- File using docs/postmortem-template.md, e.g. docs/postmortems/YYYY-MM-DD-<short-title>.md, and link it here once opened -->
