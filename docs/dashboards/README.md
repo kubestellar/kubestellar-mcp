@@ -15,6 +15,8 @@ Overview of MCP tool-dispatch traffic for the metrics defined in
 - `mcpserver_tool_errors_total` — error rate and breakdown by `error_kind`
 - `mcpserver_tool_duration_seconds` — p50/p95/p99 latency
 - `mcpserver_active_clusters` — reachable cluster count
+- `mcpserver_ai_query_total` — AI provider query rate by provider and status
+- `mcpserver_ai_query_duration_seconds` — AI provider query p50/p95/p99 latency
 
 Import via Grafana's "Import dashboard" flow (paste JSON or upload the file)
 and select a Prometheus datasource that scrapes the MCP server's `/metrics`
