@@ -5,6 +5,12 @@
 # Prometheus (or Prometheus Operator) and has opted the MCP server into the
 # metrics endpoint (`--metrics-addr`, see ../../pkg/metrics) can apply this
 # as-is, or adapt it for a plain Prometheus rule_files entry.
+#
+# SCOPE: kubestellar-deploy (pkg/deploy/) shares the same mcpserver_* metric
+# names as kubestellar-ops with no binary-distinguishing label. If you scrape
+# both binaries' --metrics-addr listeners into one Prometheus, every rule
+# below aggregates both services' traffic unless you separate them by
+# job/instance label first (see ../slo.md "Scope note" and ./README.md).
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
