@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"testing"
@@ -110,6 +111,53 @@ func TestSetActiveClusters(t *testing.T) {
 	}
 }
 
+func TestRecordAIQuerySuccess(t *testing.T) {
+	RecordAIQuery("claude", 40*time.Millisecond, nil)
+
+	families := gather(t)
+
+	found := false
+	for _, m := range families["mcpserver_ai_query_total"].GetMetric() {
+		if labelValue(m, "provider") == "claude" && labelValue(m, "status") == "success" {
+			found = true
+			if m.GetCounter().GetValue() < 1 {
+				t.Errorf("expected counter >= 1, got %v", m.GetCounter().GetValue())
+			}
+		}
+	}
+	if !found {
+		t.Fatal("expected mcpserver_ai_query_total series for claude/success")
+	}
+
+	durFound := false
+	for _, m := range families["mcpserver_ai_query_duration_seconds"].GetMetric() {
+		if labelValue(m, "provider") == "claude" {
+			durFound = true
+			if m.GetHistogram().GetSampleCount() < 1 {
+				t.Errorf("expected at least one observation, got %v", m.GetHistogram().GetSampleCount())
+			}
+		}
+	}
+	if !durFound {
+		t.Fatal("expected mcpserver_ai_query_duration_seconds series for claude")
+	}
+}
+
+func TestRecordAIQueryError(t *testing.T) {
+	RecordAIQuery("claude", 5*time.Millisecond, errors.New("boom"))
+
+	families := gather(t)
+	found := false
+	for _, m := range families["mcpserver_ai_query_total"].GetMetric() {
+		if labelValue(m, "provider") == "claude" && labelValue(m, "status") == "error" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("expected mcpserver_ai_query_total series for claude/error")
+	}
+}
+
 func TestStartServerRejectsEmptyAddr(t *testing.T) {
 	if _, err := StartServer(""); err == nil {
 		t.Fatal("expected error for empty addr")
@@ -158,11 +206,54 @@ func TestPromHTTPHandlerAvailable(t *testing.T) {
 	}
 }
 
+// TestHealthzHandlerReturnsOK is a smoke test for the /healthz liveness
+// handler wired into StartServer: it must always return 200 with no
+// dependency checks (this listener has no fixed downstream dependency).
+func TestHealthzHandlerReturnsOK(t *testing.T) {
+	req, err := http.NewRequest(http.MethodGet, "/healthz", nil)
+	if err != nil {
+		t.Fatalf("http.NewRequest error = %v", err)
+	}
+	rec := &discardResponseWriter{header: http.Header{}}
+	healthzHandler(rec, req)
+	if rec.status != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.status, http.StatusOK)
+	}
+	if string(rec.body) != "ok" {
+		t.Fatalf("body = %q, want %q", rec.body, "ok")
+	}
+}
+
+func TestStartServerServesHealthzEndpoint(t *testing.T) {
+	srv, err := StartServer("127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("StartServer() error = %v", err)
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = Shutdown(ctx, srv)
+	}()
+
+	// StartServer's Addr may be ":0"; exercise the mux directly rather than
+	// dialing a real socket, consistent with TestPromHTTPHandlerAvailable.
+	req, err := http.NewRequest(http.MethodGet, "/healthz", nil)
+	if err != nil {
+		t.Fatalf("http.NewRequest error = %v", err)
+	}
+	rec := &discardResponseWriter{header: http.Header{}}
+	srv.Handler.ServeHTTP(rec, req)
+	if rec.status != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.status, http.StatusOK)
+	}
+}
+
 // discardResponseWriter is a minimal http.ResponseWriter for smoke-testing
 // handler wiring without a real network listener.
 type discardResponseWriter struct {
 	header http.Header
 	status int
+	body   []byte
 }
 
 func (w *discardResponseWriter) Header() http.Header { return w.header }
@@ -170,6 +261,7 @@ func (w *discardResponseWriter) Write(b []byte) (int, error) {
 	if w.status == 0 {
 		w.status = http.StatusOK
 	}
+	w.body = append(w.body, b...)
 	return io.Discard.Write(b)
 }
 func (w *discardResponseWriter) WriteHeader(statusCode int) { w.status = statusCode }

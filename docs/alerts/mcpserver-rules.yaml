@@ -5,6 +5,12 @@
 # Prometheus (or Prometheus Operator) and has opted the MCP server into the
 # metrics endpoint (`--metrics-addr`, see ../../pkg/metrics) can apply this
 # as-is, or adapt it for a plain Prometheus rule_files entry.
+#
+# SCOPE: kubestellar-deploy (pkg/deploy/) shares the same mcpserver_* metric
+# names as kubestellar-ops with no binary-distinguishing label. If you scrape
+# both binaries' --metrics-addr listeners into one Prometheus, every rule
+# below aggregates both services' traffic unless you separate them by
+# job/instance label first (see ../slo.md "Scope note" and ./README.md).
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
@@ -51,7 +57,9 @@ spec:
               exceeds the SLO 1 7-day floor in docs/slo.md. Follow
               runbooks/mcp-server-operations.md#diagnosing-silent-failures.
 
-        # SLO 1 latency companion — p95 tool latency budget.
+        # General tool-latency proxy (not a direct SLO 2 measurement — see
+        # docs/slo.md "Note on mcpserver_tool_duration_seconds vs. SLO 2").
+        # Threshold matches SLO 2's p95 target for reference only.
         - alert: MCPServerHighToolLatencyP95
           expr: |
             histogram_quantile(0.95, sum by (le) (rate(mcpserver_tool_duration_seconds_bucket[15m]))) > 2
@@ -61,11 +69,58 @@ spec:
           annotations:
             summary: "kubestellar-mcp p95 tool latency is elevated"
             description: >-
-              p95 tool-call latency has exceeded 2s for 15m. Compare
-              against docs/slo.md SLO 2 targets and follow
+              p95 tool-call latency (across all tool calls) has exceeded
+              2s for 15m, using docs/slo.md SLO 2's p95 target as a
+              reference threshold — this metric does not isolate
+              discovery/handshake latency, so treat this as a general
+              latency signal, not a direct SLO 2 breach. Follow
               runbooks/mcp-server-operations.md#diagnosing-high-tool-error-rate-or-latency
               to check for cluster API server slowness or connectivity
               issues.
+
+        # AI provider query error rate (SLO 5 — AI Provider Query
+        # Availability, ../slo.md). mcpserver_ai_query_total/
+        # mcpserver_ai_query_duration_seconds are recorded by
+        # pkg/ai/claude/client.go via metrics.RecordAIQuery; this mirrors
+        # the SLO 1 30-day error-budget threshold.
+        - alert: MCPServerHighAIQueryErrorRate
+          expr: |
+            sum(rate(mcpserver_ai_query_total{status="error"}[1h]))
+            /
+            sum(rate(mcpserver_ai_query_total[1h]))
+            > 0.05
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: "kubestellar-mcp AI provider query error rate is elevated"
+            description: >-
+              AI provider query error rate has been above 5% for 1h, which
+              exceeds the SLO 5 30-day error budget in ../slo.md. See
+              runbooks/mcp-server-operations.md#using-the-metrics-endpoint
+              to inspect mcpserver_ai_query_total{provider,status} and
+              isolate the affected provider.
+
+        # SLO 5 latency companion — mirrors MCPServerHighToolLatencyP95,
+        # backed by AIQueryDurationSeconds (pkg/metrics/metrics.go),
+        # recorded by pkg/ai/claude/client.go via metrics.RecordAIQuery.
+        - alert: MCPServerHighAIQueryLatencyP95
+          expr: |
+            histogram_quantile(0.95, sum by (le) (rate(mcpserver_ai_query_duration_seconds_bucket[15m]))) > 2
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "kubestellar-mcp p95 AI provider query latency is elevated"
+            description: >-
+              p95 AI provider query latency has exceeded 2s for 15m. This
+              can indicate a degraded AI provider endpoint even when
+              queries still succeed (no signal from
+              MCPServerHighAIQueryErrorRate). Compare against SLO 5 in
+              ../slo.md and follow
+              runbooks/mcp-server-operations.md#diagnosing-high-ai-provider-query-error-rate-or-latency
+              to inspect mcpserver_ai_query_duration_seconds{provider}
+              and isolate the affected provider.
 
         # Signals a possible discovery/connectivity regression (see
         # runbooks/mcp-server-operations.md#multi-cluster-connectivity-loss).
@@ -80,3 +135,29 @@ spec:
               mcpserver_active_clusters has been 0 for 10m. This usually
               indicates a kubeconfig or connectivity problem; see
               runbooks/mcp-server-operations.md#multi-cluster-connectivity-loss.
+
+        # Scrape-target-down detector. All rules above depend on
+        # mcpserver_* series being present; once the /metrics endpoint
+        # stops being scrapable (process crashed, hung, or unreachable),
+        # those series go stale and drop out of instant-vector queries
+        # instead of tripping a threshold, so a full outage is *less*
+        # visible than a degraded one. `up` is the standard
+        # Prometheus-maintained metric for the scrape target itself, so
+        # it still reports 0 even when every mcpserver_* series is gone.
+        # Adjust the job/instance selector below to match your scrape
+        # config (see docs/alerts/README.md and
+        # runbooks/mcp-server-operations.md#using-the-metrics-endpoint).
+        - alert: MCPServerScrapeTargetDown
+          expr: up{job="kubestellar-mcp"} == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "kubestellar-mcp /metrics scrape target is down"
+            description: >-
+              Prometheus has been unable to scrape the kubestellar-mcp
+              /metrics endpoint for 5m. This means the server process is
+              unreachable, crashed, or hung - none of the other alerts in
+              this file can fire once this happens, since they all
+              depend on live mcpserver_* series. See
+              runbooks/mcp-server-operations.md#diagnosing-a-scrape-target-outage.

@@ -16,10 +16,12 @@
 6. [Container Health Verification](#container-health-verification)
 7. [Diagnosing Silent Failures](#diagnosing-silent-failures)
 8. [Using the Metrics Endpoint](#using-the-metrics-endpoint)
-9. [Diagnosing High Tool Error Rate or Latency](#diagnosing-high-tool-error-rate-or-latency)
-10. [Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage, Release)](#detecting-a-failed-scheduled-workflow-security-scans-stale-triage-release)
-11. [Escalation](#escalation)
-12. [Release Rollback](release-rollback.md) (separate runbook, for a bad automated nightly/weekly release)
+9. [Diagnosing a Scrape Target Outage](#diagnosing-a-scrape-target-outage)
+10. [Diagnosing High Tool Error Rate or Latency](#diagnosing-high-tool-error-rate-or-latency)
+11. [Diagnosing High AI Provider Query Error Rate or Latency](#diagnosing-high-ai-provider-query-error-rate-or-latency)
+12. [Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage, Release)](#detecting-a-failed-scheduled-workflow-security-scans-stale-triage-release)
+13. [Escalation](#escalation)
+14. [Release Rollback](release-rollback.md) (separate runbook, for a bad automated nightly/weekly release)
 
 ---
 
@@ -174,7 +176,7 @@ The MCP server is designed to continue serving requests for healthy clusters whe
 
 ## Container Health Verification
 
-The container runs as a non-root user (`nonroot:65532`). Because the MCP server uses stdio transport, there is no HTTP endpoint to probe. Use the following to verify the container is alive and responsive:
+The container runs as a non-root user (`nonroot:65532`). The MCP server uses stdio transport by default, with no HTTP endpoint to probe unless an operator has explicitly started it with `--metrics-addr` (see `docs/slo.md`). Use the following to verify the container is alive and responsive:
 
 ### Check the process is running
 
@@ -194,6 +196,17 @@ docker inspect <container_id> --format '{{.State.ExitCode}}'
 ### Verify stdin/stdout connectivity
 
 If integrating with an MCP client (e.g., Claude Code), check that the client reports the server as connected. A connected server responds to `initialize` requests within 5 seconds under normal load.
+
+### Optional HTTP liveness check (when `--metrics-addr` is set)
+
+If the server was started with `--metrics-addr`, it also serves a lightweight `/healthz` liveness endpoint alongside `/metrics`:
+
+```bash
+curl -sf http://<metrics-addr>/healthz
+# Expected: HTTP 200, body "ok"
+```
+
+`/healthz` only confirms the HTTP listener/process is alive (no clusters or downstream dependencies are checked) — it is not a substitute for the tool-level diagnostics above. When `--metrics-addr` is not set, this endpoint does not exist and the process/exit-code checks above are the only options.
 
 ---
 
@@ -242,12 +255,33 @@ kubestellar-ops --mcp-server --metrics-addr 127.0.0.1:9090
 curl -s http://127.0.0.1:9090/metrics | grep mcpserver_
 ```
 
+`kubestellar-deploy` supports the identical flag and exposes the identical
+`mcpserver_*` metric names (see `pkg/deploy/cmd/root.go`, wired to the same
+`pkg/metrics` package):
+
+```bash
+kubestellar-deploy --mcp-server --metrics-addr 127.0.0.1:9091
+curl -s http://127.0.0.1:9091/metrics | grep mcpserver_
+```
+
+**Shared-registry caveat:** because both binaries emit the same metric
+names with no binary-distinguishing label, running both with `--metrics-addr`
+and scraping them into one Prometheus requires separating them by `job`/
+`instance` label (or a relabel step) — otherwise the alert rules in
+[`docs/alerts/mcpserver-rules.yaml`](../docs/alerts/mcpserver-rules.yaml)
+and the SLOs in [`docs/slo.md`](../docs/slo.md) will blend `kubestellar-ops`
+diagnostic traffic with `kubestellar-deploy` GitOps/blue-green-deploy
+traffic, masking a real outage in one binary with healthy volume from the
+other. See the "Scope note" in `docs/slo.md` for which SLOs are shared and
+which are `kubestellar-ops`-specific.
+
 ### What to look for
 
 - `mcpserver_tool_calls_total{tool,cluster,status}` — call volume and success/error split per tool and cluster.
 - `mcpserver_tool_errors_total{tool,cluster,error_kind}` — error volume by tool, cluster, and a closed `error_kind` enum.
 - `mcpserver_tool_duration_seconds{tool,cluster}` — latency histogram; compare against [SLO 1/2](../docs/slo.md) targets.
 - `mcpserver_active_clusters` — reachable cluster count from the most recent discovery; a sudden drop indicates connectivity loss (see [Multi-Cluster Connectivity Loss](#multi-cluster-connectivity-loss)).
+- `mcpserver_ai_query_total{provider,status}` / `mcpserver_ai_query_duration_seconds{provider}` — AI provider query volume, outcome, and latency (see `pkg/ai/claude/client.go`); watch alongside `MCPServerHighAIQueryErrorRate` in [`docs/alerts/mcpserver-rules.yaml`](../docs/alerts/mcpserver-rules.yaml).
 
 ### Dashboard
 
@@ -256,6 +290,55 @@ A ready-to-import Grafana dashboard for these metrics is at
 (see [`docs/dashboards/README.md`](../docs/dashboards/README.md)). It requires a
 Prometheus instance already scraping this server's `/metrics` endpoint — no
 scrape config or backend is bundled with this repository.
+
+---
+
+## Diagnosing a Scrape Target Outage
+
+**Symptom:** The `MCPServerScrapeTargetDown` alert in
+[`docs/alerts/mcpserver-rules.yaml`](../docs/alerts/mcpserver-rules.yaml) has
+fired.
+
+This is distinct from every other alert in that file: it fires on the
+standard Prometheus `up` metric for the scrape target itself, not on any
+`mcpserver_*` series. Once the `/metrics` endpoint is unreachable, the
+`mcpserver_*` series it would normally emit go stale and drop out of
+instant-vector queries, so the ratio/gauge-based alerts above cannot fire —
+this is the only alert that still pages when the process is fully down or
+unreachable.
+
+### Steps
+
+1. Confirm the process/container state first, since this alert means the
+   scrape itself is failing, not that error rates are elevated:
+   ```bash
+   docker inspect <container_id> --format '{{.State.Status}}'
+   docker inspect <container_id> --format '{{.State.ExitCode}}'
+   ```
+   See [Container Health Verification](#container-health-verification) for
+   the full sequence.
+
+2. If the container is running, check that `--metrics-addr` is still the
+   flag the process was started with, and that the listener is reachable
+   from the Prometheus scrape target (network policy, port mapping,
+   firewall):
+   ```bash
+   docker exec <container_id> curl -s http://127.0.0.1:<port>/metrics | head
+   ```
+
+3. Check container logs for a panic or fatal error around the time the
+   scrape started failing (see [Diagnosing Silent
+   Failures](#diagnosing-silent-failures)).
+
+4. If the process is gone or hung, restart it — the MCP server is
+   stateless between requests, so restarts are safe (see [Starting and
+   Stopping](#starting-and-stopping)).
+
+5. Once the endpoint is reachable again, confirm the alert clears and check
+   whether any of the ratio/gauge alerts above (`MCPServerHighToolErrorRate`,
+   `MCPServerActiveClustersDroppedToZero`, etc.) also fire once fresh data
+   arrives — the outage window may have hidden a real error-rate or
+   connectivity regression.
 
 ---
 
@@ -296,6 +379,48 @@ has fired (see [SLO 1/2](../docs/slo.md)).
 5. If `error_kind` shows a concentration of `timeout`: confirm the target
    cluster is reachable at all per
    [Multi-Cluster Connectivity Loss](#multi-cluster-connectivity-loss).
+
+---
+
+## Diagnosing High AI Provider Query Error Rate or Latency
+
+**Symptom:** The `MCPServerHighAIQueryErrorRate` or
+`MCPServerHighAIQueryLatencyP95` alert in
+[`docs/alerts/mcpserver-rules.yaml`](../docs/alerts/mcpserver-rules.yaml)
+has fired (see [SLO 5](../docs/slo.md)). Note that these two alerts are
+independent signals: a degraded AI provider endpoint can return slow
+*successful* responses (latency alert only, no error-rate signal) or fail
+outright (error-rate alert), so check both.
+
+### Steps
+
+1. Enable the metrics endpoint if it is not already running for this
+   deployment (see [Using the Metrics Endpoint](#using-the-metrics-endpoint)
+   above).
+
+2. Isolate the affected provider:
+   ```bash
+   curl -s http://127.0.0.1:9090/metrics | grep 'mcpserver_ai_query_total\|mcpserver_ai_query_duration_seconds'
+   ```
+   Compare `mcpserver_ai_query_total{provider,status}` and
+   `mcpserver_ai_query_duration_seconds{provider}` across providers — a
+   spike concentrated on one `provider` label points to that provider's
+   endpoint rather than the MCP server itself.
+
+3. If latency is elevated but errors are not (latency alert only): treat
+   this as a possible upstream AI provider degradation. Check the
+   provider's own status page/dashboard before assuming a local issue.
+
+4. If errors are elevated: check `pkg/ai/claude/client.go` request
+   handling and recent provider API changes (auth, rate limiting, schema).
+   Cross-reference with [Diagnosing Silent Failures](#diagnosing-silent-failures)
+   for panic/log inspection if errors span all providers.
+
+5. Per [SLO 5 exclusions](../docs/slo.md#slo-5--ai-provider-query-availability),
+   failures attributable to the underlying cluster/API server rather than
+   the AI provider integration itself are excluded from this SLO, but still
+   merit follow-up via [Multi-Cluster Connectivity Loss](#multi-cluster-connectivity-loss)
+   if relevant.
 
 ---
 
