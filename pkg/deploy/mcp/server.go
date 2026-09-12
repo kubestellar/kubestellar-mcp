@@ -898,7 +898,7 @@ func (s *Server) handleToolCall(ctx context.Context, req *MCPRequest) *MCPRespon
 		}
 	}
 
-	metrics.RecordToolCall(params.Name, "", time.Since(start), err != nil, "")
+	metrics.RecordToolCall(params.Name, "", time.Since(start), err != nil, metrics.ClassifyError(err))
 
 	if err != nil {
 		return &MCPResponse{
