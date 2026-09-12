@@ -10,6 +10,9 @@ import (
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -148,16 +151,32 @@ func (s *Server) handleToolsCall(ctx context.Context, req *Request) {
 		return
 	}
 
+	// Root span for the tool-dispatch request path. tool.name is bounded:
+	// it is either a registered tool name or the fixed literal below, never
+	// arbitrary caller-supplied text.
+	ctx, span := tracer.Start(ctx, "mcp.tool.call", trace.WithAttributes(
+		attribute.String("tool.name", params.Name),
+	))
+	defer span.End()
+
 	handler := findToolHandler(params.Name)
 	if handler == nil {
+		span.SetStatus(codes.Error, "unknown tool")
 		s.sendError(req.ID, -32602, fmt.Sprintf("Unknown tool: %s", params.Name), nil)
 		return
+	}
+
+	// Bounded before use as a span attribute or metrics/log label: raw
+	// tool-call arguments are client-controlled, so unrecognized cluster
+	// names are mapped to a fixed label (see boundedClusterLabel).
+	cluster := s.boundedClusterLabel(clusterArg(params.Arguments))
+	if cluster != "" {
+		span.SetAttributes(attribute.String("k8s.cluster.name", cluster))
 	}
 
 	start := time.Now()
 	result, isError := handler(ctx, s, params.Arguments)
 	duration := time.Since(start)
-	cluster := s.boundedClusterLabel(clusterArg(params.Arguments))
 	metrics.RecordToolCall(params.Name, cluster, duration, isError, "")
 
 	// Structured, bounded lifecycle logging: tool and cluster come from
@@ -168,6 +187,7 @@ func (s *Server) handleToolsCall(ctx context.Context, req *Request) {
 	// fields are actually structured (parseable key=value pairs) instead of
 	// baked into a free-form message string.
 	if isError {
+		span.SetStatus(codes.Error, "tool call returned an error result")
 		klog.ErrorS(nil, "tool call failed", "tool", params.Name, "cluster", cluster, "duration", duration)
 	} else {
 		klog.V(2).InfoS("tool call succeeded", "tool", params.Name, "cluster", cluster, "duration", duration)
