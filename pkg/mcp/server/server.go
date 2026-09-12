@@ -158,7 +158,7 @@ func (s *Server) handleToolsCall(ctx context.Context, req *Request) {
 	result, isError := handler(ctx, s, params.Arguments)
 	duration := time.Since(start)
 	cluster := s.boundedClusterLabel(clusterArg(params.Arguments))
-	metrics.RecordToolCall(params.Name, cluster, duration, isError, "")
+	metrics.RecordToolCall(params.Name, cluster, duration, isError, errKindFromContext(ctx))
 
 	// Structured, bounded lifecycle logging: tool and cluster come from
 	// closed/known sets (see clusterArg, boundedClusterLabel, metrics
@@ -177,6 +177,20 @@ func (s *Server) handleToolsCall(ctx context.Context, req *Request) {
 		Content: []ContentBlock{{Type: "text", Text: result}},
 		IsError: isError,
 	})
+}
+
+// errKindFromContext classifies a tool-call error using only the objective
+// context signal available at the handleToolsCall call site: whether ctx was
+// canceled or hit its deadline by the time the handler returned. It returns
+// metrics.ErrorKindTimeout in that case, and "" otherwise (which
+// RecordToolCall normalizes to metrics.ErrorKindUnknown for actual errors).
+// This does not classify k8s_api or marshal errors - see tracked issue #748
+// for why that requires wider changes across ~30+ tool handlers.
+func errKindFromContext(ctx context.Context) metrics.ErrorKind {
+	if ctx.Err() != nil {
+		return metrics.ErrorKindTimeout
+	}
+	return ""
 }
 
 // clusterArg extracts a "cluster" argument from tool call arguments, if
