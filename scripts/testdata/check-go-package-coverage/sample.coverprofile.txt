@@ -1,0 +1,8 @@
+mode: atomic
+github.com/kubestellar/kubestellar-mcp/pkg/example/a.go:10.30,12.2 1 1
+github.com/kubestellar/kubestellar-mcp/pkg/example/a.go:14.30,16.2 1 3
+github.com/kubestellar/kubestellar-mcp/pkg/example/b.go:5.20,7.2 1 2
+github.com/kubestellar/kubestellar-mcp/pkg/example/sub/c.go:5.20,7.2 1 1
+github.com/kubestellar/kubestellar-mcp/pkg/example/sub/c.go:9.20,11.2 1 1
+github.com/kubestellar/kubestellar-mcp/pkg/example/sub/c.go:13.20,15.2 1 0
+github.com/kubestellar/kubestellar-mcp/pkg/example/sub/c.go:17.20,19.2 1 0

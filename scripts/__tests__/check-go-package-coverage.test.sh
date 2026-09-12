@@ -22,7 +22,7 @@ fail() {
 
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 SUT="${SCRIPT_DIR}/check-go-package-coverage.sh"
-FIXTURE="${SCRIPT_DIR}/testdata/check-go-package-coverage/sample.coverprofile"
+FIXTURE="${SCRIPT_DIR}/testdata/check-go-package-coverage/sample.coverprofile.txt"
 
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
