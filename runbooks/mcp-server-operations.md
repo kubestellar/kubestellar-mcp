@@ -433,11 +433,11 @@ weekly Sunday 05:00 UTC) all run unattended on a cron schedule in addition to
 their other triggers, and none of them has a step that alerts a human on
 failure (tracked in [#730](https://github.com/kubestellar/kubestellar-mcp/issues/730)
 for `codeql.yml`/`scorecard.yml`, [#753](https://github.com/kubestellar/kubestellar-mcp/issues/753)
-for `stale.yml`, and [#851](https://github.com/kubestellar/kubestellar-mcp/issues/851)
-for `release.yml`, all the same gap class — #730, #753, and #783 are all
-closed as their interim-runbook deliverables shipped; the underlying
+for `stale.yml`, and [#854](https://github.com/kubestellar/kubestellar-mcp/issues/854)
+for `release.yml`, all the same gap class — #730, #753, #783, and #851 are
+all closed as their interim-runbook deliverables shipped; the underlying
 `release.yml` `if: failure()` alert step itself is still outstanding and is
-tracked in #851). A failed
+tracked in #854). A failed
 scheduled run is visible
 only as a red X in the Actions tab — for `release.yml` the `notify` job's
 `if: always()` step only ever writes a `GITHUB_STEP_SUMMARY`, which nobody is
