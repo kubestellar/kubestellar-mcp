@@ -2,7 +2,7 @@
 # Format: <package-path> <minimum-percent>
 # Lines beginning with # and blank lines are ignored.
 #
-# Enforced by scripts/check-go-package-coverage.sh (run from build-test.yml
+# Enforced by scripts/check-go-coverage-ratchet.sh (run from build-test.yml
 # after the total-coverage ratchet). Package coverage may rise above these
 # floors, but must never drop below them. When it rises, follow the
 # ::notice:: printed by CI and update the floor in a follow-up ratchet PR.
