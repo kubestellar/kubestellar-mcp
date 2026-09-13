@@ -115,4 +115,4 @@ By default the MCP server has no HTTP interface and no Prometheus metrics endpoi
 
 ## Review Cadence
 
-SLOs are reviewed quarterly or after any P1/P2 incident. Changes require approval from a project maintainer.
+SLOs are reviewed quarterly or after any P1/P2 incident (see [`docs/severity-levels.md`](severity-levels.md) for the severity scale). Changes require approval from a project maintainer.

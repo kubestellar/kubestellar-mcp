@@ -10,7 +10,7 @@ assignees: ""
 
 **Date/Time (UTC):**  
 **Duration:**  
-**Severity:** <!-- P1 / P2 / P3 / P4 -->  
+**Severity:** <!-- P1 / P2 / P3 / P4 — see ../../docs/severity-levels.md for definitions -->  
 **Status:** <!-- Investigating / Mitigated / Resolved -->
 
 ## Impact
@@ -51,5 +51,5 @@ assignees: ""
 
 ## Postmortem
 
-**Postmortem required?** <!-- Yes (P1/P2, or any user-impacting rollback per runbooks/release-rollback.md) / No (P3/P4) -->  
+**Postmortem required?** <!-- Yes (P1/P2 per ../../docs/severity-levels.md, or any user-impacting rollback per runbooks/release-rollback.md) / No (P3/P4) -->  
 **Postmortem link:** <!-- File using docs/postmortem-template.md, e.g. docs/postmortems/YYYY-MM-DD-<short-title>.md, and link it here once opened -->
