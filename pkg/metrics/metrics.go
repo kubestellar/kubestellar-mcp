@@ -13,12 +13,14 @@ package metrics
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 // ErrorKind is a closed enum used to classify tool-call failures without
@@ -125,6 +127,32 @@ func RecordToolCall(tool, cluster string, duration time.Duration, isError bool, 
 // SetActiveClusters updates the active-cluster gauge.
 func SetActiveClusters(n int) {
 	ActiveClusters.Set(float64(n))
+}
+
+// ClassifyError maps a tool-call error to one of the closed ErrorKind
+// values using only the error's type/status (via errors.As/errors.Is),
+// never its message text, so the "error_kind" label stays bounded no
+// matter what an underlying dependency puts in an error string. Callers
+// that already have a definite classification may skip this and pass an
+// ErrorKind literal directly to RecordToolCall instead.
+func ClassifyError(err error) ErrorKind {
+	if err == nil {
+		return ""
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return ErrorKindTimeout
+	}
+	var apiStatus apierrors.APIStatus
+	if errors.As(err, &apiStatus) {
+		return ErrorKindK8sAPI
+	}
+	var marshalerErr *json.MarshalerError
+	var unsupportedTypeErr *json.UnsupportedTypeError
+	var unsupportedValueErr *json.UnsupportedValueError
+	if errors.As(err, &marshalerErr) || errors.As(err, &unsupportedTypeErr) || errors.As(err, &unsupportedValueErr) {
+		return ErrorKindMarshal
+	}
+	return ErrorKindUnknown
 }
 
 // healthzHandler is a minimal liveness probe: it reports 200 OK as soon as
