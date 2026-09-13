@@ -1,11 +1,16 @@
 # Minimum allowed Go coverage by package directory.
 # Format: <package-path> <minimum-percent>
+#         <package-path> -                    # excluded (no statements)
 # Lines beginning with # and blank lines are ignored.
 #
 # Enforced by scripts/check-go-coverage-ratchet.sh (run from build-test.yml
 # after the total-coverage ratchet). Package coverage may rise above these
 # floors, but must never drop below them. When it rises, follow the
 # ::notice:: printed by CI and update the floor in a follow-up ratchet PR.
+#
+# A threshold of "-" (or "none") marks a package as intentionally excluded
+# from per-package enforcement because it has no coverable statements —
+# e.g. an ldflag-target var block. See kubestellar-mcp#872.
 #
 # See kubestellar-mcp#802 for background: the total-only 95% floor in
 # .github/go-coverage-ratchet.txt masked pkg/deploy/mcp at 94%.
@@ -34,3 +39,11 @@ cmd/kubestellar-ops 100.0
 # --- Tier 2: Supporting packages ---
 pkg/metrics 100.0
 pkg/progress 98.6
+
+# --- Statement-less packages (excluded from coverage enforcement) ---
+# Threshold "-" marks a package as intentionally excluded because it has
+# no coverable statements (e.g. ldflag-target var blocks). Listing it
+# here satisfies scripts/check-go-ratchet-completeness.sh --strict
+# without asking scripts/check-go-coverage-ratchet.sh to look for a
+# package that never appears in the coverprofile. See kubestellar-mcp#872.
+internal/version -

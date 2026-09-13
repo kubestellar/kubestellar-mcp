@@ -259,7 +259,58 @@ else
   fail "report file" "exit=$EXIT output=$OUT report=$(cat "$WORK/report.md" 2>&1)"
 fi
 
-# Case 17: GITHUB_STEP_SUMMARY, if set, is appended to (not overwritten).
+# Case 17: sentinel "-" marks a package as excluded (no coverable statements)
+# -> exit 0 even though the package never appears in the coverprofile.
+# See kubestellar-mcp#872: internal/version is an ldflag-target var block
+# with `[no statements]`, so it cannot be enforced by a numeric floor.
+cat > "$WORK/pkg-excl-dash.txt" <<EOF
+pkg/example 100.0
+pkg/example/sub 50.0
+internal/version -
+EOF
+set +e
+OUT=$(bash "$SUT" "$FIXTURE" "$WORK/total-ok.txt" "$WORK/pkg-excl-dash.txt" "$WORK/pkg-excl.report.md" 2>&1)
+EXIT=$?
+set -e
+if [ "$EXIT" -eq 0 ] \
+   && ! echo "$OUT" | grep -q "::error::" \
+   && grep -q "| internal/version | no statements | excluded | :heavy_minus_sign: |" "$WORK/pkg-excl.report.md"; then
+  pass "sentinel \"-\" excludes a statement-less package from enforcement"
+else
+  fail "excluded package (dash)" "exit=$EXIT output=$OUT report=$(cat "$WORK/pkg-excl.report.md" 2>&1)"
+fi
+
+# Case 18: sentinel "none" behaves identically to "-".
+cat > "$WORK/pkg-excl-none.txt" <<EOF
+pkg/example 100.0
+internal/version none
+EOF
+set +e
+OUT=$(bash "$SUT" "$FIXTURE" "$WORK/total-ok.txt" "$WORK/pkg-excl-none.txt" 2>&1)
+EXIT=$?
+set -e
+if [ "$EXIT" -eq 0 ] && ! echo "$OUT" | grep -q "::error::"; then
+  pass "sentinel \"none\" is an accepted alias for \"-\""
+else
+  fail "excluded package (none)" "exit=$EXIT output=$OUT"
+fi
+
+# Case 19: invalid non-numeric non-sentinel threshold still fails loudly —
+# the exclusion syntax must not swallow typos like "TODO" or "0.0a".
+cat > "$WORK/pkg-bad.txt" <<EOF
+pkg/example TODO
+EOF
+set +e
+OUT=$(bash "$SUT" "$FIXTURE" "$WORK/total-ok.txt" "$WORK/pkg-bad.txt" 2>&1)
+EXIT=$?
+set -e
+if [ "$EXIT" -eq 1 ] && echo "$OUT" | grep -q "Invalid package threshold line"; then
+  pass "rejects a non-numeric threshold that is not the excludes sentinel"
+else
+  fail "invalid threshold" "exit=$EXIT output=$OUT"
+fi
+
+# Case 20: GITHUB_STEP_SUMMARY, if set, is appended to (not overwritten).
 : > "$WORK/summary.md"
 echo "pre-existing line" > "$WORK/summary.md"
 set +e
