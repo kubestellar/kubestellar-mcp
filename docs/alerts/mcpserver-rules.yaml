@@ -6,11 +6,14 @@
 # metrics endpoint (`--metrics-addr`, see ../../pkg/metrics) can apply this
 # as-is, or adapt it for a plain Prometheus rule_files entry.
 #
-# SCOPE: kubestellar-deploy (pkg/deploy/) shares the same mcpserver_* metric
-# names as kubestellar-ops with no binary-distinguishing label. If you scrape
-# both binaries' --metrics-addr listeners into one Prometheus, every rule
-# below aggregates both services' traffic unless you separate them by
-# job/instance label first (see ../slo.md "Scope note" and ./README.md).
+# SCOPE: kubestellar-deploy (pkg/deploy/) records into the same mcpserver_*
+# metric names as kubestellar-ops with no binary-distinguishing label, but
+# it does not currently expose an --metrics-addr flag or /metrics endpoint
+# (see pkg/deploy/cmd/root.go), so its metrics are never scraped today and
+# these rules only ever see kubestellar-ops traffic in practice. If
+# --metrics-addr support is added to kubestellar-deploy in the future,
+# scrape both binaries' listeners separately by job/instance label first
+# (see ../slo.md "Scope note" and ./README.md).
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
