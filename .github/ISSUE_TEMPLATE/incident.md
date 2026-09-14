@@ -2,9 +2,20 @@
 name: Incident Report
 about: Report a service-impacting incident
 title: "[incident] <short description>"
-labels: "kind/incident"
+labels: ""
 assignees: ""
 ---
+
+<!--
+NOTE: this template intentionally applies no labels via front matter. It
+previously set `labels: "kind/incident"`, but that label does not exist in
+this repository, and GitHub silently drops unknown labels named in
+issue-template front matter at creation time (no error, no warning) — so
+every incident issue filed via this template got created with zero labels
+applied. See #886 for the confirmed gap and the request for a maintainer
+to create `kind/incident`. Once that label exists, restore
+`labels: "kind/incident"` above in a follow-up PR.
+-->
 
 ## Incident Summary
 
