@@ -20,8 +20,9 @@
 10. [Diagnosing High Tool Error Rate or Latency](#diagnosing-high-tool-error-rate-or-latency)
 11. [Diagnosing High AI Provider Query Error Rate or Latency](#diagnosing-high-ai-provider-query-error-rate-or-latency)
 12. [Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage, Release)](#detecting-a-failed-scheduled-workflow-security-scans-stale-triage-release)
-13. [Escalation](#escalation)
-14. [Release Rollback](release-rollback.md) (separate runbook, for a bad automated nightly/weekly release)
+13. [Detecting a Broken PR-Gating Check (pull_request_target startup_failure)](#detecting-a-broken-pr-gating-check-pull_request_target-startup_failure)
+14. [Escalation](#escalation)
+15. [Release Rollback](release-rollback.md) (separate runbook, for a bad automated nightly/weekly release)
 
 ---
 
@@ -496,6 +497,57 @@ someone is watching.
    silently means those never fire either. Follow
    [`runbooks/release-rollback.md`](release-rollback.md) if a *bad* (not
    failed) release shipped instead.
+
+## Detecting a Broken PR-Gating Check (`pull_request_target` startup_failure)
+
+**Symptom:** Every PR shows a red X on the **PR Verifier** check
+(`.github/workflows/pr-verifier.yml`), but the failure is a
+`startup_failure` — zero jobs actually run, so no title-format validation
+happens at all. This is different from the scheduled-workflow gap above: it
+fires on *every* PR (making it highly visible), yet because it fails before
+any job starts, reviewers can misread the red X as "the check ran and the
+title is wrong" when in fact the check never ran.
+
+**Root cause (as of the most recent occurrence):** `pr-verifier.yml`'s only
+job calls a reusable workflow —
+`uses: kubestellar/infra/.github/workflows/reusable-pr-verifier.yml@<sha>` —
+that does not exist in `kubestellar/infra` at the pinned SHA or at `main`.
+This has recurred at least twice: first reported and closed via
+[#567](https://github.com/kubestellar/kubestellar-mcp/issues/567) (fixed by
+re-pinning the `uses:` SHA), then found broken again by the same symptom in
+[#877](https://github.com/kubestellar/kubestellar-mcp/issues/877) — re-pinning
+the SHA does not help if the target file still doesn't exist at that
+revision in `infra`.
+
+### Diagnosis steps
+
+```bash
+gh run list --repo kubestellar/kubestellar-mcp --workflow=pr-verifier.yml --limit 5
+gh run view <run-id> --repo kubestellar/kubestellar-mcp --log-failed
+```
+
+A `startup_failure` conclusion (not `failure`) with "This run likely failed
+because of a workflow file issue" means the reusable workflow reference is
+broken again — check whether
+`kubestellar/infra/.github/workflows/reusable-pr-verifier.yml` exists at the
+SHA/ref `pr-verifier.yml` currently points to.
+
+### Interim manual safeguards (until the workflow file is fixed)
+
+1. **Do not treat the red X as a title-format failure.** Open the run and
+   confirm it is `startup_failure` with zero jobs executed before asking a
+   contributor to "fix the title" — there may be nothing wrong with it.
+2. **Manually validate the PR title** against the Conventional Commits
+   pattern this check is supposed to enforce before merging:
+   `^(\[(scanner|agent|ci-maintainer|quality|sec-check)\] )?(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?!?: .+`
+3. **Do not re-pin the `uses:` SHA as a fix without first confirming the
+   target file exists at that ref** (`gh api
+   repos/kubestellar/infra/contents/.github/workflows/reusable-pr-verifier.yml?ref=<sha>`) —
+   this is exactly how the #567 fix silently stopped working again.
+4. This is a workflow-file-only fix (cannot be pushed by this agent's
+   `contributor`-tier token) — see #877 for the exact, ready-to-apply
+   replacement content (a self-contained check that doesn't depend on
+   `kubestellar/infra`).
 
 ## Escalation
 
