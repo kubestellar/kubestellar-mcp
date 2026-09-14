@@ -106,6 +106,47 @@ func validateBranchName(branch string) error {
 	return nil
 }
 
+// revalidateRepoHost re-resolves the repo URL's hostname and re-applies the
+// isGitopsBlockedIP check immediately before git clone is exec'd, narrowing
+// the TOCTOU window against DNS rebinding attacks that flip a benign A record
+// to a blocked address (cloud metadata, RFC 1918, CGNAT, loopback) between
+// validateRepoURLWithSchemes and git's own network resolution. Mirrors the
+// helm-side mitigation in pkg/deploy/mcp/tools_helm.go: revalidateHelmHosts.
+// See issue #884.
+func revalidateRepoHost(repo string) error {
+	if repo == "" {
+		return nil
+	}
+	u, err := url.Parse(repo)
+	if err != nil {
+		return fmt.Errorf("unparseable repo URL")
+	}
+	// file:// URLs have no host and are only used by tests via
+	// NewManifestReaderWithSchemes; they cannot rebind DNS, so skip.
+	if u.Scheme == "file" || u.Hostname() == "" {
+		return nil
+	}
+	host := u.Hostname()
+	if ip := net.ParseIP(host); ip != nil {
+		if isGitopsBlockedIP(ip) {
+			return fmt.Errorf("resolves to blocked IP %s (private/internal address)", ip)
+		}
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), gitopsDNSTimeout)
+	defer cancel()
+	ips, err := net.DefaultResolver.LookupHost(ctx, host)
+	if err != nil {
+		return fmt.Errorf("DNS lookup failed for %q: %w", host, err)
+	}
+	for _, ipStr := range ips {
+		if ip := net.ParseIP(ipStr); ip != nil && isGitopsBlockedIP(ip) {
+			return fmt.Errorf("resolves to blocked IP %s (private/internal address)", ip)
+		}
+	}
+	return nil
+}
+
 // ManifestSource represents where to get manifests from
 type ManifestSource struct {
 	Repo   string // Git repository URL
@@ -203,6 +244,16 @@ func (r *ManifestReader) ReadFromGit(ctx context.Context, source ManifestSource)
 	}
 	if err := validateBranchName(branch); err != nil {
 		return nil, err
+	}
+
+	// Narrow the TOCTOU window between validateRepoURLWithSchemes above and
+	// git's own DNS resolution below: re-resolve the host immediately before
+	// exec and re-apply the block list. This mirrors the helm mitigation
+	// (see pkg/deploy/mcp/tools_helm.go: revalidateHelmHosts, issue #275)
+	// and defends against DNS rebinding to cloud-metadata / RFC 1918 / CGNAT
+	// addresses between validation and clone. See issue #884.
+	if err := revalidateRepoHost(source.Repo); err != nil {
+		return nil, fmt.Errorf("repo URL %q failed re-validation before clone: %w", source.Repo, err)
 	}
 
 	cmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1", "--branch", branch, "--", source.Repo, tempDir)
