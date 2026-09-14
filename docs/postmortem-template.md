@@ -9,7 +9,7 @@
 **Date of incident:**  
 **Date of postmortem:**  
 **Authors:**  
-**Severity:** <!-- P1 / P2 / P3 / P4 — see severity-levels.md for definitions -->
+**Severity:** <!-- P1 / P2 / P3 / P4 — see ../severity-levels.md for definitions -->
 
 ---
 
