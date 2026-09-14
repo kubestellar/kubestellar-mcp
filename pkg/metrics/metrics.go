@@ -13,12 +13,14 @@ package metrics
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 // ErrorKind is a closed enum used to classify tool-call failures without
@@ -120,6 +122,35 @@ func RecordToolCall(tool, cluster string, duration time.Duration, isError bool, 
 
 	ToolCallsTotal.WithLabelValues(tool, cluster, status).Inc()
 	ToolDurationSeconds.WithLabelValues(tool, cluster).Observe(duration.Seconds())
+}
+
+// ClassifyError maps a typed error into the closed ErrorKind enum using only
+// errors.Is/errors.As and typed API checks - never err.Error() text matching
+// - so the error_kind label stays bounded and independent of message
+// wording. It returns ErrorKindUnknown for nil or unrecognized errors, and
+// RecordToolCall additionally normalizes an empty ErrorKind to
+// ErrorKindUnknown so callers may also pass "" directly.
+func ClassifyError(err error) ErrorKind {
+	if err == nil {
+		return ErrorKindUnknown
+	}
+
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		return ErrorKindTimeout
+	}
+
+	var apiStatus apierrors.APIStatus
+	if errors.As(err, &apiStatus) {
+		return ErrorKindK8sAPI
+	}
+
+	var syntaxErr *json.SyntaxError
+	var unmarshalTypeErr *json.UnmarshalTypeError
+	if errors.As(err, &syntaxErr) || errors.As(err, &unmarshalTypeErr) {
+		return ErrorKindMarshal
+	}
+
+	return ErrorKindUnknown
 }
 
 // SetActiveClusters updates the active-cluster gauge.
