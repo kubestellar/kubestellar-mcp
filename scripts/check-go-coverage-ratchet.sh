@@ -135,6 +135,17 @@ if [ -n "$PACKAGE_THRESHOLD_FILE" ]; then
       continue
     fi
 
+    # Sentinel "-" or "none" marks a package as intentionally excluded
+    # (statement-less package, e.g. ldflag-target var block). Per-package
+    # coverage cannot be measured because it never appears in the
+    # coverprofile; skip enforcement here and let
+    # check-go-ratchet-completeness.sh treat the same entry as "listed".
+    # See kubestellar-mcp#872.
+    if [ "${minimum_coverage:-}" = "-" ] || [ "${minimum_coverage:-}" = "none" ]; then
+      append_row "$package_path" 'no statements' 'excluded' ':heavy_minus_sign:'
+      continue
+    fi
+
     if [ -z "${minimum_coverage:-}" ] || ! is_number "$minimum_coverage"; then
       echo "Invalid package threshold line in ${PACKAGE_THRESHOLD_FILE}: ${package_path} ${minimum_coverage:-}" >&2
       exit 1
