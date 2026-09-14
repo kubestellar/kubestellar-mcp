@@ -2,7 +2,9 @@ package metrics
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"testing"
@@ -10,6 +12,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // countersFor gathers metric families from the package registry, useful for
@@ -156,6 +160,63 @@ func TestRecordAIQueryError(t *testing.T) {
 	if !found {
 		t.Fatal("expected mcpserver_ai_query_total series for claude/error")
 	}
+}
+
+func TestClassifyError(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want ErrorKind
+	}{
+		{name: "nil", err: nil, want: ErrorKindUnknown},
+		{name: "deadline exceeded", err: context.DeadlineExceeded, want: ErrorKindTimeout},
+		{name: "context canceled", err: context.Canceled, want: ErrorKindTimeout},
+		{name: "wrapped deadline exceeded", err: fmtErrorf(context.DeadlineExceeded), want: ErrorKindTimeout},
+		{
+			name: "k8s api not found",
+			err:  apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "demo"),
+			want: ErrorKindK8sAPI,
+		},
+		{
+			name: "json syntax error",
+			err:  jsonSyntaxError(),
+			want: ErrorKindMarshal,
+		},
+		{
+			name: "json unmarshal type error",
+			err:  jsonUnmarshalTypeError(),
+			want: ErrorKindMarshal,
+		},
+		{name: "unrecognized error", err: errors.New("boom"), want: ErrorKindUnknown},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := ClassifyError(tc.err); got != tc.want {
+				t.Errorf("ClassifyError(%v) = %q, want %q", tc.err, got, tc.want)
+			}
+		})
+	}
+}
+
+// fmtErrorf wraps err the way calling code typically does (%w), to verify
+// ClassifyError unwraps via errors.Is rather than requiring an exact match.
+func fmtErrorf(err error) error {
+	return fmt.Errorf("dispatch failed: %w", err)
+}
+
+// jsonSyntaxError produces a real *json.SyntaxError by feeding invalid JSON
+// to the standard library decoder.
+func jsonSyntaxError() error {
+	var v interface{}
+	return json.Unmarshal([]byte("{invalid"), &v)
+}
+
+// jsonUnmarshalTypeError produces a real *json.UnmarshalTypeError by
+// decoding a JSON string into an incompatible Go type.
+func jsonUnmarshalTypeError() error {
+	var v int
+	return json.Unmarshal([]byte(`"not-a-number"`), &v)
 }
 
 func TestStartServerRejectsEmptyAddr(t *testing.T) {
