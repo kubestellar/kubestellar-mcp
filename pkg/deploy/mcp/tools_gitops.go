@@ -247,7 +247,7 @@ func (s *Server) handleSyncFromGit(ctx context.Context, args json.RawMessage) (i
 			return
 		}
 
-		syncer, err := gitops.NewSyncer(config)
+		syncer, err := s.getManifestSyncer(config)
 		if err != nil {
 			mu.Lock()
 			summaries = append(summaries, gitops.SyncSummary{
