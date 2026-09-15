@@ -13,9 +13,24 @@ import (
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/cluster"
+	"github.com/kubestellar/kubestellar-mcp/pkg/metrics"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// gatherMetrics returns the current metric families from the shared metrics
+// registry, keyed by family name.
+func gatherMetrics(t *testing.T) map[string]*dto.MetricFamily {
+	t.Helper()
+	families, err := metrics.Registry.Gather()
+	require.NoError(t, err)
+	out := make(map[string]*dto.MetricFamily, len(families))
+	for _, f := range families {
+		out[f.GetName()] = f
+	}
+	return out
+}
 
 func TestExecuteSingleClusterVariants(t *testing.T) {
 	tests := []struct {
@@ -130,6 +145,29 @@ func TestExecuteAllDiscoveryFailures(t *testing.T) {
 			require.EqualError(t, err, tt.wantError)
 		})
 	}
+}
+
+// TestExecuteAllRecordsZeroActiveClustersOnEmptyDiscovery guards against a
+// regression where mcpserver_active_clusters was only updated *after* the
+// zero-cluster early return, so a genuine drop to zero clusters was never
+// recorded and MCPServerActiveClustersDroppedToZero could never fire. The
+// gauge must reflect every discovery result, including zero.
+func TestExecuteAllRecordsZeroActiveClustersOnEmptyDiscovery(t *testing.T) {
+	metrics.SetActiveClusters(7) // simulate a prior, non-zero discovery result
+
+	s := &Server{discoverer: stubDiscoverer{discoverClusters: func(source string) ([]cluster.ClusterInfo, error) {
+		return []cluster.ClusterInfo{}, nil
+	}}}
+
+	_, err := s.executeAll(context.Background(), func(ctx context.Context, client kubernetes.Interface, clusterName string) (interface{}, error) {
+		return nil, nil
+	})
+	require.Error(t, err)
+
+	families := gatherMetrics(t)
+	m := families["mcpserver_active_clusters"].GetMetric()
+	require.Len(t, m, 1)
+	assert.Equal(t, float64(0), m[0].GetGauge().GetValue())
 }
 
 func TestExecuteAllBoundsConcurrency(t *testing.T) {
