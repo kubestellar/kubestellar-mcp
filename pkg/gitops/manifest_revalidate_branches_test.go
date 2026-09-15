@@ -66,3 +66,20 @@ func TestRevalidateRepoHost_DNSLookupFailurePropagates(t *testing.T) {
 		t.Fatalf("expected 'DNS lookup failed' error, got %v", err)
 	}
 }
+
+// TestRevalidateRepoHost_ResolvedHostBlockedIPRejected covers the final
+// uncovered branch: DNS resolution succeeds and at least one returned IP
+// is in a blocked range. "localhost" is guaranteed by /etc/hosts (and by
+// Go's built-in resolver behaviour) to resolve to 127.0.0.1 (and ::1),
+// so this test is deterministic without depending on network egress.
+// It hits the loop body at pkg/gitops/manifest.go:150-152 that the
+// IP-literal tests cannot reach.
+func TestRevalidateRepoHost_ResolvedHostBlockedIPRejected(t *testing.T) {
+	err := revalidateRepoHost("https://localhost/repo.git")
+	if err == nil {
+		t.Fatalf("expected block for hostname resolving to loopback, got nil")
+	}
+	if !strings.Contains(err.Error(), "blocked IP") {
+		t.Fatalf("expected 'blocked IP' error, got %v", err)
+	}
+}
