@@ -354,3 +354,72 @@ func (s *Server) deleteKustomize(ctx context.Context, cluster, path, manifest st
 	result.Message = stdout.String()
 	return result
 }
+
+// kustomizeToolDefs returns the tool definitions handled by this file.
+func (s *Server) kustomizeToolDefs() []toolDef {
+	return []toolDef{
+		{
+			Name:        "kustomize_build",
+			Description: "Build kustomize output from a directory containing kustomization.yaml. Returns the rendered manifests.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"path": map[string]interface{}{
+						"type":        "string",
+						"description": "Path to directory containing kustomization.yaml",
+					},
+				},
+				"required": []string{"path"},
+			},
+			Handler: s.handleKustomizeBuild,
+		},
+		{
+			Name:        "kustomize_apply",
+			Description: "Build and apply kustomize output to clusters.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"path": map[string]interface{}{
+						"type":        "string",
+						"description": "Path to directory containing kustomization.yaml",
+					},
+					"dry_run": map[string]interface{}{
+						"type":        "boolean",
+						"description": "Preview changes without applying",
+					},
+					"clusters": map[string]interface{}{
+						"type":        "array",
+						"items":       map[string]interface{}{"type": "string"},
+						"description": "Target clusters (all clusters if not specified)",
+					},
+				},
+				"required": []string{"path"},
+			},
+			Handler: s.handleKustomizeApply,
+		},
+		{
+			Name:        "kustomize_delete",
+			Description: "Build kustomize output and delete those resources from clusters.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"path": map[string]interface{}{
+						"type":        "string",
+						"description": "Path to directory containing kustomization.yaml",
+					},
+					"dry_run": map[string]interface{}{
+						"type":        "boolean",
+						"description": "Preview changes without applying",
+					},
+					"clusters": map[string]interface{}{
+						"type":        "array",
+						"items":       map[string]interface{}{"type": "string"},
+						"description": "Target clusters (all clusters if not specified)",
+					},
+				},
+				"required": []string{"path"},
+			},
+			Handler: s.handleKustomizeDelete,
+		},
+	}
+}

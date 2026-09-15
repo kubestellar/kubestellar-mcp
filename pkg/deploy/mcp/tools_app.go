@@ -435,4 +435,73 @@ func getDaemonSetStatus(d *appsv1.DaemonSet) string {
 	return "failed"
 }
 
-
+// appToolDefs returns the tool definitions handled by this file.
+func (s *Server) appToolDefs() []toolDef {
+	return []toolDef{
+		{
+			Name:        "get_app_instances",
+			Description: "Find all instances of an app across all clusters. Returns where the app is running, replica counts, and health status.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"app": map[string]interface{}{
+						"type":        "string",
+						"description": "App name to search for (matches label app=<name> or name contains <name>)",
+					},
+					"namespace": map[string]interface{}{
+						"type":        "string",
+						"description": "Namespace to search in (all namespaces if not specified)",
+					},
+				},
+				"required": []string{"app"},
+			},
+			Handler: s.handleGetAppInstances,
+		},
+		{
+			Name:        "get_app_status",
+			Description: "Get unified status of an app across all clusters. Shows health (healthy/degraded/failed), replica counts, and any issues.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"app": map[string]interface{}{
+						"type":        "string",
+						"description": "App name",
+					},
+					"namespace": map[string]interface{}{
+						"type":        "string",
+						"description": "Namespace (all namespaces if not specified)",
+					},
+				},
+				"required": []string{"app"},
+			},
+			Handler: s.handleGetAppStatus,
+		},
+		{
+			Name:        "get_app_logs",
+			Description: "Get aggregated logs from an app across all clusters. Logs are labeled with cluster name for easy identification.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"app": map[string]interface{}{
+						"type":        "string",
+						"description": "App name",
+					},
+					"namespace": map[string]interface{}{
+						"type":        "string",
+						"description": "Namespace (all namespaces if not specified)",
+					},
+					"tail": map[string]interface{}{
+						"type":        "integer",
+						"description": "Number of lines from end (default 100)",
+					},
+					"since": map[string]interface{}{
+						"type":        "string",
+						"description": "Only return logs newer than duration (e.g., 1h, 30m)",
+					},
+				},
+				"required": []string{"app"},
+			},
+			Handler: s.handleGetAppLogs,
+		},
+	}
+}

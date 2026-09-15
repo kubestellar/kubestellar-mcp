@@ -7,8 +7,8 @@ import (
 	"io"
 	"strings"
 
-	server "github.com/kubestellar/kubestellar-mcp/pkg/mcp/server"
 	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
+	server "github.com/kubestellar/kubestellar-mcp/pkg/mcp/server"
 	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -594,4 +594,146 @@ func (s *Server) patchAppInCluster(ctx context.Context, client *kubernetes.Clien
 	}
 
 	return nil, fmt.Errorf("deployment %s not found in cluster %s", appName, clusterName)
+}
+
+// deployToolDefs returns the tool definitions handled by this file.
+func (s *Server) deployToolDefs() []toolDef {
+	return []toolDef{
+		{
+			Name:        "list_cluster_capabilities",
+			Description: "List what each cluster can run: GPU availability, CPU/memory capacity, node labels. Use this to understand cluster resources.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"cluster": map[string]interface{}{
+						"type":        "string",
+						"description": "Specific cluster (all clusters if not specified)",
+					},
+				},
+			},
+			Handler: s.handleListClusterCapabilities,
+		},
+		{
+			Name:        "find_clusters_for_workload",
+			Description: "Find clusters that can run a workload with specific requirements (GPU, memory, CPU, labels).",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"gpu_type": map[string]interface{}{
+						"type":        "string",
+						"description": "GPU type required (e.g., nvidia.com/gpu)",
+					},
+					"min_gpu": map[string]interface{}{
+						"type":        "integer",
+						"description": "Minimum number of GPUs required",
+					},
+					"min_memory": map[string]interface{}{
+						"type":        "string",
+						"description": "Minimum memory required (e.g., 16Gi)",
+					},
+					"min_cpu": map[string]interface{}{
+						"type":        "string",
+						"description": "Minimum CPU required (e.g., 4)",
+					},
+					"labels": map[string]interface{}{
+						"type":        "object",
+						"description": "Required node labels",
+					},
+				},
+			},
+			Handler: s.handleFindClustersForWorkload,
+		},
+		{
+			Name:        "deploy_app",
+			Description: "Deploy an app to clusters. Can specify clusters explicitly or let kubestellar find matching clusters based on requirements.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"manifest": map[string]interface{}{
+						"type":        "string",
+						"description": "Kubernetes manifest (YAML)",
+					},
+					"clusters": map[string]interface{}{
+						"type":        "array",
+						"items":       map[string]interface{}{"type": "string"},
+						"description": "Target clusters (all matching clusters if not specified)",
+					},
+					"gpu_type": map[string]interface{}{
+						"type":        "string",
+						"description": "Deploy to clusters with this GPU type",
+					},
+					"min_gpu": map[string]interface{}{
+						"type":        "integer",
+						"description": "Deploy to clusters with at least this many GPUs",
+					},
+					"dry_run": map[string]interface{}{
+						"type":        "boolean",
+						"description": "Preview changes without applying",
+					},
+				},
+				"required": []string{"manifest"},
+			},
+			Handler: s.handleDeployApp,
+		},
+		{
+			Name:        "scale_app",
+			Description: "Scale an app across clusters. Can target specific clusters or all clusters where app runs.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"app": map[string]interface{}{
+						"type":        "string",
+						"description": "App name",
+					},
+					"namespace": map[string]interface{}{
+						"type":        "string",
+						"description": "Namespace",
+					},
+					"replicas": map[string]interface{}{
+						"type":        "integer",
+						"description": "Target replica count",
+					},
+					"clusters": map[string]interface{}{
+						"type":        "array",
+						"items":       map[string]interface{}{"type": "string"},
+						"description": "Target clusters (all clusters where app runs if not specified)",
+					},
+				},
+				"required": []string{"app", "replicas"},
+			},
+			Handler: s.handleScaleApp,
+		},
+		{
+			Name:        "patch_app",
+			Description: "Apply a patch to an app across clusters.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"app": map[string]interface{}{
+						"type":        "string",
+						"description": "App name",
+					},
+					"namespace": map[string]interface{}{
+						"type":        "string",
+						"description": "Namespace",
+					},
+					"patch": map[string]interface{}{
+						"type":        "string",
+						"description": "JSON or strategic merge patch",
+					},
+					"patch_type": map[string]interface{}{
+						"type":        "string",
+						"description": "Patch type: strategic, merge, or json (default: strategic)",
+					},
+					"clusters": map[string]interface{}{
+						"type":        "array",
+						"items":       map[string]interface{}{"type": "string"},
+						"description": "Target clusters",
+					},
+				},
+				"required": []string{"app", "patch"},
+			},
+			Handler: s.handlePatchApp,
+		},
+	}
 }
