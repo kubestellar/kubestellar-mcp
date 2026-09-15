@@ -77,11 +77,17 @@ func (s *Server) executeAll(ctx context.Context, fn ExecuteFunc) ([]ClusterResul
 		return nil, fmt.Errorf("failed to discover clusters: %w", err)
 	}
 
+	// Record the discovered count before the zero-cluster early return below,
+	// so mcpserver_active_clusters always reflects the latest discovery
+	// result - including a genuine drop to zero. Recording it only after
+	// that check (as before) meant the gauge could never be set to 0 here,
+	// leaving MCPServerActiveClustersDroppedToZero unable to fire from this
+	// path and the gauge stuck at its last positive value.
+	metrics.SetActiveClusters(len(clusters))
+
 	if len(clusters) == 0 {
 		return nil, fmt.Errorf("no clusters found from any discovery source")
 	}
-
-	metrics.SetActiveClusters(len(clusters))
 
 	results := make([]ClusterResult, 0, len(clusters))
 	sem := make(chan struct{}, maxConcurrentClusterOperations)
