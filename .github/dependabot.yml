@@ -30,3 +30,16 @@ updates:
       codeql-action:
         patterns:
           - "github/codeql-action/*"
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "docker"
+    reviewers:
+      - "clubanderson"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
