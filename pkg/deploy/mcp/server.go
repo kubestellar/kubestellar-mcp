@@ -8,11 +8,16 @@ import (
 	"os"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
+	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
+
 	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
 	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/protocol"
 	"github.com/kubestellar/kubestellar-mcp/pkg/metrics"
 	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
-	"k8s.io/client-go/rest"
 )
 
 const (
@@ -827,6 +832,19 @@ func (s *Server) handleToolCall(ctx context.Context, req *MCPRequest) *MCPRespon
 	var result interface{}
 	var err error
 
+	// Root span for the tool-dispatch request path, matching the sibling
+	// kubestellar-mcp server's instrumentation of
+	// pkg/mcp/server.handleToolsCall (see tracing.go for why this is a
+	// free, no-op span unless an operator registers a TracerProvider).
+	// tool.name is set from the client-supplied value, same as the
+	// sibling server's span attribute; it is only ever used as a trace
+	// attribute here, never as a Prometheus metric label, so unbounded
+	// cardinality does not apply.
+	ctx, span := tracer.Start(ctx, "mcp.tool.call", trace.WithAttributes(
+		attribute.String("tool.name", params.Name),
+	))
+	defer span.End()
+
 	// start/duration bracket the dispatched handler call below so every
 	// recognized tool (fixed switch-case set) is timed and recorded via
 	// metrics.RecordToolCall, matching the sibling kubestellar-mcp server's
@@ -891,6 +909,7 @@ func (s *Server) handleToolCall(ctx context.Context, req *MCPRequest) *MCPRespon
 	case "remove_labels":
 		result, err = s.handleRemoveLabels(ctx, params.Arguments)
 	default:
+		span.SetStatus(codes.Error, "unknown tool")
 		return &MCPResponse{
 			JSONRPC: "2.0",
 			ID:      req.ID,
@@ -902,7 +921,21 @@ func (s *Server) handleToolCall(ctx context.Context, req *MCPRequest) *MCPRespon
 	if err != nil {
 		errKind = metrics.ClassifyError(err)
 	}
-	metrics.RecordToolCall(params.Name, "", time.Since(start), err != nil, errKind)
+	duration := time.Since(start)
+	metrics.RecordToolCall(params.Name, "", duration, err != nil, errKind)
+
+	// Structured, bounded lifecycle logging mirroring the sibling
+	// kubestellar-mcp server (pkg/mcp/server.handleToolsCall): tool comes
+	// from the fixed switch-case set reached above, so this never logs
+	// raw error text - only the same status/timing data already exposed
+	// via metrics. Uses klog's key/value form (InfoS/ErrorS) so the
+	// fields are structured rather than baked into a free-form message.
+	if err != nil {
+		span.SetStatus(codes.Error, "tool call returned an error result")
+		klog.ErrorS(nil, "tool call failed", "tool", params.Name, "duration", duration)
+	} else {
+		klog.V(2).InfoS("tool call succeeded", "tool", params.Name, "duration", duration)
+	}
 
 	if err != nil {
 		return &MCPResponse{
