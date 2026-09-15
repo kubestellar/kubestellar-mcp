@@ -14,13 +14,13 @@ import (
 
 // LabelResult represents the result of a label operation
 type LabelResult struct {
-	Cluster   string `json:"cluster"`
-	Kind      string `json:"kind"`
-	Name      string `json:"name"`
-	Namespace string `json:"namespace,omitempty"`
-	Status    string `json:"status"` // labeled, unlabeled, failed, not-found
+	Cluster   string            `json:"cluster"`
+	Kind      string            `json:"kind"`
+	Name      string            `json:"name"`
+	Namespace string            `json:"namespace,omitempty"`
+	Status    string            `json:"status"` // labeled, unlabeled, failed, not-found
 	Labels    map[string]string `json:"labels,omitempty"`
-	Message   string `json:"message,omitempty"`
+	Message   string            `json:"message,omitempty"`
 }
 
 // handleAddLabels adds labels to resources
@@ -349,4 +349,83 @@ func buildLabelPatch(labels map[string]string, remove bool) []byte {
 
 	data, _ := json.Marshal(patch)
 	return data
+}
+
+// labelToolDefs returns the tool definitions handled by this file.
+func (s *Server) labelToolDefs() []toolDef {
+	return []toolDef{
+		{
+			Name:        "add_labels",
+			Description: "Add labels to a Kubernetes resource across clusters.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"kind": map[string]interface{}{
+						"type":        "string",
+						"description": "Resource kind (e.g., Deployment, Service, Pod, Node)",
+					},
+					"name": map[string]interface{}{
+						"type":        "string",
+						"description": "Resource name",
+					},
+					"namespace": map[string]interface{}{
+						"type":        "string",
+						"description": "Namespace (default: default, ignored for cluster-scoped)",
+					},
+					"labels": map[string]interface{}{
+						"type":        "object",
+						"description": "Labels to add (key-value pairs)",
+					},
+					"dry_run": map[string]interface{}{
+						"type":        "boolean",
+						"description": "Preview changes without applying",
+					},
+					"clusters": map[string]interface{}{
+						"type":        "array",
+						"items":       map[string]interface{}{"type": "string"},
+						"description": "Target clusters (all clusters if not specified)",
+					},
+				},
+				"required": []string{"kind", "name", "labels"},
+			},
+			Handler: s.handleAddLabels,
+		},
+		{
+			Name:        "remove_labels",
+			Description: "Remove labels from a Kubernetes resource across clusters.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"kind": map[string]interface{}{
+						"type":        "string",
+						"description": "Resource kind (e.g., Deployment, Service, Pod, Node)",
+					},
+					"name": map[string]interface{}{
+						"type":        "string",
+						"description": "Resource name",
+					},
+					"namespace": map[string]interface{}{
+						"type":        "string",
+						"description": "Namespace (default: default, ignored for cluster-scoped)",
+					},
+					"labels": map[string]interface{}{
+						"type":        "array",
+						"items":       map[string]interface{}{"type": "string"},
+						"description": "Label keys to remove",
+					},
+					"dry_run": map[string]interface{}{
+						"type":        "boolean",
+						"description": "Preview changes without applying",
+					},
+					"clusters": map[string]interface{}{
+						"type":        "array",
+						"items":       map[string]interface{}{"type": "string"},
+						"description": "Target clusters (all clusters if not specified)",
+					},
+				},
+				"required": []string{"kind", "name", "labels"},
+			},
+			Handler: s.handleRemoveLabels,
+		},
+	}
 }
