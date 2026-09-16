@@ -118,7 +118,7 @@ func (s *Server) handleDetectDrift(ctx context.Context, args json.RawMessage) (i
 			return
 		}
 
-		detector, err := gitops.NewDriftDetector(config)
+		detector, err := s.getDriftDetector(config)
 		if err != nil {
 			mu.Lock()
 			allDrifts = append(allDrifts, gitops.DriftResult{

@@ -29,6 +29,10 @@ type manifestSyncer interface {
 	Sync(ctx context.Context, manifests []gitops.Manifest, clusterName string, opts gitops.SyncOptions) (*gitops.SyncSummary, error)
 }
 
+type driftDetector interface {
+	DetectDrift(ctx context.Context, manifests []gitops.Manifest, clusterName string) ([]gitops.DriftResult, error)
+}
+
 // Server implements the MCP server for kubestellar-deploy
 type Server struct {
 	manager  *multicluster.ClientManager
@@ -40,6 +44,9 @@ type Server struct {
 	// newManifestSyncer is a factory for creating manifest syncers.
 	// Tests can override this to avoid talking to a real API server.
 	newManifestSyncer func(*rest.Config) (manifestSyncer, error)
+	// newDriftDetector is a factory for creating drift detectors.
+	// Tests can override this to avoid talking to a real API server.
+	newDriftDetector func(*rest.Config) (driftDetector, error)
 }
 
 // NewServer creates a new MCP server
@@ -60,6 +67,9 @@ func NewServer() (*Server, error) {
 		newManifestSyncer: func(config *rest.Config) (manifestSyncer, error) {
 			return gitops.NewSyncer(config)
 		},
+		newDriftDetector: func(config *rest.Config) (driftDetector, error) {
+			return gitops.NewDriftDetector(config)
+		},
 	}, nil
 }
 
@@ -76,6 +86,14 @@ func (s *Server) getManifestSyncer(config *rest.Config) (manifestSyncer, error) 
 		return s.newManifestSyncer(config)
 	}
 	return gitops.NewSyncer(config)
+}
+
+// getDriftDetector returns a drift detector using the configured factory.
+func (s *Server) getDriftDetector(config *rest.Config) (driftDetector, error) {
+	if s.newDriftDetector != nil {
+		return s.newDriftDetector(config)
+	}
+	return gitops.NewDriftDetector(config)
 }
 
 // Type aliases from shared protocol package.
