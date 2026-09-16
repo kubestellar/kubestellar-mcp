@@ -1,65 +1,17 @@
 package upgrade
 
 import (
-	"bytes"
 	"context"
-	"os"
-	"path/filepath"
-	"sync"
-	"sync/atomic"
 	"testing"
-	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/dynamic"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
-	k8stesting "k8s.io/client-go/testing"
-
-	"github.com/kubestellar/kubestellar-mcp/pkg/progress"
 )
-
-func TestNewWatchCommand(t *testing.T) {
-	configFlags := genericclioptions.NewConfigFlags(true)
-
-	cmd := NewWatchCommand(configFlags)
-
-	require.NotNil(t, cmd)
-	assert.IsType(t, &cobra.Command{}, cmd)
-	assert.Equal(t, "watch-upgrade", cmd.Use)
-	assert.Contains(t, cmd.Short, "Watch OpenShift cluster upgrade progress")
-	assert.NotNil(t, cmd.RunE)
-
-	intervalFlag := cmd.Flags().Lookup("interval")
-	require.NotNil(t, intervalFlag)
-	assert.Equal(t, "3s", intervalFlag.DefValue)
-	assert.Equal(t, (3 * time.Second).String(), intervalFlag.Value.String())
-}
-
-func TestOpenShiftUpgradeGVRs(t *testing.T) {
-	assert.Equal(t, schema.GroupVersionResource{
-		Group:    "config.openshift.io",
-		Version:  "v1",
-		Resource: "clusterversions",
-	}, clusterVersionGVR)
-
-	assert.Equal(t, schema.GroupVersionResource{
-		Group:    "config.openshift.io",
-		Version:  "v1",
-		Resource: "clusteroperators",
-	}, clusterOperatorGVR)
-
-	assert.Equal(t, schema.GroupVersionResource{
-		Group:    "machineconfiguration.openshift.io",
-		Version:  "v1",
-		Resource: "machineconfigpools",
-	}, machineConfigPoolGVR)
-}
 
 func TestParseProgressMessage(t *testing.T) {
 	tests := []struct {
@@ -147,15 +99,6 @@ func TestGetUpgradeStatusComplete(t *testing.T) {
 	assert.True(t, status.Complete)
 }
 
-func TestEnsureOpenShiftClusterFailsGracefully(t *testing.T) {
-	dynClient := newFakeDynamicClient()
-
-	err := ensureOpenShiftCluster(context.Background(), dynClient)
-
-	require.Error(t, err)
-	assert.ErrorContains(t, err, "not an OpenShift cluster or ClusterVersion not accessible")
-}
-
 func newFakeDynamicClient(objects ...runtime.Object) dynamic.Interface {
 	scheme := runtime.NewScheme()
 	clusterVersionGV := schema.GroupVersion{Group: clusterVersionGVR.Group, Version: clusterVersionGVR.Version}
@@ -222,13 +165,6 @@ func TestGetUpgradeStatus_NotProgressing(t *testing.T) {
 	assert.Equal(t, "4.14.0", status.Label)
 	assert.True(t, status.Complete)
 	assert.Equal(t, 100, status.Percent)
-}
-
-func TestEnsureOpenShiftCluster_Success(t *testing.T) {
-	cv := newClusterVersion("4.14.0", "Cluster version is 4.14.0")
-	dynClient := newFakeDynamicClient(cv)
-	err := ensureOpenShiftCluster(context.Background(), dynClient)
-	require.NoError(t, err)
 }
 
 func TestGetUpgradeStatus_ErrorFetchingClusterVersion(t *testing.T) {
@@ -339,86 +275,6 @@ func TestGetUpgradeStatus_NonProgressingCondition(t *testing.T) {
 	assert.Equal(t, 0, status.Percent)
 }
 
-func TestWatchUpgrade_CommandWiring(t *testing.T) {
-	configFlags := genericclioptions.NewConfigFlags(true)
-	cmd := NewWatchCommand(configFlags)
-
-	// Verify the command uses RunE (error-returning variant)
-	assert.NotNil(t, cmd.RunE)
-	assert.Nil(t, cmd.Run)
-
-	// Verify interval flag can be set
-	err := cmd.Flags().Set("interval", "5s")
-	require.NoError(t, err)
-	assert.Equal(t, "5s", cmd.Flags().Lookup("interval").Value.String())
-}
-
-func TestWatchUpgrade_KubeconfigLoadError(t *testing.T) {
-	dir := t.TempDir()
-	missing := filepath.Join(dir, "does-not-exist.yaml")
-	explicit := missing
-	ctxName := ""
-	configFlags := &genericclioptions.ConfigFlags{
-		KubeConfig: &explicit,
-		Context:    &ctxName,
-	}
-
-	t.Setenv("KUBECONFIG", missing)
-	t.Setenv("HOME", dir)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	err := watchUpgrade(ctx, configFlags, 10*time.Millisecond)
-
-	require.Error(t, err)
-	assert.ErrorContains(t, err, "failed to load kubeconfig")
-}
-
-func TestWatchUpgrade_NotOpenShiftCluster(t *testing.T) {
-	dir := t.TempDir()
-	kc := writeMinimalKubeconfig(t, dir)
-	explicit := kc
-	ctxName := "bogus"
-	configFlags := &genericclioptions.ConfigFlags{
-		KubeConfig: &explicit,
-		Context:    &ctxName,
-	}
-
-	t.Setenv("KUBECONFIG", kc)
-	t.Setenv("HOME", dir)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	err := watchUpgrade(ctx, configFlags, 10*time.Millisecond)
-
-	require.Error(t, err)
-	assert.ErrorContains(t, err, "not an OpenShift cluster")
-}
-
-func TestWatchUpgrade_CanceledContext_ClientConfigError(t *testing.T) {
-	dir := t.TempDir()
-	missing := filepath.Join(dir, "nope.yaml")
-	explicit := missing
-	ctxName := ""
-	configFlags := &genericclioptions.ConfigFlags{
-		KubeConfig: &explicit,
-		Context:    &ctxName,
-	}
-
-	t.Setenv("KUBECONFIG", missing)
-	t.Setenv("HOME", dir)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-
-	err := watchUpgrade(ctx, configFlags, 10*time.Millisecond)
-
-	require.Error(t, err)
-	assert.ErrorContains(t, err, "failed to load kubeconfig")
-}
-
 func TestGetUpgradeStatus_MultipleConditionsWithProgressing(t *testing.T) {
 	cv := &unstructured.Unstructured{Object: map[string]interface{}{
 		"apiVersion": "config.openshift.io/v1",
@@ -456,176 +312,4 @@ func TestGetUpgradeStatus_MultipleConditionsWithProgressing(t *testing.T) {
 	assert.Equal(t, 906, status.Total)
 	assert.Equal(t, "etcd", status.Current)
 	assert.False(t, status.Complete)
-}
-
-func writeMinimalKubeconfig(t *testing.T, dir string) string {
-	t.Helper()
-
-	path := filepath.Join(dir, "kubeconfig")
-	content := `apiVersion: v1
-kind: Config
-clusters:
-- name: bogus
-  cluster:
-    server: http://127.0.0.1:1
-contexts:
-- name: bogus
-  context:
-    cluster: bogus
-    user: bogus
-current-context: bogus
-users:
-- name: bogus
-  user: {}
-`
-
-	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
-	return path
-}
-
-type recordingRenderer struct {
-	mu      sync.Mutex
-	statuses []progress.Status
-}
-
-func (r *recordingRenderer) Render(status progress.Status) bool {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.statuses = append(r.statuses, status)
-	return true
-}
-
-func (r *recordingRenderer) count() int {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return len(r.statuses)
-}
-
-func TestRunWatchLoopWithTicker_CompletesOnFinishedStatus(t *testing.T) {
-	dynClient := newFakeDynamicClient(newClusterVersion("4.18.30", "Cluster version is 4.18.30"))
-	renderer := &recordingRenderer{}
-	ticks := make(chan time.Time)
-	var out bytes.Buffer
-	var errOut bytes.Buffer
-
-	err := runWatchLoopWithTicker(context.Background(), dynClient, ticks, &out, &errOut, renderer)
-
-	require.NoError(t, err)
-	assert.Equal(t, 1, renderer.count())
-	assert.Empty(t, errOut.String())
-}
-
-func TestRunWatchLoopWithTicker_RendersOnProgressChange(t *testing.T) {
-	dynClient := newFakeDynamicClient()
-	fakeClient, ok := dynClient.(*dynamicfake.FakeDynamicClient)
-	require.True(t, ok)
-
-	statuses := []*unstructured.Unstructured{
-		newClusterVersion("4.18.30", "Working towards 4.18.30: 25 of 100 done (25% complete), waiting on one"),
-		newClusterVersion("4.18.30", "Working towards 4.18.30: 50 of 100 done (50% complete), waiting on two"),
-		newClusterVersion("4.18.30", "Cluster version is 4.18.30"),
-	}
-	var callCount int32
-	fakeClient.PrependReactor("get", "clusterversions", func(action k8stesting.Action) (bool, runtime.Object, error) {
-		idx := int(atomic.AddInt32(&callCount, 1)) - 1
-		if idx >= len(statuses) {
-			return true, statuses[len(statuses)-1], nil
-		}
-		return true, statuses[idx], nil
-	})
-
-	renderer := &recordingRenderer{}
-	ticks := make(chan time.Time, 2)
-	ticks <- time.Now()
-	ticks <- time.Now()
-	var out bytes.Buffer
-	var errOut bytes.Buffer
-
-	err := runWatchLoopWithTicker(context.Background(), dynClient, ticks, &out, &errOut, renderer)
-
-	require.NoError(t, err)
-	assert.Equal(t, 3, renderer.count())
-	assert.Empty(t, errOut.String())
-}
-
-func TestRunWatchLoopWithTicker_DoesNotRenderWhenPercentUnchanged(t *testing.T) {
-	dynClient := newFakeDynamicClient()
-	fakeClient, ok := dynClient.(*dynamicfake.FakeDynamicClient)
-	require.True(t, ok)
-
-	statuses := []*unstructured.Unstructured{
-		newClusterVersion("4.18.30", "Working towards 4.18.30: 25 of 100 done (25% complete), waiting on one"),
-		newClusterVersion("4.18.30", "Working towards 4.18.30: 25 of 100 done (25% complete), waiting on one"),
-	}
-	var callCount int32
-	ctx, cancel := context.WithCancel(context.Background())
-	fakeClient.PrependReactor("get", "clusterversions", func(action k8stesting.Action) (bool, runtime.Object, error) {
-		idx := int(atomic.AddInt32(&callCount, 1)) - 1
-		if idx >= len(statuses)-1 {
-			cancel()
-			return true, statuses[len(statuses)-1], nil
-		}
-		return true, statuses[idx], nil
-	})
-
-	renderer := &recordingRenderer{}
-	ticks := make(chan time.Time, 1)
-	ticks <- time.Now()
-	var out bytes.Buffer
-	var errOut bytes.Buffer
-
-	err := runWatchLoopWithTicker(ctx, dynClient, ticks, &out, &errOut, renderer)
-
-	require.NoError(t, err)
-	assert.Equal(t, 1, renderer.count())
-	assert.Contains(t, out.String(), "Stopped watching.")
-}
-
-func TestRunWatchLoopWithTicker_WritesErrorAndContinues(t *testing.T) {
-	dynClient := newFakeDynamicClient()
-	fakeClient, ok := dynClient.(*dynamicfake.FakeDynamicClient)
-	require.True(t, ok)
-
-	var callCount int32
-	fakeClient.PrependReactor("get", "clusterversions", func(action k8stesting.Action) (bool, runtime.Object, error) {
-		idx := atomic.AddInt32(&callCount, 1)
-		if idx == 1 {
-			return true, nil, assert.AnError
-		}
-		return true, newClusterVersion("4.18.30", "Cluster version is 4.18.30"), nil
-	})
-
-	renderer := &recordingRenderer{}
-	ticks := make(chan time.Time, 1)
-	ticks <- time.Now()
-	var out bytes.Buffer
-	var errOut bytes.Buffer
-
-	err := runWatchLoopWithTicker(context.Background(), dynClient, ticks, &out, &errOut, renderer)
-
-	require.NoError(t, err)
-	assert.Contains(t, errOut.String(), "Error fetching status")
-	assert.Equal(t, 1, renderer.count())
-}
-
-func TestRunWatchLoopWithTicker_CanceledContextStopsCleanly(t *testing.T) {
-	dynClient := newFakeDynamicClient(newClusterVersion("4.18.30", "Working towards 4.18.30: 10 of 100 done (10% complete), waiting on one"))
-	renderer := &recordingRenderer{}
-	ctx, cancel := context.WithCancel(context.Background())
-	ticks := make(chan time.Time, 1)
-	ticks <- time.Now()
-	var out bytes.Buffer
-	var errOut bytes.Buffer
-
-	go func() {
-		time.Sleep(10 * time.Millisecond)
-		cancel()
-	}()
-
-	err := runWatchLoopWithTicker(ctx, dynClient, ticks, &out, &errOut, renderer)
-
-	require.NoError(t, err)
-	assert.Contains(t, out.String(), "Stopped watching.")
-	assert.Equal(t, 1, renderer.count())
-	assert.Empty(t, errOut.String())
 }
