@@ -14,7 +14,7 @@ GO := go
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
 
-.PHONY: all build build-ops build-deploy clean test install lint
+.PHONY: all build build-ops build-deploy clean test test-shell install lint
 
 all: build
 
@@ -45,6 +45,9 @@ clean:
 
 test:
 	$(GO) test -v ./...
+
+test-shell:
+	./scripts/run_shell_tests.sh
 
 install: build
 	cp bin/kubestellar-ops $(GOPATH)/bin/
@@ -93,6 +96,7 @@ help:
 	@echo "  build-all     - Build all binaries for all platforms"
 	@echo "  clean         - Remove build artifacts"
 	@echo "  test          - Run tests"
+	@echo "  test-shell    - Run shell tests in scripts/__tests__/ via scripts/run_shell_tests.sh"
 	@echo "  install       - Install to GOPATH/bin"
 	@echo "  lint          - Run linter"
 	@echo "  dashboard-lint - Validate docs/dashboards/*.json syntax and required fields"
