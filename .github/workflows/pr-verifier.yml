@@ -4,11 +4,13 @@ on:
   pull_request_target:
     types: [opened, edited, synchronize, reopened]
 
-permissions:
-  checks: write
-  pull-requests: read
+permissions: read-all  # default read; writes scoped to job below
 
 jobs:
   verify:
+    permissions:
+      checks: write
+      pull-requests: read
     uses: kubestellar/infra/.github/workflows/reusable-pr-verifier.yml@220beeeb8dae67e2fd8e89338ada8144609fc6ef  # main
-    secrets: inherit
+    secrets:
+      token: ${{ secrets.GITHUB_TOKEN }}
