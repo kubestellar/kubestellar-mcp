@@ -5,6 +5,12 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    # Daily at 06:00 UTC — independent of any code push, to catch
+    # environmental drift against SLO 2 (Cluster Discovery Latency) and
+    # SLO 4 (Tool-Call Accuracy) per docs/slo.md "Alerting Guidance".
+    - cron: '0 6 * * *'
+  workflow_dispatch:
 
 permissions:
   contents: read
