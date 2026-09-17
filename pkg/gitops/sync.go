@@ -9,6 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
@@ -150,8 +151,11 @@ func (s *Syncer) Sync(ctx context.Context, manifests []Manifest, clusterName str
 
 // syncResource syncs a single resource
 func (s *Syncer) syncResource(ctx context.Context, manifest Manifest, mapping resourceMapping, namespace string, dryRun bool) (*SyncResult, error) {
-	// Create unstructured object from manifest
-	obj := &unstructured.Unstructured{Object: manifest.Raw}
+	// Deep-copy the raw manifest before wrapping it in Unstructured. Sync() is
+	// invoked concurrently (one goroutine per cluster) with the *same*
+	// manifests slice, so mutating the shared Raw map in place (e.g. via
+	// SetNamespace below) races across goroutines.
+	obj := &unstructured.Unstructured{Object: runtime.DeepCopyJSON(manifest.Raw)}
 
 	if !mapping.ClusterScoped && namespace != "" {
 		obj.SetNamespace(namespace)
