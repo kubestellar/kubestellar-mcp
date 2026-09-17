@@ -36,7 +36,23 @@ jobs:
           THRESHOLD=$(cat .github/go-coverage-ratchet.txt)
           COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print substr($3, 1, length($3)-1)}')
           echo "Total coverage: ${COVERAGE}%  (ratchet: ${THRESHOLD}%)"
+
+          STATUS="pass"
           if awk -v c="$COVERAGE" -v t="$THRESHOLD" 'BEGIN { exit !(c + 0 < t + 0) }'; then
+            STATUS="fail"
+          fi
+
+          {
+            echo "## Coverage report"
+            echo ""
+            echo "| Metric | Value |"
+            echo "| --- | --- |"
+            echo "| Total coverage | ${COVERAGE}% |"
+            echo "| Ratchet threshold | ${THRESHOLD}% |"
+            echo "| Status | ${STATUS} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$STATUS" = "fail" ]; then
             echo "::error::Coverage ${COVERAGE}% is below ratchet threshold ${THRESHOLD}%"
             echo "::error::Update .github/go-coverage-ratchet.txt if coverage legitimately decreased."
             exit 1
