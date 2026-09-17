@@ -21,7 +21,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write  # Required: pushes Docker images to GitHub Container Registry (ghcr.io)
+      packages: write      # Required: pushes Docker images to GitHub Container Registry (ghcr.io)
+      id-token: write      # Required: OIDC token for keyless build provenance attestation
+      attestations: write  # Required: store the attestation on the repo
 
     steps:
       - name: Checkout repository
@@ -71,6 +73,13 @@ jobs:
           platforms: linux/amd64,linux/arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@c074443f1aee8d4aeeae555aebba3282517141b2 # v3.0.0
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
 
       - name: Verify published image
         run: |
