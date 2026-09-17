@@ -440,31 +440,14 @@ outright (error-rate alert), so check both.
 (weekly, Monday 04:00 UTC), `scorecard.yml` (weekly, Monday 06:00 UTC),
 `stale.yml` (daily, midnight UTC), and `release.yml` (nightly 05:00 UTC and
 weekly Sunday 05:00 UTC) all run unattended on a cron schedule in addition to
-their other triggers, and none of them has a step that alerts a human on
-failure (tracked in [#730](https://github.com/kubestellar/kubestellar-mcp/issues/730)
-for `codeql.yml`/`scorecard.yml`, [#753](https://github.com/kubestellar/kubestellar-mcp/issues/753)
-for `stale.yml`, and [#865](https://github.com/kubestellar/kubestellar-mcp/issues/865)
-for `release.yml`, all the same gap class — #730, #753, #783, and #851 are
-all closed as their interim-runbook deliverables shipped; the underlying
-`release.yml` `if: failure()` alert step itself is still outstanding and is
-tracked in #865 — see that issue's "Root cause" section before closing it
-again: #694/#771/#783/#851 were each auto-closed by a doc-only PR's `Fixes`
-keyword before the workflow-file half actually landed). A failed
-scheduled run is visible
-only as a red X in the Actions tab — for `release.yml` the `notify` job's
-`if: always()` step only ever writes a `GITHUB_STEP_SUMMARY`, which nobody is
-watching at 5 AM UTC — so a failure can go unnoticed indefinitely unless
-someone is watching.
-
-> A same-shape automated fix (an `if: failure()` step in each workflow's
-> terminal job that opens/updates a tracking issue via `gh issue create`) was
-> drafted for `release.yml` but the push was rejected: `refusing to allow a
-> GitHub App to create or update workflow` `.github/workflows/release.yml`
-> `without` `workflows` `permission`. This token has `contents`/`issues`
-> write but not the `workflows` scope required to touch files under
-> `.github/workflows/`, so only this documentation-based interim safeguard
-> can be delivered by automation; a maintainer with that scope should apply
-> the workflow-file fix directly.
+their other triggers, and (as of [#865](https://github.com/kubestellar/kubestellar-mcp/issues/865))
+`release.yml`'s `notify` job now has an `if: failure()`-equivalent step that
+opens a `release-alert`-labeled issue on a failed *scheduled* run; `codeql.yml`
+and `scorecard.yml` (tracked in [#730](https://github.com/kubestellar/kubestellar-mcp/issues/730))
+and `stale.yml` (tracked in [#753](https://github.com/kubestellar/kubestellar-mcp/issues/753))
+still lack an equivalent alert step. For those two, a failed scheduled run
+is still visible only as a red X in the Actions tab, so a failure can go
+unnoticed indefinitely unless someone is watching.
 
 ### Interim manual safeguards (until an automated alert exists)
 

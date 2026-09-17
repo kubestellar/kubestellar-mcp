@@ -13,14 +13,12 @@ The steps below assume you already know a release shipped a regression.
 There is a distinct, currently-undetected failure mode: the scheduled
 `release.yml` run fails outright (e.g. an expired `WORKFLOW_SYNC_TOKEN`, a
 GoReleaser/Homebrew publish error, or the version-bump logic erroring) and
-no release is cut at all. The workflow's `notify` job only writes a
-`$GITHUB_STEP_SUMMARY` on that run — nothing pages anyone, and scheduled
-runs are easy to miss since no one is watching the Actions tab by default.
-Issues #694, #771, #783, and #851 each documented this gap and are all now
-closed without the underlying fix landing (each was auto-closed by a
-doc-only PR's `Fixes` keyword before the workflow-file half actually
-shipped); see kubestellar-mcp#865, the current live tracker, which adds an
-automated `if: failure()` alert step. Until that lands, check for this
+no release is cut at all. Issues #694, #771, #783, and #851 each documented
+this gap; the underlying fix — an automated alert step in the `notify` job —
+has now landed (see kubestellar-mcp#865): on a failed *scheduled* run
+(`github.event_name == 'schedule'`), the job opens a `release-alert`-labeled
+tracking issue instead of only writing a `$GITHUB_STEP_SUMMARY`. Manual
+`workflow_dispatch` runs are not alerted, so still check for those
 manually:
 
 1. Compare the most recent GitHub Release timestamp under **Releases**
