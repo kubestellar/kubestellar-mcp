@@ -192,6 +192,7 @@ jobs:
     if: ${{ github.event.inputs.dry_run != 'true' && needs.determine-version.outputs.has_changes == 'true' }}
     permissions:
       contents: write  # Required: creates git tags, pushes tags, and creates GitHub releases with artifacts
+      id-token: write  # Required: cosign keyless / sigstore Fulcio OIDC identity for sign-blob
 
     steps:
       - name: Checkout repository
@@ -204,6 +205,12 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
+
+      - name: Install Syft
+        uses: anchore/sbom-action/download-syft@da167eac915b4e86f08b264dbdbc867b61be6f5c # v0.20.6
 
       - name: Create and push tag
         run: |
