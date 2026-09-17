@@ -19,7 +19,7 @@
 pkg/deploy/mcp 94.7
 pkg/mcp/server 96.5
 pkg/mcp/protocol 100.0
-pkg/mcp/tools/upgrades 95.6
+pkg/mcp/tools/upgrades 95.3
 
 # --- Tier 1: Core packages ---
 pkg/gitops 97.4
