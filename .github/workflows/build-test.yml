@@ -76,6 +76,15 @@ jobs:
             .github/go-coverage-ratchet.txt \
             .github/go-package-coverage-ratchet.txt
 
+      - name: Run shell tests
+        # Auto-discovers scripts/__tests__/*.test.sh (regression suite for
+        # the coverage-ratchet helpers this workflow already invokes) and
+        # runs each with bash. Any test-file failure aborts the job so a
+        # regression to check-go-coverage-ratchet.sh, check-go-package-
+        # coverage.sh, or check-go-ratchet-completeness.sh is caught here
+        # instead of on a live workflow run.
+        run: ./scripts/run_shell_tests.sh
+
       - name: Upload coverage
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
