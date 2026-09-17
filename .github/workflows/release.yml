@@ -258,6 +258,8 @@ jobs:
     needs: [determine-version, release]
     runs-on: ubuntu-latest
     if: always()
+    permissions:
+      issues: write
     steps:
       - name: Release summary
         run: |
@@ -279,3 +281,36 @@ jobs:
           else
             echo "### Status: ${{ needs.release.result }}" >> $GITHUB_STEP_SUMMARY
           fi
+
+      - name: Alert on scheduled-run failure
+        if: |
+          github.event_name == 'schedule' &&
+          (needs.determine-version.result == 'failure' || needs.release.result == 'failure')
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v8.0.0
+        with:
+          script: |
+            const title = 'Scheduled release run failed';
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              `The scheduled \`release.yml\` run (${context.payload.schedule || 'cron'}) failed.`,
+              '',
+              `- Run: ${runUrl}`,
+              `- determine-version: ${{ needs.determine-version.result }}`,
+              `- release: ${{ needs.release.result }}`,
+              '',
+              'See runbooks/release-rollback.md §0 for triage steps.',
+            ].join('\n');
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'release-alert',
+            });
+            if (existing.data.some(i => i.title === title)) return;
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['release-alert', 'help wanted'],
+            });
