@@ -300,6 +300,19 @@ jobs:
               '',
               'See runbooks/release-rollback.md §0 for triage steps.',
             ].join('\n');
+            // Ensure the label exists so issue creation below can't fail with
+            // "label does not exist" on a repo where it was never created.
+            try {
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: 'release-alert',
+                color: 'b60205',
+                description: 'Auto-filed when a scheduled release.yml run fails (see runbooks/release-rollback.md)',
+              });
+            } catch (err) {
+              if (err.status !== 422) throw err;
+            }
             const existing = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
