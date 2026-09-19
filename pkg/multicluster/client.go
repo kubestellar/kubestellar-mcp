@@ -8,6 +8,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/klog/v2"
 )
 
 // ClusterInfo represents a discovered cluster
@@ -52,13 +53,22 @@ func NewClientManager(kubeconfig string) (*ClientManager, error) {
 	}, nil
 }
 
-// DiscoverClusters returns all clusters from kubeconfig
+// DiscoverClusters returns all clusters from kubeconfig. Contexts whose
+// referenced Cluster entry is missing from the kubeconfig (e.g. partial
+// edits or merged fragments) are skipped rather than surfaced as an error,
+// since a single orphaned context should not prevent discovery of the
+// remaining, valid clusters. Each skipped context is logged via klog so the
+// misconfiguration is visible to operators instead of being silently
+// dropped. The error return is reserved for future failure modes (e.g. if
+// discovery grows to validate against the live API server); it is
+// intentionally never non-nil today.
 func (m *ClientManager) DiscoverClusters() ([]ClusterInfo, error) {
 	var clusters []ClusterInfo
 
 	for contextName, context := range m.rawConfig.Contexts {
 		cluster, exists := m.rawConfig.Clusters[context.Cluster]
 		if !exists {
+			klog.Warningf("skipping context %q: referenced cluster %q not found in kubeconfig", contextName, context.Cluster)
 			continue
 		}
 
