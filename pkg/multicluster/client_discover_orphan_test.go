@@ -66,3 +66,78 @@ func TestDiscoverClustersSkipsContextWithMissingCluster(t *testing.T) {
 		}
 	}
 }
+
+// TestDiscoverClustersOrphanContextCounts table-drives the `!exists` skip
+// arm across zero, one, and multiple orphaned contexts to make sure the
+// misconfiguration (now logged via klog.Warningf, see client.go) never
+// changes the count or identity of the valid clusters returned, and that
+// DiscoverClusters keeps returning a nil error for this documented,
+// non-fatal condition.
+func TestDiscoverClustersOrphanContextCounts(t *testing.T) {
+	tests := []struct {
+		name          string
+		orphanNames   []string
+		wantValidName string
+	}{
+		{
+			name:          "no orphan contexts",
+			orphanNames:   nil,
+			wantValidName: "good",
+		},
+		{
+			name:          "single orphan context",
+			orphanNames:   []string{"orphan-1"},
+			wantValidName: "good",
+		},
+		{
+			name:          "multiple orphan contexts",
+			orphanNames:   []string{"orphan-1", "orphan-2", "orphan-3"},
+			wantValidName: "good",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := clientcmdapi.NewConfig()
+			config.CurrentContext = "good"
+
+			config.Contexts["good"] = &clientcmdapi.Context{Cluster: "good", AuthInfo: "good"}
+			config.Clusters["good"] = &clientcmdapi.Cluster{Server: "https://good.example.com"}
+			config.AuthInfos["good"] = &clientcmdapi.AuthInfo{}
+
+			for _, orphan := range tt.orphanNames {
+				config.Contexts[orphan] = &clientcmdapi.Context{Cluster: "missing-" + orphan, AuthInfo: "good"}
+			}
+
+			dir := newClientManagerTestDir(t)
+			kubeconfig := filepath.Join(dir, "config")
+			if err := clientcmd.WriteToFile(*config, kubeconfig); err != nil {
+				t.Fatalf("WriteToFile() error = %v", err)
+			}
+
+			manager, err := NewClientManager(kubeconfig)
+			if err != nil {
+				t.Fatalf("NewClientManager() error = %v", err)
+			}
+
+			clusters, err := manager.DiscoverClusters()
+			if err != nil {
+				t.Fatalf("DiscoverClusters() error = %v, want nil", err)
+			}
+
+			if len(clusters) != 1 {
+				t.Fatalf("cluster count = %d, want 1; got %#v", len(clusters), clusters)
+			}
+			if got := clusters[0]; got.Name != tt.wantValidName {
+				t.Fatalf("unexpected cluster returned: %#v", got)
+			}
+			for _, orphan := range tt.orphanNames {
+				for _, c := range clusters {
+					if c.Name == orphan {
+						t.Fatalf("orphan context %q leaked into DiscoverClusters output: %#v", orphan, c)
+					}
+				}
+			}
+		})
+	}
+}
