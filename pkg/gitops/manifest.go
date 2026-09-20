@@ -274,7 +274,13 @@ func (r *ManifestReader) ReadFromGit(ctx context.Context, source ManifestSource)
 	return manifests, nil
 }
 
-// ReadFromPath reads all YAML manifests from a directory
+// ReadFromPath reads all YAML manifests from a directory.
+//
+// Symbolic links are skipped: an attacker-controlled git repo can commit
+// a symlink such as `leak.yaml -> /var/run/secrets/kubernetes.io/serviceaccount/token`,
+// and `os.Open` would then follow the target and load host-side file content
+// into the returned Manifest (surfacing it via drift-detect responses).
+// See issue #945.
 func (r *ManifestReader) ReadFromPath(path string) ([]Manifest, error) {
 	var manifests []Manifest
 
@@ -284,6 +290,14 @@ func (r *ManifestReader) ReadFromPath(path string) ([]Manifest, error) {
 		}
 
 		if info.IsDir() {
+			return nil
+		}
+
+		// Skip symbolic links: filepath.Walk uses Lstat (so this Mode
+		// reliably reflects the entry itself, not its target), and we
+		// must not follow a symlink out of the cloned tree. Any real
+		// manifest file in the repo will be a regular file.
+		if info.Mode()&os.ModeSymlink != 0 {
 			return nil
 		}
 
