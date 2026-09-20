@@ -71,6 +71,37 @@ func managerWithAppsServers(t *testing.T, perCluster map[string]findAppFixtures)
 	}
 }
 
+// managerWithAppsServersAndBadCluster builds a manager with real fixture-backed
+// apps/v1 servers per healthyClusters entry, plus one additional cluster
+// (badClusterName) whose server returns HTTP 500 to every request, simulating
+// a cluster that is completely unreachable/unqueryable.
+func managerWithAppsServersAndBadCluster(t *testing.T, healthyClusters map[string]findAppFixtures, badClusterName string) (*multicluster.ClientManager, func()) {
+	t.Helper()
+	servers := make([]*httptest.Server, 0, len(healthyClusters)+1)
+	urls := make(map[string]string, len(healthyClusters)+1)
+	for name, fx := range healthyClusters {
+		s := startAppsServer(t, fx, nil)
+		servers = append(servers, s)
+		urls[name] = s.URL
+	}
+	badSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "boom", http.StatusInternalServerError)
+	}))
+	servers = append(servers, badSrv)
+	urls[badClusterName] = badSrv.URL
+
+	kc := writeKubeconfig(t, urls)
+	mgr, err := multicluster.NewClientManager(kc)
+	if err != nil {
+		t.Fatalf("NewClientManager: %v", err)
+	}
+	return mgr, func() {
+		for _, s := range servers {
+			s.Close()
+		}
+	}
+}
+
 func managerBadServer(t *testing.T, clusterName string) (*multicluster.ClientManager, func()) {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -226,11 +257,11 @@ func TestHandleGetAppStatus_NotFoundWhenNoInstances(t *testing.T) {
 	}
 }
 
-func TestHandleGetAppStatus_BrokenClusterYieldsNotFound(t *testing.T) {
-	// findAppInCluster deliberately swallows list errors so that a partial
-	// outage on one cluster doesn't break the whole call. Verify that a
-	// bad cluster is treated as a no-instance result (OverallStatus="not found")
-	// rather than surfacing as an executor error.
+func TestHandleGetAppStatus_BrokenClusterYieldsUnknown(t *testing.T) {
+	// A cluster whose API calls fail outright (connectivity/RBAC/timeout)
+	// must surface as "unknown", not be silently treated as "app not
+	// found" — otherwise a total outage looks identical to the app simply
+	// not being deployed anywhere.
 	mgr, cleanup := managerBadServer(t, "brokenCluster")
 	defer cleanup()
 
@@ -240,11 +271,45 @@ func TestHandleGetAppStatus_BrokenClusterYieldsNotFound(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	status := decodeAppStatus(t, res)
-	if status.OverallStatus != "not found" {
-		t.Fatalf("OverallStatus = %q, want 'not found': %+v", status.OverallStatus, status)
+	if status.OverallStatus != "unknown" {
+		t.Fatalf("OverallStatus = %q, want 'unknown': %+v", status.OverallStatus, status)
 	}
 	if status.TotalClusters != 0 {
 		t.Fatalf("TotalClusters = %d, want 0", status.TotalClusters)
+	}
+	if status.UncheckedClusters != 1 {
+		t.Fatalf("UncheckedClusters = %d, want 1", status.UncheckedClusters)
+	}
+	if len(status.Issues) != 1 {
+		t.Fatalf("expected 1 issue recorded for the unreachable cluster, got %v", status.Issues)
+	}
+}
+
+// A mixed scenario — one cluster genuinely healthy, one cluster completely
+// unreachable — must not report OverallStatus "healthy": we never confirmed
+// the app's state on the unreachable cluster, so claiming full health would
+// hide a real dependency we failed to check.
+func TestHandleGetAppStatus_HealthyPlusUnreachableYieldsDegraded(t *testing.T) {
+	mgr, cleanup := managerWithAppsServersAndBadCluster(t,
+		map[string]findAppFixtures{"cA": {deployments: []appsv1.Deployment{mkDeployment("demo-web", "app", "demo", 3, 3)}}},
+		"cB",
+	)
+	defer cleanup()
+
+	srv := newServerWithManager(mgr)
+	res, err := srv.handleGetAppStatus(context.Background(), json.RawMessage(`{"app":"demo"}`))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	status := decodeAppStatus(t, res)
+	if status.OverallStatus != "degraded" {
+		t.Fatalf("OverallStatus = %q, want 'degraded': %+v", status.OverallStatus, status)
+	}
+	if status.TotalClusters != 1 || status.HealthyClusters != 1 {
+		t.Fatalf("counts = %d/%d, want 1/1: %+v", status.HealthyClusters, status.TotalClusters, status)
+	}
+	if status.UncheckedClusters != 1 {
+		t.Fatalf("UncheckedClusters = %d, want 1: %+v", status.UncheckedClusters, status)
 	}
 }
 
