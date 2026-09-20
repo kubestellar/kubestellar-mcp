@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -35,11 +36,18 @@ type AppStatus struct {
 	App             string        `json:"app"`
 	TotalClusters   int           `json:"totalClusters"`
 	HealthyClusters int           `json:"healthyClusters"`
-	TotalReplicas   int32         `json:"totalReplicas"`
-	ReadyReplicas   int32         `json:"readyReplicas"`
-	OverallStatus   string        `json:"overallStatus"` // healthy, degraded, failed
-	Instances       []AppInstance `json:"instances"`
-	Issues          []string      `json:"issues,omitempty"`
+	// UncheckedClusters counts clusters that could not be queried at all
+	// (connectivity failure, RBAC denial, timeout, etc.). These clusters are
+	// excluded from TotalClusters/HealthyClusters because we have no
+	// instance data for them, but their presence must still prevent
+	// OverallStatus from reporting "healthy" — an app cannot be confirmed
+	// healthy on a cluster nobody was able to check.
+	UncheckedClusters int           `json:"uncheckedClusters,omitempty"`
+	TotalReplicas     int32         `json:"totalReplicas"`
+	ReadyReplicas     int32         `json:"readyReplicas"`
+	OverallStatus     string        `json:"overallStatus"` // healthy, degraded, failed, unknown, not found
+	Instances         []AppInstance `json:"instances"`
+	Issues            []string      `json:"issues,omitempty"`
 }
 
 // LogEntry represents a log line with cluster context
@@ -112,9 +120,21 @@ func (s *Server) findAppInCluster(ctx context.Context, client *kubernetes.Client
 		}
 	}
 
-	// Search Deployments
+	// Search Deployments, StatefulSets, and DaemonSets. A List failure on any
+	// one of these (RBAC denial, API server unreachable, context timeout,
+	// etc.) must not be swallowed: silently treating it as "no instances
+	// found" lets a cluster that couldn't actually be checked count as
+	// healthy (or drop out of the status entirely) in handleGetAppStatus's
+	// aggregation, which can misreport overall app health as "healthy" while
+	// one cluster's real state is unknown. Collect and surface every error
+	// instead so the caller can distinguish "not deployed here" from
+	// "couldn't check".
+	var listErrs []error
+
 	deployments, err := client.AppsV1().Deployments(ns).List(ctx, metav1.ListOptions{})
-	if err == nil {
+	if err != nil {
+		listErrs = append(listErrs, fmt.Errorf("list deployments: %w", err))
+	} else {
 		for _, d := range deployments.Items {
 			if matchesApp(d.Name, d.Labels, appName) {
 				instances = append(instances, AppInstance{
@@ -130,9 +150,10 @@ func (s *Server) findAppInCluster(ctx context.Context, client *kubernetes.Client
 		}
 	}
 
-	// Search StatefulSets
 	statefulsets, err := client.AppsV1().StatefulSets(ns).List(ctx, metav1.ListOptions{})
-	if err == nil {
+	if err != nil {
+		listErrs = append(listErrs, fmt.Errorf("list statefulsets: %w", err))
+	} else {
 		for _, s := range statefulsets.Items {
 			if matchesApp(s.Name, s.Labels, appName) {
 				instances = append(instances, AppInstance{
@@ -148,9 +169,10 @@ func (s *Server) findAppInCluster(ctx context.Context, client *kubernetes.Client
 		}
 	}
 
-	// Search DaemonSets
 	daemonsets, err := client.AppsV1().DaemonSets(ns).List(ctx, metav1.ListOptions{})
-	if err == nil {
+	if err != nil {
+		listErrs = append(listErrs, fmt.Errorf("list daemonsets: %w", err))
+	} else {
 		for _, d := range daemonsets.Items {
 			if matchesApp(d.Name, d.Labels, appName) {
 				instances = append(instances, AppInstance{
@@ -166,6 +188,9 @@ func (s *Server) findAppInCluster(ctx context.Context, client *kubernetes.Client
 		}
 	}
 
+	if len(listErrs) > 0 {
+		return instances, errors.Join(listErrs...)
+	}
 	return instances, nil
 }
 
@@ -205,7 +230,8 @@ func (s *Server) handleGetAppStatus(ctx context.Context, args json.RawMessage) (
 
 	for _, result := range results {
 		if result.Error != "" {
-			status.Issues = append(status.Issues, fmt.Sprintf("%s: %s", result.Cluster, result.Error))
+			status.Issues = append(status.Issues, fmt.Sprintf("%s: could not check (%s)", result.Cluster, result.Error))
+			status.UncheckedClusters++
 			continue
 		}
 
@@ -233,14 +259,26 @@ func (s *Server) handleGetAppStatus(ctx context.Context, args json.RawMessage) (
 		}
 	}
 
-	// Determine overall status
-	if status.TotalClusters == 0 {
+	// Determine overall status. A cluster that could not be checked
+	// (status.UncheckedClusters) must never be treated as evidence of
+	// health: it is a dependency this tool failed to observe, not a
+	// dependency confirmed absent or healthy.
+	switch {
+	case status.TotalClusters == 0 && status.UncheckedClusters == 0:
 		status.OverallStatus = "not found"
-	} else if status.HealthyClusters == status.TotalClusters {
+	case status.TotalClusters == 0:
+		// Every cluster we tried to check failed; the app may or may not be
+		// deployed anywhere, but we have zero verified data either way.
+		status.OverallStatus = "unknown"
+	case status.HealthyClusters == status.TotalClusters && status.UncheckedClusters == 0:
 		status.OverallStatus = "healthy"
-	} else if status.HealthyClusters > 0 {
+	case status.HealthyClusters == status.TotalClusters:
+		// All checkable clusters are healthy, but at least one cluster
+		// could not be verified at all, so we cannot claim full health.
 		status.OverallStatus = "degraded"
-	} else {
+	case status.HealthyClusters > 0:
+		status.OverallStatus = "degraded"
+	default:
 		status.OverallStatus = "failed"
 	}
 
