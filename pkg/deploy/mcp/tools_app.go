@@ -88,10 +88,18 @@ func (s *Server) handleGetAppInstances(ctx context.Context, args json.RawMessage
 		return nil, err
 	}
 
-	// Flatten results
+	// Flatten results. Clusters whose lookup failed (connectivity, RBAC,
+	// timeout, etc.) are recorded in uncheckedClusters instead of being
+	// silently dropped: without this, a cluster hosting the only running
+	// instance of an app that happens to be unreachable would make this
+	// tool report "count: 0" — indistinguishable from the app genuinely
+	// not being deployed anywhere (same false-negative class fixed for
+	// handleGetAppStatus's overallStatus).
 	var instances []AppInstance
+	var uncheckedClusters []string
 	for _, result := range results {
 		if result.Error != "" {
+			uncheckedClusters = append(uncheckedClusters, result.Cluster)
 			continue
 		}
 		if clusterInstances, ok := result.Result.([]AppInstance); ok {
@@ -99,11 +107,16 @@ func (s *Server) handleGetAppInstances(ctx context.Context, args json.RawMessage
 		}
 	}
 
-	return map[string]interface{}{
+	response := map[string]interface{}{
 		"app":       claude.SanitizeForPrompt(params.App),
 		"instances": instances,
 		"count":     len(instances),
-	}, nil
+	}
+	if len(uncheckedClusters) > 0 {
+		response["uncheckedClusters"] = uncheckedClusters
+	}
+
+	return response, nil
 }
 
 // findAppInCluster searches for an app in a single cluster
