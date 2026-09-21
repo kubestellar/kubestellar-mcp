@@ -9,6 +9,12 @@ on:
         description: 'Git tag to build from (e.g. v0.9.0)'
         required: true
         type: string
+  workflow_call:
+    inputs:
+      tag:
+        description: 'Git tag to build from (e.g. v0.9.0)'
+        required: true
+        type: string
 
 permissions: read-all
 
@@ -29,12 +35,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.inputs.tag || github.event.release.tag_name }}
+          ref: ${{ inputs.tag || github.event.release.tag_name }}
 
       - name: Determine version
         id: version
         env:
-          TAG_INPUT: ${{ github.event.inputs.tag || github.event.release.tag_name }}
+          TAG_INPUT: ${{ inputs.tag || github.event.release.tag_name }}
         run: |
           TAG="$TAG_INPUT"
           # Strip 'v' prefix for Docker tag
