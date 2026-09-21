@@ -12,9 +12,10 @@ import (
 // decodeAppInstancesResult round-trips the map[string]interface{} returned by
 // handleGetAppInstances into a typed struct.
 func decodeAppInstancesResult(t *testing.T, res interface{}) struct {
-	App       string        `json:"app"`
-	Instances []AppInstance `json:"instances"`
-	Count     int           `json:"count"`
+	App               string        `json:"app"`
+	Instances         []AppInstance `json:"instances"`
+	Count             int           `json:"count"`
+	UncheckedClusters []string      `json:"uncheckedClusters,omitempty"`
 } {
 	t.Helper()
 	b, err := json.Marshal(res)
@@ -22,9 +23,10 @@ func decodeAppInstancesResult(t *testing.T, res interface{}) struct {
 		t.Fatalf("marshal: %v", err)
 	}
 	var out struct {
-		App       string        `json:"app"`
-		Instances []AppInstance `json:"instances"`
-		Count     int           `json:"count"`
+		App               string        `json:"app"`
+		Instances         []AppInstance `json:"instances"`
+		Count             int           `json:"count"`
+		UncheckedClusters []string      `json:"uncheckedClusters,omitempty"`
 	}
 	if err := json.Unmarshal(b, &out); err != nil {
 		t.Fatalf("unmarshal: %v", err)
@@ -87,9 +89,13 @@ func TestHandleGetAppInstances_ExecutorSuccess(t *testing.T) {
 	}
 }
 
-// A cluster whose apiserver returns 500 must not error the whole call —
-// findAppInCluster swallows list errors so we get an empty instances slice.
-func TestHandleGetAppInstances_BrokenClusterYieldsEmpty(t *testing.T) {
+// A cluster whose apiserver returns 500 must not error the whole call, but
+// it also must not be silently indistinguishable from "app not deployed
+// anywhere": findAppInCluster returns the List error, and
+// handleGetAppInstances must surface that cluster in uncheckedClusters
+// rather than just dropping it, so callers can tell a genuine zero-instance
+// result apart from "some clusters couldn't be checked".
+func TestHandleGetAppInstances_BrokenClusterYieldsUnchecked(t *testing.T) {
 	mgr, cleanup := managerBadServer(t, "broken")
 	defer cleanup()
 
@@ -101,6 +107,36 @@ func TestHandleGetAppInstances_BrokenClusterYieldsEmpty(t *testing.T) {
 	out := decodeAppInstancesResult(t, res)
 	if out.Count != 0 || len(out.Instances) != 0 {
 		t.Fatalf("Count/Instances = %d/%d, want 0/0", out.Count, len(out.Instances))
+	}
+	if len(out.UncheckedClusters) != 1 || out.UncheckedClusters[0] != "broken" {
+		t.Fatalf("UncheckedClusters = %v, want [broken]", out.UncheckedClusters)
+	}
+}
+
+// A mix of a healthy cluster and a broken one must report the healthy
+// cluster's real instances while still flagging the broken cluster as
+// unchecked, rather than letting the broken cluster silently vanish.
+func TestHandleGetAppInstances_MixedClustersReportsHealthyPlusUnchecked(t *testing.T) {
+	mgr, cleanup := managerWithAppsServersAndBadCluster(t, map[string]findAppFixtures{
+		"cGood": {
+			deployments: []appsv1.Deployment{
+				mkDeployment("demo-web", "app", "demo", 3, 3),
+			},
+		},
+	}, "cBroken")
+	defer cleanup()
+
+	srv := newServerWithManager(mgr)
+	res, err := srv.handleGetAppInstances(context.Background(), json.RawMessage(`{"app":"demo"}`))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out := decodeAppInstancesResult(t, res)
+	if out.Count != 1 || len(out.Instances) != 1 {
+		t.Fatalf("Count/Instances = %d/%d, want 1/1: %+v", out.Count, len(out.Instances), out.Instances)
+	}
+	if len(out.UncheckedClusters) != 1 || out.UncheckedClusters[0] != "cBroken" {
+		t.Fatalf("UncheckedClusters = %v, want [cBroken]", out.UncheckedClusters)
 	}
 }
 
