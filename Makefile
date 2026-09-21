@@ -85,6 +85,9 @@ alert-lint:
 			echo "  missing spec.groups: $$f"; fail=1; \
 		fi; \
 	done; \
+	if [ $$fail -ne 0 ]; then exit $$fail; fi; \
+	echo "checking runbook anchors referenced from docs/alerts/*.yaml"; \
+	python3 scripts/check-runbook-anchors.py || fail=1; \
 	exit $$fail
 
 .PHONY: help
