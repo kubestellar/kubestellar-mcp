@@ -41,6 +41,7 @@ If you are contributing new MCP capabilities, start with [`docs/ARCHITECTURE.md`
 - [`docs/dashboards/`](docs/dashboards/README.md) - importable Grafana dashboard
 - [`runbooks/`](runbooks/) - operational runbooks (startup/shutdown, cluster discovery failures, credential rotation, connectivity loss, release rollback)
 - [`docs/postmortem-template.md`](docs/postmortem-template.md) - incident postmortem template
+- [`docs/severity-levels.md`](docs/severity-levels.md) - P1-P4 incident severity scale used by the incident template and postmortem requirement
 
 ## Installation
 
