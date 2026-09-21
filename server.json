@@ -7,11 +7,11 @@
     "url": "https://github.com/kubestellar/kubestellar-mcp",
     "source": "github"
   },
-  "version": "0.9.0",
+  "version": "0.9.15",
   "packages": [
     {
       "registryType": "oci",
-      "identifier": "ghcr.io/kubestellar/kubestellar-mcp:0.9.0",
+      "identifier": "ghcr.io/kubestellar/kubestellar-mcp:0.9.15",
       "transport": {
         "type": "stdio"
       },

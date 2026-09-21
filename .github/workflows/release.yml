@@ -254,8 +254,30 @@ jobs:
               "source_branch": "${{ needs.determine-version.outputs.version }}"
             }
 
-  notify:
+  publish-ghcr:
     needs: [determine-version, release]
+    if: ${{ github.event.inputs.dry_run != 'true' && needs.determine-version.outputs.has_changes == 'true' }}
+    permissions:
+      contents: read
+      packages: write      # Required: pushes Docker images to GitHub Container Registry (ghcr.io)
+      id-token: write      # Required: OIDC token for keyless build provenance attestation
+      attestations: write  # Required: store the attestation on the repo
+    uses: ./.github/workflows/ghcr-publish.yml
+    with:
+      tag: ${{ needs.determine-version.outputs.version }}
+
+  publish-mcp-registry:
+    needs: [determine-version, publish-ghcr]
+    if: ${{ github.event.inputs.dry_run != 'true' && needs.determine-version.outputs.has_changes == 'true' }}
+    permissions:
+      contents: read
+      id-token: write  # Required: OIDC token to authenticate to the MCP Registry
+    uses: ./.github/workflows/publish-mcp-registry.yml
+    with:
+      tag: ${{ needs.determine-version.outputs.version }}
+
+  notify:
+    needs: [determine-version, release, publish-ghcr, publish-mcp-registry]
     runs-on: ubuntu-latest
     if: always()
     permissions:
@@ -278,6 +300,8 @@ jobs:
             echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
             echo "- GitHub Release: https://github.com/${{ github.repository }}/releases/tag/${{ needs.determine-version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
             echo "- Homebrew: \`brew upgrade kubestellar-ops kubestellar-deploy\` (formulas updated)" >> $GITHUB_STEP_SUMMARY
+            echo "- GHCR image: ${{ needs.publish-ghcr.result }}" >> $GITHUB_STEP_SUMMARY
+            echo "- MCP Registry: ${{ needs.publish-mcp-registry.result }}" >> $GITHUB_STEP_SUMMARY
           else
             echo "### Status: ${{ needs.release.result }}" >> $GITHUB_STEP_SUMMARY
           fi
@@ -285,7 +309,8 @@ jobs:
       - name: Alert on scheduled-run failure
         if: |
           github.event_name == 'schedule' &&
-          (needs.determine-version.result == 'failure' || needs.release.result == 'failure')
+          (needs.determine-version.result == 'failure' || needs.release.result == 'failure' ||
+           needs.publish-ghcr.result == 'failure' || needs.publish-mcp-registry.result == 'failure')
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v8.0.0
         with:
           script: |
@@ -297,6 +322,8 @@ jobs:
               `- Run: ${runUrl}`,
               `- determine-version: ${{ needs.determine-version.result }}`,
               `- release: ${{ needs.release.result }}`,
+              `- publish-ghcr: ${{ needs.publish-ghcr.result }}`,
+              `- publish-mcp-registry: ${{ needs.publish-mcp-registry.result }}`,
               '',
               'See runbooks/release-rollback.md §0 for triage steps.',
             ].join('\n');
