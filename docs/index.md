@@ -71,6 +71,7 @@ Ask Claude:
 - [Grafana dashboard](./dashboards/README.md) - importable overview dashboard for `pkg/metrics` series
 - [Runbooks](https://github.com/kubestellar/kubestellar-mcp/tree/main/runbooks) - startup/shutdown, cluster discovery failures, credential rotation, connectivity loss, release rollback
 - [Postmortem template](./postmortem-template.md) - used for incident writeups
+- [Severity levels](./severity-levels.md) - P1-P4 incident severity scale used by the incident template and postmortem requirement
 
 ## Installation
 
