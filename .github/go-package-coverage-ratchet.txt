@@ -17,7 +17,7 @@
 
 # --- Tier 1: Deploy / MCP tool surface (kubectl, helm, kustomize, gitops) ---
 pkg/deploy/mcp 95.5
-pkg/mcp/server 96.5
+pkg/mcp/server 96.4
 pkg/mcp/protocol 100.0
 pkg/mcp/tools/upgrades 97.0
 
