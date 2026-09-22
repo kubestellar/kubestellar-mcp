@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"strings"
 
-	server "github.com/kubestellar/kubestellar-mcp/pkg/mcp/server"
+	nsval "github.com/kubestellar/kubestellar-mcp/pkg/security/namespace"
 )
 
 func (s *Server) handleHelmList(ctx context.Context, args json.RawMessage) (interface{}, error) {
@@ -34,7 +34,7 @@ func (s *Server) handleHelmList(ctx context.Context, args json.RawMessage) (inte
 
 	// Validate namespace to prevent access to system namespaces (#377).
 	if params.Namespace != "" {
-		if err := server.ValidateNamespace(params.Namespace); err != nil {
+		if err := nsval.ValidateNamespace(params.Namespace); err != nil {
 			return nil, fmt.Errorf("invalid namespace: %w", err)
 		}
 	}

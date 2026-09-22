@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sync"
 
-	server "github.com/kubestellar/kubestellar-mcp/pkg/mcp/server"
+	nsval "github.com/kubestellar/kubestellar-mcp/pkg/security/namespace"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
@@ -175,7 +175,7 @@ func (s *Server) handleSyncFromGit(ctx context.Context, args json.RawMessage) (i
 
 	// Validate namespace override to prevent access to system namespaces (#377).
 	if params.Namespace != "" {
-		if err := server.ValidateNamespace(params.Namespace); err != nil {
+		if err := nsval.ValidateNamespace(params.Namespace); err != nil {
 			return nil, fmt.Errorf("invalid namespace: %w", err)
 		}
 	}

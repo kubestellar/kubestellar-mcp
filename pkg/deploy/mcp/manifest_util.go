@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	server "github.com/kubestellar/kubestellar-mcp/pkg/mcp/server"
+	nsval "github.com/kubestellar/kubestellar-mcp/pkg/security/namespace"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 )
@@ -134,11 +134,11 @@ func validateManifestDocs(manifest string) error {
 		obj := &unstructured.Unstructured{}
 		if err := unstructuredFromYAML(doc, obj); err == nil {
 			if isNamespaceKind(obj.GetKind()) {
-				if err := server.ValidateNamespace(obj.GetName()); err != nil {
+				if err := nsval.ValidateNamespace(obj.GetName()); err != nil {
 					return fmt.Errorf("invalid namespace in manifest: %w", err)
 				}
 			} else if ns := obj.GetNamespace(); ns != "" {
-				if err := server.ValidateNamespace(ns); err != nil {
+				if err := nsval.ValidateNamespace(ns); err != nil {
 					return fmt.Errorf("invalid namespace in manifest: %w", err)
 				}
 			}

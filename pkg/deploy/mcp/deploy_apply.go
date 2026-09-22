@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
-	server "github.com/kubestellar/kubestellar-mcp/pkg/mcp/server"
+	nsval "github.com/kubestellar/kubestellar-mcp/pkg/security/namespace"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -52,7 +52,7 @@ func (s *Server) applyManifest(ctx context.Context, client kubernetes.Interface,
 
 			// Validate namespace from manifest to prevent access to system namespaces (#377).
 			if namespace != "" {
-				if err := server.ValidateNamespace(namespace); err != nil {
+				if err := nsval.ValidateNamespace(namespace); err != nil {
 					return []DeployResult{{
 						Cluster: clusterName, Status: "failed",
 						Message: fmt.Sprintf("invalid namespace in manifest: %v", err),

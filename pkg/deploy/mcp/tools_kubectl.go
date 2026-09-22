@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	server "github.com/kubestellar/kubestellar-mcp/pkg/mcp/server"
+	nsval "github.com/kubestellar/kubestellar-mcp/pkg/security/namespace"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -55,11 +55,11 @@ func (s *Server) handleDeleteResource(ctx context.Context, args json.RawMessage)
 	// For kind Namespace the protected value is name (cluster-scoped), not the
 	// namespace field — otherwise deleting kube-system etc. would be allowed.
 	if isNamespaceKind(params.Kind) {
-		if err := server.ValidateNamespace(params.Name); err != nil {
+		if err := nsval.ValidateNamespace(params.Name); err != nil {
 			return nil, fmt.Errorf("invalid namespace: %w", err)
 		}
 	} else if params.Namespace != "" {
-		if err := server.ValidateNamespace(params.Namespace); err != nil {
+		if err := nsval.ValidateNamespace(params.Namespace); err != nil {
 			return nil, fmt.Errorf("invalid namespace: %w", err)
 		}
 	}
