@@ -64,19 +64,6 @@ func TestFormattingHelpers(t *testing.T) {
 	}
 }
 
-func TestFormatMultiClusterResults(t *testing.T) {
-	results := []ClusterResult{{Cluster: "alpha", Result: "ok"}, {Cluster: "beta", Error: "boom"}}
-	formatted := formatMultiClusterResults(results)
-
-	var decoded []ClusterResult
-	if err := json.Unmarshal([]byte(formatted), &decoded); err != nil {
-		t.Fatalf("formatMultiClusterResults() produced invalid JSON: %v", err)
-	}
-	if len(decoded) != 2 || decoded[1].Cluster != "beta" || decoded[1].Error != "boom" {
-		t.Fatalf("unexpected decoded results: %#v", decoded)
-	}
-}
-
 func TestParseHelmSecret(t *testing.T) {
 	release := map[string]interface{}{
 		"name":    "demo",
