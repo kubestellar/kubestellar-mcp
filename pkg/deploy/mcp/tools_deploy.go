@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	server "github.com/kubestellar/kubestellar-mcp/pkg/mcp/server"
+	nsval "github.com/kubestellar/kubestellar-mcp/pkg/security/namespace"
 	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -175,7 +175,7 @@ func (s *Server) handleScaleApp(ctx context.Context, args json.RawMessage) (inte
 
 	// Validate namespace to prevent access to system namespaces (#377).
 	if params.Namespace != "" {
-		if err := server.ValidateNamespace(params.Namespace); err != nil {
+		if err := nsval.ValidateNamespace(params.Namespace); err != nil {
 			return nil, fmt.Errorf("invalid namespace: %w", err)
 		}
 	}
@@ -232,7 +232,7 @@ func (s *Server) handlePatchApp(ctx context.Context, args json.RawMessage) (inte
 
 	// Validate namespace to prevent access to system namespaces (#377).
 	if params.Namespace != "" {
-		if err := server.ValidateNamespace(params.Namespace); err != nil {
+		if err := nsval.ValidateNamespace(params.Namespace); err != nil {
 			return nil, fmt.Errorf("invalid namespace: %w", err)
 		}
 	}

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	server "github.com/kubestellar/kubestellar-mcp/pkg/mcp/server"
+	nsval "github.com/kubestellar/kubestellar-mcp/pkg/security/namespace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
@@ -139,13 +139,13 @@ func (s *Server) applyManifestDynamic(ctx context.Context, clusterName, manifest
 		// For kind Namespace the protected value is metadata.name (cluster-scoped).
 		// Append failure and continue rather than returning early, so prior results are preserved (#626).
 		if isNamespaceKind(kind) {
-			if err := server.ValidateNamespace(name); err != nil {
+			if err := nsval.ValidateNamespace(name); err != nil {
 				results = append(results, ApplyResult{Cluster: clusterName, Status: "failed",
 					Message: fmt.Sprintf("invalid namespace in manifest: %v", err)})
 				continue
 			}
 		} else if namespace != "" {
-			if err := server.ValidateNamespace(namespace); err != nil {
+			if err := nsval.ValidateNamespace(namespace); err != nil {
 				results = append(results, ApplyResult{Cluster: clusterName, Status: "failed",
 					Message: fmt.Sprintf("invalid namespace in manifest: %v", err)})
 				continue

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os/exec"
 
-	server "github.com/kubestellar/kubestellar-mcp/pkg/mcp/server"
+	nsval "github.com/kubestellar/kubestellar-mcp/pkg/security/namespace"
 )
 
 func (s *Server) handleHelmRollback(ctx context.Context, args json.RawMessage) (interface{}, error) {
@@ -31,7 +31,7 @@ func (s *Server) handleHelmRollback(ctx context.Context, args json.RawMessage) (
 	}
 
 	// Validate namespace to prevent access to system namespaces (#377).
-	if err := server.ValidateNamespace(params.Namespace); err != nil {
+	if err := nsval.ValidateNamespace(params.Namespace); err != nil {
 		return nil, fmt.Errorf("invalid namespace: %w", err)
 	}
 

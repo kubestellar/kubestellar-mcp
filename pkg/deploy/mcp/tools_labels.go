@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	server "github.com/kubestellar/kubestellar-mcp/pkg/mcp/server"
+	nsval "github.com/kubestellar/kubestellar-mcp/pkg/security/namespace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -49,7 +49,7 @@ func (s *Server) handleAddLabels(ctx context.Context, args json.RawMessage) (int
 
 	// Validate namespace to prevent access to system namespaces (#377).
 	if params.Namespace != "" {
-		if err := server.ValidateNamespace(params.Namespace); err != nil {
+		if err := nsval.ValidateNamespace(params.Namespace); err != nil {
 			return nil, fmt.Errorf("invalid namespace: %w", err)
 		}
 	}
@@ -201,7 +201,7 @@ func (s *Server) handleRemoveLabels(ctx context.Context, args json.RawMessage) (
 
 	// Validate namespace to prevent access to system namespaces (#377).
 	if params.Namespace != "" {
-		if err := server.ValidateNamespace(params.Namespace); err != nil {
+		if err := nsval.ValidateNamespace(params.Namespace); err != nil {
 			return nil, fmt.Errorf("invalid namespace: %w", err)
 		}
 	}

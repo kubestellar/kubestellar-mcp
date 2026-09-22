@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	server "github.com/kubestellar/kubestellar-mcp/pkg/mcp/server"
+	nsval "github.com/kubestellar/kubestellar-mcp/pkg/security/namespace"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -73,10 +73,7 @@ func (s *Server) handleGetAppInstances(ctx context.Context, args json.RawMessage
 		return nil, fmt.Errorf("invalid app name: %w", err)
 	}
 	if params.Namespace != "" {
-		if err := claude.ValidateK8sNamespace(params.Namespace); err != nil {
-			return nil, fmt.Errorf("invalid namespace: %w", err)
-		}
-		if err := server.ValidateNamespace(params.Namespace); err != nil {
+		if err := nsval.ValidateNamespace(params.Namespace); err != nil {
 			return nil, fmt.Errorf("invalid namespace: %w", err)
 		}
 	}
@@ -128,7 +125,7 @@ func (s *Server) findAppInCluster(ctx context.Context, client *kubernetes.Client
 	}
 
 	if ns != "" {
-		if err := server.ValidateNamespace(ns); err != nil {
+		if err := nsval.ValidateNamespace(ns); err != nil {
 			return nil, fmt.Errorf("invalid namespace: %w", err)
 		}
 	}
@@ -221,10 +218,7 @@ func (s *Server) handleGetAppStatus(ctx context.Context, args json.RawMessage) (
 		return nil, fmt.Errorf("invalid app name: %w", err)
 	}
 	if params.Namespace != "" {
-		if err := claude.ValidateK8sNamespace(params.Namespace); err != nil {
-			return nil, fmt.Errorf("invalid namespace: %w", err)
-		}
-		if err := server.ValidateNamespace(params.Namespace); err != nil {
+		if err := nsval.ValidateNamespace(params.Namespace); err != nil {
 			return nil, fmt.Errorf("invalid namespace: %w", err)
 		}
 	}
@@ -314,10 +308,7 @@ func (s *Server) handleGetAppLogs(ctx context.Context, args json.RawMessage) (in
 		return nil, fmt.Errorf("invalid app name: %w", err)
 	}
 	if params.Namespace != "" {
-		if err := claude.ValidateK8sNamespace(params.Namespace); err != nil {
-			return nil, fmt.Errorf("invalid namespace: %w", err)
-		}
-		if err := server.ValidateNamespace(params.Namespace); err != nil {
+		if err := nsval.ValidateNamespace(params.Namespace); err != nil {
 			return nil, fmt.Errorf("invalid namespace: %w", err)
 		}
 	}
@@ -359,7 +350,7 @@ func (s *Server) getLogsFromCluster(ctx context.Context, client *kubernetes.Clie
 	}
 
 	if ns != "" {
-		if err := server.ValidateNamespace(ns); err != nil {
+		if err := nsval.ValidateNamespace(ns); err != nil {
 			return nil, fmt.Errorf("invalid namespace: %w", err)
 		}
 	}
