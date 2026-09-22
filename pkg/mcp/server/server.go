@@ -18,16 +18,23 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
+	"github.com/kubestellar/kubestellar-mcp/internal/version"
 	"github.com/kubestellar/kubestellar-mcp/pkg/cluster"
 	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/protocol"
 	"github.com/kubestellar/kubestellar-mcp/pkg/metrics"
 )
 
 const (
-	ServerName    = "kubestellar-ops"
-	ServerVersion = "0.8.0"
-	MCPVersion    = protocol.MCPVersion
+	ServerName = "kubestellar-ops"
+	MCPVersion = protocol.MCPVersion
 )
+
+// ServerVersion is reported in the MCP initialize handshake under
+// serverInfo.version. It shadows internal/version.Version so the handshake and
+// the CLI --version flag stay in lock-step; internal/version.Version is
+// populated at build time by ldflags (see Makefile). Declared as a var rather
+// than a const because version.Version is itself a var.
+var ServerVersion = version.Version
 
 // Type aliases so tool registry files continue to compile unchanged.
 type (

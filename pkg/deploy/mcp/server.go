@@ -14,6 +14,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
+	"github.com/kubestellar/kubestellar-mcp/internal/version"
 	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
 	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/protocol"
 	"github.com/kubestellar/kubestellar-mcp/pkg/metrics"
@@ -21,9 +22,15 @@ import (
 )
 
 const (
-	ServerName    = "kubestellar-deploy"
-	ServerVersion = "0.8.0"
+	ServerName = "kubestellar-deploy"
 )
+
+// ServerVersion is reported in the MCP initialize handshake under
+// serverInfo.version. It shadows internal/version.Version so the handshake and
+// the CLI --version flag stay in lock-step; internal/version.Version is
+// populated at build time by ldflags (see Makefile). Declared as a var rather
+// than a const because version.Version is itself a var.
+var ServerVersion = version.Version
 
 type manifestSyncer interface {
 	Sync(ctx context.Context, manifests []gitops.Manifest, clusterName string, opts gitops.SyncOptions) (*gitops.SyncSummary, error)
