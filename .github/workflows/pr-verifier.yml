@@ -20,9 +20,9 @@ jobs:
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
-          # Allow optional [scanner], [agent], [ci-maintainer], [quality], [sec-check] prefix
+          # Allow optional emoji prefix and [scanner], [agent], [ci-maintainer], [quality], [sec-check] prefix
           # before the conventional commit type for automated PRs.
-          PATTERN='^(\[(scanner|agent|ci-maintainer|quality|sec-check)\] )?(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?!?: .+'
+          PATTERN='^([^A-Za-z[]+ )?(\[(scanner|agent|ci-maintainer|quality|sec-check)\] )?(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?!?: .+'
           if echo "$PR_TITLE" | grep -qE "$PATTERN"; then
             echo "PR title is valid: $PR_TITLE"
           else
@@ -34,6 +34,7 @@ jobs:
             echo "Examples:"
             echo "  fix: correct typo"
             echo "  [scanner] fix: pin SHA"
+            echo "  🌱 [scanner] fix: pin SHA"
             echo "  feat(scope): add feature"
             echo ""
             echo "Allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert"
