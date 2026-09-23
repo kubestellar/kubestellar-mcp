@@ -4,9 +4,6 @@ package protocol
 
 import (
 	"encoding/json"
-	"fmt"
-	"io"
-	"sync"
 )
 
 const (
@@ -115,68 +112,4 @@ type CallToolResult struct {
 type ContentBlock struct {
 	Type string `json:"type"`
 	Text string `json:"text"`
-}
-
-// --- Transport helpers ---
-
-// Writer provides thread-safe JSON-RPC response writing over a line-delimited stream.
-type Writer struct {
-	w  io.Writer
-	mu sync.Mutex
-}
-
-// NewWriter creates a Writer that serializes responses to the given io.Writer.
-func NewWriter(w io.Writer) *Writer {
-	return &Writer{w: w}
-}
-
-// SendResult sends a successful JSON-RPC response.
-func (w *Writer) SendResult(id interface{}, result interface{}) {
-	w.Send(Response{
-		JSONRPC: JSONRPCVersion,
-		ID:      id,
-		Result:  result,
-	})
-}
-
-// SendError sends a JSON-RPC error response.
-func (w *Writer) SendError(id interface{}, code int, message string, data interface{}) {
-	w.Send(Response{
-		JSONRPC: JSONRPCVersion,
-		ID:      id,
-		Error: &Error{
-			Code:    code,
-			Message: message,
-			Data:    data,
-		},
-	})
-}
-
-// Send marshals and writes a Response as a newline-terminated JSON line.
-func (w *Writer) Send(resp Response) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
-	data, err := json.Marshal(resp)
-	if err != nil {
-		// Best-effort: log and continue
-		_, _ = fmt.Fprintf(w.w, `{"jsonrpc":"2.0","error":{"code":-32603,"message":"marshal error"}}`+"\n")
-		return
-	}
-	_, _ = fmt.Fprintf(w.w, "%s\n", data)
-}
-
-// TextResult is a convenience helper that builds a CallToolResult with a single text block.
-func TextResult(text string) CallToolResult {
-	return CallToolResult{
-		Content: []ContentBlock{{Type: "text", Text: text}},
-	}
-}
-
-// ErrorResult is a convenience helper that builds a CallToolResult marked as error.
-func ErrorResult(text string) CallToolResult {
-	return CallToolResult{
-		Content: []ContentBlock{{Type: "text", Text: text}},
-		IsError: true,
-	}
 }

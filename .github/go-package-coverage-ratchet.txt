@@ -18,7 +18,6 @@
 # --- Tier 1: Deploy / MCP tool surface (kubectl, helm, kustomize, gitops) ---
 pkg/deploy/mcp 95.5
 pkg/mcp/server 96.4
-pkg/mcp/protocol 100.0
 pkg/mcp/tools/upgrades 97.0
 
 # --- Tier 1: Core packages ---
@@ -47,3 +46,4 @@ pkg/progress 98.4
 # without asking scripts/check-go-coverage-ratchet.sh to look for a
 # package that never appears in the coverprofile. See kubestellar-mcp#872.
 internal/version -
+pkg/mcp/protocol -
