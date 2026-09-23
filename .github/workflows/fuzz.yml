@@ -1,0 +1,54 @@
+name: Fuzz
+
+on:
+  schedule:
+    # Weekly, Sunday 07:00 UTC — offset from build-test.yml's 06:00 UTC daily
+    # so the two jobs never collide on the shared runner pool.
+    - cron: '0 7 * * 0'
+  workflow_dispatch:
+    inputs:
+      fuzztime:
+        description: 'Duration to fuzz each target (Go duration, e.g. 5m, 30m)'
+        required: false
+        default: '5m'
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package: ./pkg/gitops/
+            target: FuzzValidateRepoURL
+          - package: ./pkg/gitops/
+            target: FuzzValidateBranchName
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run ${{ matrix.target }}
+        run: |
+          FUZZTIME="${{ github.event.inputs.fuzztime || '5m' }}"
+          echo "Fuzzing ${{ matrix.target }} in ${{ matrix.package }} for ${FUZZTIME}"
+          # -run=^$ skips normal tests; -fuzz picks a single target.
+          go test -run='^$' -fuzz='^${{ matrix.target }}$' -fuzztime="${FUZZTIME}" ${{ matrix.package }}
+
+      - name: Upload crashers
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: fuzz-crashers-${{ matrix.target }}
+          path: |
+            **/testdata/fuzz/${{ matrix.target }}/**
+          if-no-files-found: ignore
+          retention-days: 30
