@@ -1,4 +1,4 @@
-package mcp
+package kustomize
 
 import (
 	"context"
@@ -19,28 +19,28 @@ import (
 // regression in any of those branches surfaces here instead of in prod.
 
 func TestHandleKustomizeDeleteRejectsInvalidJSON(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{})
+	deps := newTestDeps(t, map[string]string{})
 
-	_, err := server.handleKustomizeDelete(context.Background(), json.RawMessage("{not-json"))
+	_, err := deps.handleKustomizeDelete(context.Background(), json.RawMessage("{not-json"))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid arguments")
 }
 
 func TestHandleKustomizeDeleteRequiresPath(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{})
+	deps := newTestDeps(t, map[string]string{})
 
-	_, err := server.handleKustomizeDelete(context.Background(), mustMarshalJSON(t, map[string]interface{}{}))
+	_, err := deps.handleKustomizeDelete(context.Background(), mustMarshalJSON(t, map[string]interface{}{}))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "path is required")
 }
 
 func TestHandleKustomizeDeleteRejectsPathWithoutKustomization(t *testing.T) {
 	setupFakeKustomize(t)
-	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+	deps := newTestDeps(t, map[string]string{"alpha": "https://alpha.example.com"})
 
 	// t.TempDir() has no kustomization.yaml/.yml — resolveKustomizePath's
 	// kustomization-presence check must reject it before any build attempt.
-	_, err := server.handleKustomizeDelete(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+	_, err := deps.handleKustomizeDelete(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 		"path":     t.TempDir(),
 		"clusters": []string{"alpha"},
 		"dry_run":  true,
@@ -51,7 +51,7 @@ func TestHandleKustomizeDeleteRejectsPathWithoutKustomization(t *testing.T) {
 
 func TestHandleKustomizeDeleteRejectsSensitiveKindInBuiltManifest(t *testing.T) {
 	setupFakeKustomize(t)
-	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+	deps := newTestDeps(t, map[string]string{"alpha": "https://alpha.example.com"})
 	dir := createTestKustomization(t, "kustomization.yaml")
 
 	// A Secret in the built manifest must be blocked by validateManifestDocs
@@ -60,7 +60,7 @@ func TestHandleKustomizeDeleteRejectsSensitiveKindInBuiltManifest(t *testing.T) 
 	// call, distinct from the apply-side branch already covered).
 	t.Setenv("FAKE_KUSTOMIZE_BUILD_STDOUT", "apiVersion: v1\nkind: Secret\nmetadata:\n  name: db-creds\n")
 
-	_, err := server.handleKustomizeDelete(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+	_, err := deps.handleKustomizeDelete(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 		"path":     dir,
 		"clusters": []string{"alpha"},
 		"dry_run":  true,
@@ -73,11 +73,11 @@ func TestHandleKustomizeDeleteRejectsSensitiveKindInBuiltManifest(t *testing.T) 
 func TestHandleKustomizeDeleteReturnsNoClustersAvailable(t *testing.T) {
 	setupFakeKustomize(t)
 	// No contexts in the kubeconfig → DiscoverClusters returns empty.
-	server := newHelmTestServer(t, map[string]string{})
+	deps := newTestDeps(t, map[string]string{})
 	dir := createTestKustomization(t, "kustomization.yaml")
 	t.Setenv("FAKE_KUSTOMIZE_BUILD_STDOUT", "kind: ConfigMap\n")
 
-	_, err := server.handleKustomizeDelete(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+	_, err := deps.handleKustomizeDelete(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 		"path":    dir,
 		"dry_run": true,
 	}))
@@ -87,14 +87,14 @@ func TestHandleKustomizeDeleteReturnsNoClustersAvailable(t *testing.T) {
 
 func TestHandleKustomizeDeleteDryRunAcrossExplicitClusters(t *testing.T) {
 	setupFakeKustomize(t)
-	server := newHelmTestServer(t, map[string]string{
+	deps := newTestDeps(t, map[string]string{
 		"alpha": "https://alpha.example.com",
 		"beta":  "https://beta.example.com",
 	})
 	dir := createTestKustomization(t, "kustomization.yaml")
 	t.Setenv("FAKE_KUSTOMIZE_BUILD_STDOUT", "kind: ConfigMap\n---\nkind: Service\n")
 
-	got, err := server.handleKustomizeDelete(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+	got, err := deps.handleKustomizeDelete(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 		"path":     dir,
 		"clusters": []string{"beta", "alpha"},
 		"dry_run":  true,

@@ -1,4 +1,4 @@
-package mcp
+package kustomize
 
 import (
 	"context"
@@ -13,8 +13,8 @@ import (
 // tools_kustomize_delete_branches_test.go already covers the symmetric
 // arm on the Delete side.
 func TestHandleKustomizeApplyRejectsInvalidJSON(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{})
-	_, err := server.handleKustomizeApply(context.Background(), []byte(`"not-an-object"`))
+	deps := newTestDeps(t, map[string]string{})
+	_, err := deps.handleKustomizeApply(context.Background(), []byte(`"not-an-object"`))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid arguments")
 }
@@ -22,8 +22,8 @@ func TestHandleKustomizeApplyRejectsInvalidJSON(t *testing.T) {
 // TestHandleKustomizeApplyRejectsMissingPath covers the empty-path guard
 // (params.Path == "") — the second early-return arm.
 func TestHandleKustomizeApplyRejectsMissingPath(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{})
-	_, err := server.handleKustomizeApply(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+	deps := newTestDeps(t, map[string]string{})
+	_, err := deps.handleKustomizeApply(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 		"clusters": []string{"alpha"},
 		"dry_run":  true,
 	}))
@@ -36,8 +36,8 @@ func TestHandleKustomizeApplyRejectsMissingPath(t *testing.T) {
 // does not exist on disk fails resolveKustomizePath (Stat), and
 // handleKustomizeApply returns the error verbatim without wrapping.
 func TestHandleKustomizeApplyRejectsUnresolvablePath(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{})
-	_, err := server.handleKustomizeApply(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+	deps := newTestDeps(t, map[string]string{})
+	_, err := deps.handleKustomizeApply(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 		"path":     "/does/not/exist/at/all/kustomization",
 		"clusters": []string{"alpha"},
 		"dry_run":  true,

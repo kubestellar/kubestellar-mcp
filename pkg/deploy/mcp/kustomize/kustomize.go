@@ -1,4 +1,9 @@
-package mcp
+// Package kustomize provides the MCP tool handlers for building, applying,
+// and deleting Kustomize manifests against one or more clusters. It was
+// extracted from the flat pkg/deploy/mcp package as part of epic #983 phase 1
+// (per-domain sub-package decomposition), mirroring the pattern established by
+// pkg/mcp/tools/upgrades.
+package kustomize
 
 import (
 	"bytes"
@@ -9,7 +14,31 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 )
+
+// Deps bundles the narrow set of collaborators the kustomize tools need from
+// the root *Server: cluster discovery plus the two cross-domain validators
+// (shared with the helm/kubectl/deploy domains) that must run before any
+// built manifest is applied or deleted. The root package wires these to the
+// real implementations; tests wire fakes.
+type Deps struct {
+	DiscoverClusters func() ([]multicluster.ClusterInfo, error)
+	ValidateClusters func(clusters []string) error
+	ValidateManifest func(manifest string) error
+}
+
+// ToolDef pairs a tool's MCP schema (name, description, inputSchema) with its
+// dispatch handler. It mirrors the shape of the root package's private
+// toolDef type so the root adapter can convert 1:1 without changing
+// tools/list output.
+type ToolDef struct {
+	Name        string
+	Description string
+	InputSchema map[string]interface{}
+	Handler     func(ctx context.Context, args json.RawMessage) (interface{}, error)
+}
 
 // KustomizeResult represents the result of a kustomize operation
 type KustomizeResult struct {
@@ -78,7 +107,7 @@ func parseKustomizeBuildResult(buildResult interface{}) (string, int, error) {
 }
 
 // handleKustomizeBuild builds kustomize output without applying
-func (s *Server) handleKustomizeBuild(ctx context.Context, args json.RawMessage) (interface{}, error) {
+func (d Deps) handleKustomizeBuild(ctx context.Context, args json.RawMessage) (interface{}, error) {
 	var params struct {
 		Path string `json:"path"`
 	}
@@ -132,7 +161,7 @@ func (s *Server) handleKustomizeBuild(ctx context.Context, args json.RawMessage)
 }
 
 // handleKustomizeApply applies kustomize output to clusters
-func (s *Server) handleKustomizeApply(ctx context.Context, args json.RawMessage) (interface{}, error) {
+func (d Deps) handleKustomizeApply(ctx context.Context, args json.RawMessage) (interface{}, error) {
 	var params struct {
 		Path     string   `json:"path"`
 		Clusters []string `json:"clusters"`
@@ -146,7 +175,7 @@ func (s *Server) handleKustomizeApply(ctx context.Context, args json.RawMessage)
 		return nil, fmt.Errorf("path is required")
 	}
 
-	if err := validateHelmClusters(params.Clusters); err != nil {
+	if err := d.ValidateClusters(params.Clusters); err != nil {
 		return nil, err
 	}
 
@@ -157,7 +186,7 @@ func (s *Server) handleKustomizeApply(ctx context.Context, args json.RawMessage)
 	params.Path = resolvedPath
 
 	// Build kustomize output first
-	buildResult, err := s.handleKustomizeBuild(ctx, args)
+	buildResult, err := d.handleKustomizeBuild(ctx, args)
 	if err != nil {
 		return nil, fmt.Errorf("kustomize build failed: %w", err)
 	}
@@ -166,14 +195,14 @@ func (s *Server) handleKustomizeApply(ctx context.Context, args json.RawMessage)
 	if err != nil {
 		return nil, err
 	}
-	if err := validateManifestDocs(manifest); err != nil {
+	if err := d.ValidateManifest(manifest); err != nil {
 		return nil, err
 	}
 
 	// Get target clusters
 	targetClusters := params.Clusters
 	if len(targetClusters) == 0 {
-		clusters, err := s.manager.DiscoverClusters()
+		clusters, err := d.DiscoverClusters()
 		if err != nil {
 			return nil, err
 		}
@@ -188,7 +217,7 @@ func (s *Server) handleKustomizeApply(ctx context.Context, args json.RawMessage)
 
 	var results []KustomizeResult
 	for _, cluster := range targetClusters {
-		result := s.applyKustomize(ctx, cluster, params.Path, manifest, resourceCount, params.DryRun)
+		result := d.applyKustomize(ctx, cluster, params.Path, manifest, resourceCount, params.DryRun)
 		results = append(results, result)
 	}
 
@@ -210,7 +239,7 @@ func (s *Server) handleKustomizeApply(ctx context.Context, args json.RawMessage)
 }
 
 // applyKustomize applies kustomize manifest to a single cluster
-func (s *Server) applyKustomize(ctx context.Context, cluster, path, manifest string, resourceCount int, dryRun bool) KustomizeResult {
+func (d Deps) applyKustomize(ctx context.Context, cluster, path, manifest string, resourceCount int, dryRun bool) KustomizeResult {
 	result := KustomizeResult{
 		Cluster:   cluster,
 		Path:      path,
@@ -244,7 +273,7 @@ func (s *Server) applyKustomize(ctx context.Context, cluster, path, manifest str
 }
 
 // handleKustomizeDelete deletes resources from kustomize output
-func (s *Server) handleKustomizeDelete(ctx context.Context, args json.RawMessage) (interface{}, error) {
+func (d Deps) handleKustomizeDelete(ctx context.Context, args json.RawMessage) (interface{}, error) {
 	var params struct {
 		Path     string   `json:"path"`
 		Clusters []string `json:"clusters"`
@@ -258,7 +287,7 @@ func (s *Server) handleKustomizeDelete(ctx context.Context, args json.RawMessage
 		return nil, fmt.Errorf("path is required")
 	}
 
-	if err := validateHelmClusters(params.Clusters); err != nil {
+	if err := d.ValidateClusters(params.Clusters); err != nil {
 		return nil, err
 	}
 
@@ -269,7 +298,7 @@ func (s *Server) handleKustomizeDelete(ctx context.Context, args json.RawMessage
 	params.Path = resolvedPath
 
 	// Build kustomize output first
-	buildResult, err := s.handleKustomizeBuild(ctx, args)
+	buildResult, err := d.handleKustomizeBuild(ctx, args)
 	if err != nil {
 		return nil, fmt.Errorf("kustomize build failed: %w", err)
 	}
@@ -278,14 +307,14 @@ func (s *Server) handleKustomizeDelete(ctx context.Context, args json.RawMessage
 	if err != nil {
 		return nil, err
 	}
-	if err := validateManifestDocs(manifest); err != nil {
+	if err := d.ValidateManifest(manifest); err != nil {
 		return nil, err
 	}
 
 	// Get target clusters
 	targetClusters := params.Clusters
 	if len(targetClusters) == 0 {
-		clusters, err := s.manager.DiscoverClusters()
+		clusters, err := d.DiscoverClusters()
 		if err != nil {
 			return nil, err
 		}
@@ -300,7 +329,7 @@ func (s *Server) handleKustomizeDelete(ctx context.Context, args json.RawMessage
 
 	var results []KustomizeResult
 	for _, cluster := range targetClusters {
-		result := s.deleteKustomize(ctx, cluster, params.Path, manifest, resourceCount, params.DryRun)
+		result := d.deleteKustomize(ctx, cluster, params.Path, manifest, resourceCount, params.DryRun)
 		results = append(results, result)
 	}
 
@@ -322,7 +351,7 @@ func (s *Server) handleKustomizeDelete(ctx context.Context, args json.RawMessage
 }
 
 // deleteKustomize deletes resources from a single cluster
-func (s *Server) deleteKustomize(ctx context.Context, cluster, path, manifest string, resourceCount int, dryRun bool) KustomizeResult {
+func (d Deps) deleteKustomize(ctx context.Context, cluster, path, manifest string, resourceCount int, dryRun bool) KustomizeResult {
 	result := KustomizeResult{
 		Cluster:   cluster,
 		Path:      path,
@@ -355,9 +384,12 @@ func (s *Server) deleteKustomize(ctx context.Context, cluster, path, manifest st
 	return result
 }
 
-// kustomizeToolDefs returns the tool definitions handled by this file.
-func (s *Server) kustomizeToolDefs() []toolDef {
-	return []toolDef{
+// Tools returns all kustomize tool definitions in registration order. The
+// caller (the root package's kustomizeToolDefs adapter) is responsible for
+// converting these into its own toolDef shape and preserving the existing
+// tools/list position.
+func (d Deps) Tools() []ToolDef {
+	return []ToolDef{
 		{
 			Name:        "kustomize_build",
 			Description: "Build kustomize output from a directory containing kustomization.yaml. Returns the rendered manifests.",
@@ -371,7 +403,7 @@ func (s *Server) kustomizeToolDefs() []toolDef {
 				},
 				"required": []string{"path"},
 			},
-			Handler: s.handleKustomizeBuild,
+			Handler: d.handleKustomizeBuild,
 		},
 		{
 			Name:        "kustomize_apply",
@@ -395,7 +427,7 @@ func (s *Server) kustomizeToolDefs() []toolDef {
 				},
 				"required": []string{"path"},
 			},
-			Handler: s.handleKustomizeApply,
+			Handler: d.handleKustomizeApply,
 		},
 		{
 			Name:        "kustomize_delete",
@@ -419,7 +451,7 @@ func (s *Server) kustomizeToolDefs() []toolDef {
 				},
 				"required": []string{"path"},
 			},
-			Handler: s.handleKustomizeDelete,
+			Handler: d.handleKustomizeDelete,
 		},
 	}
 }
