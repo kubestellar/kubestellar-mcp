@@ -1,4 +1,9 @@
-package mcp
+// Package labels implements the add_labels/remove_labels MCP tools for the
+// kubestellar-deploy server. It was extracted from the flat pkg/deploy/mcp
+// package (epic #983, phase 1) so this domain can be built and tested in
+// isolation. See Deps for the narrow surface this package needs from
+// *mcp.Server.
+package labels
 
 import (
 	"context"
@@ -10,9 +15,31 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 )
 
-// LabelResult represents the result of a label operation
+// Deps is the narrow set of *mcp.Server capabilities the labels tools need:
+// cluster discovery, fan-out execution across selected clusters, and the
+// shared sensitive-kind policy (defined in pkg/deploy/mcp/manifest_util.go,
+// which stays in the root package per the epic's non-goals).
+type Deps interface {
+	// DiscoverClusterNames returns the names of every cluster the manager
+	// currently knows about, used as the fallback target set when the
+	// caller does not specify `clusters`.
+	DiscoverClusterNames() ([]string, error)
+	// ExecuteOnSelected runs fn against each named cluster, fanning out
+	// concurrently and collecting per-cluster results/errors.
+	ExecuteOnSelected(ctx context.Context, clusterNames []string, fn multicluster.ExecuteFunc) ([]multicluster.ClusterResult, error)
+	// IsSensitiveKind reports whether kind is on the sensitive-kind
+	// blocklist (Secret, ServiceAccount, RBAC, etc.).
+	IsSensitiveKind(kind string) bool
+	// SensitiveKindError builds the standard error returned when a
+	// sensitive kind is blocked.
+	SensitiveKindError(kind string) error
+}
+
+// LabelResult represents the result of a label operation.
 type LabelResult struct {
 	Cluster   string            `json:"cluster"`
 	Kind      string            `json:"kind"`
@@ -23,8 +50,8 @@ type LabelResult struct {
 	Message   string            `json:"message,omitempty"`
 }
 
-// handleAddLabels adds labels to resources
-func (s *Server) handleAddLabels(ctx context.Context, args json.RawMessage) (interface{}, error) {
+// HandleAddLabels adds labels to resources.
+func HandleAddLabels(ctx context.Context, d Deps, args json.RawMessage) (interface{}, error) {
 	var params struct {
 		Kind      string            `json:"kind"`
 		Name      string            `json:"name"`
@@ -43,8 +70,8 @@ func (s *Server) handleAddLabels(ctx context.Context, args json.RawMessage) (int
 	if len(params.Labels) == 0 {
 		return nil, fmt.Errorf("labels are required")
 	}
-	if isSensitiveKind(params.Kind) {
-		return nil, sensitiveKindError(params.Kind)
+	if d.IsSensitiveKind(params.Kind) {
+		return nil, d.SensitiveKindError(params.Kind)
 	}
 
 	// Validate namespace to prevent access to system namespaces (#377).
@@ -57,17 +84,15 @@ func (s *Server) handleAddLabels(ctx context.Context, args json.RawMessage) (int
 	// Get target clusters
 	targetClusters := params.Clusters
 	if len(targetClusters) == 0 {
-		clusters, err := s.manager.DiscoverClusters()
+		names, err := d.DiscoverClusterNames()
 		if err != nil {
 			return nil, err
 		}
-		for _, c := range clusters {
-			targetClusters = append(targetClusters, c.Name)
-		}
+		targetClusters = append(targetClusters, names...)
 	}
 
-	results, err := s.executor.ExecuteOnSelected(ctx, targetClusters, func(ctx context.Context, client *kubernetes.Clientset, clusterName string) (interface{}, error) {
-		return s.addLabelsInCluster(ctx, client, clusterName, params.Kind, params.Name, params.Namespace, params.Labels, params.DryRun)
+	results, err := d.ExecuteOnSelected(ctx, targetClusters, func(ctx context.Context, client *kubernetes.Clientset, clusterName string) (interface{}, error) {
+		return AddLabelsInCluster(ctx, d, client, clusterName, params.Kind, params.Name, params.Namespace, params.Labels, params.DryRun)
 	})
 	if err != nil {
 		return nil, err
@@ -102,8 +127,8 @@ func (s *Server) handleAddLabels(ctx context.Context, args json.RawMessage) (int
 	}, nil
 }
 
-// addLabelsInCluster adds labels to a resource in a single cluster
-func (s *Server) addLabelsInCluster(ctx context.Context, client *kubernetes.Clientset, clusterName, kind, name, namespace string, labels map[string]string, dryRun bool) (LabelResult, error) {
+// AddLabelsInCluster adds labels to a resource in a single cluster.
+func AddLabelsInCluster(ctx context.Context, d Deps, client *kubernetes.Clientset, clusterName, kind, name, namespace string, labels map[string]string, dryRun bool) (LabelResult, error) {
 	result := LabelResult{
 		Cluster:   clusterName,
 		Kind:      kind,
@@ -112,9 +137,9 @@ func (s *Server) addLabelsInCluster(ctx context.Context, client *kubernetes.Clie
 		Labels:    labels,
 	}
 
-	if isSensitiveKind(kind) {
+	if d.IsSensitiveKind(kind) {
 		result.Status = "failed"
-		result.Message = sensitiveKindError(kind).Error()
+		result.Message = d.SensitiveKindError(kind).Error()
 		return result, nil
 	}
 
@@ -125,7 +150,7 @@ func (s *Server) addLabelsInCluster(ctx context.Context, client *kubernetes.Clie
 	}
 
 	// Build patch
-	patch := buildLabelPatch(labels, false)
+	patch := BuildLabelPatch(labels, false)
 
 	ns := namespace
 	if ns == "" {
@@ -175,8 +200,8 @@ func (s *Server) addLabelsInCluster(ctx context.Context, client *kubernetes.Clie
 	return result, nil
 }
 
-// handleRemoveLabels removes labels from resources
-func (s *Server) handleRemoveLabels(ctx context.Context, args json.RawMessage) (interface{}, error) {
+// HandleRemoveLabels removes labels from resources.
+func HandleRemoveLabels(ctx context.Context, d Deps, args json.RawMessage) (interface{}, error) {
 	var params struct {
 		Kind      string   `json:"kind"`
 		Name      string   `json:"name"`
@@ -195,8 +220,8 @@ func (s *Server) handleRemoveLabels(ctx context.Context, args json.RawMessage) (
 	if len(params.Labels) == 0 {
 		return nil, fmt.Errorf("labels are required")
 	}
-	if isSensitiveKind(params.Kind) {
-		return nil, sensitiveKindError(params.Kind)
+	if d.IsSensitiveKind(params.Kind) {
+		return nil, d.SensitiveKindError(params.Kind)
 	}
 
 	// Validate namespace to prevent access to system namespaces (#377).
@@ -209,17 +234,15 @@ func (s *Server) handleRemoveLabels(ctx context.Context, args json.RawMessage) (
 	// Get target clusters
 	targetClusters := params.Clusters
 	if len(targetClusters) == 0 {
-		clusters, err := s.manager.DiscoverClusters()
+		names, err := d.DiscoverClusterNames()
 		if err != nil {
 			return nil, err
 		}
-		for _, c := range clusters {
-			targetClusters = append(targetClusters, c.Name)
-		}
+		targetClusters = append(targetClusters, names...)
 	}
 
-	results, err := s.executor.ExecuteOnSelected(ctx, targetClusters, func(ctx context.Context, client *kubernetes.Clientset, clusterName string) (interface{}, error) {
-		return s.removeLabelsInCluster(ctx, client, clusterName, params.Kind, params.Name, params.Namespace, params.Labels, params.DryRun)
+	results, err := d.ExecuteOnSelected(ctx, targetClusters, func(ctx context.Context, client *kubernetes.Clientset, clusterName string) (interface{}, error) {
+		return RemoveLabelsInCluster(ctx, d, client, clusterName, params.Kind, params.Name, params.Namespace, params.Labels, params.DryRun)
 	})
 	if err != nil {
 		return nil, err
@@ -254,8 +277,8 @@ func (s *Server) handleRemoveLabels(ctx context.Context, args json.RawMessage) (
 	}, nil
 }
 
-// removeLabelsInCluster removes labels from a resource in a single cluster
-func (s *Server) removeLabelsInCluster(ctx context.Context, client *kubernetes.Clientset, clusterName, kind, name, namespace string, labelKeys []string, dryRun bool) (LabelResult, error) {
+// RemoveLabelsInCluster removes labels from a resource in a single cluster.
+func RemoveLabelsInCluster(ctx context.Context, d Deps, client *kubernetes.Clientset, clusterName, kind, name, namespace string, labelKeys []string, dryRun bool) (LabelResult, error) {
 	result := LabelResult{
 		Cluster:   clusterName,
 		Kind:      kind,
@@ -263,9 +286,9 @@ func (s *Server) removeLabelsInCluster(ctx context.Context, client *kubernetes.C
 		Namespace: namespace,
 	}
 
-	if isSensitiveKind(kind) {
+	if d.IsSensitiveKind(kind) {
 		result.Status = "failed"
-		result.Message = sensitiveKindError(kind).Error()
+		result.Message = d.SensitiveKindError(kind).Error()
 		return result, nil
 	}
 
@@ -280,7 +303,7 @@ func (s *Server) removeLabelsInCluster(ctx context.Context, client *kubernetes.C
 	for _, key := range labelKeys {
 		labelsToRemove[key] = "" // Will be converted to null in patch
 	}
-	patch := buildLabelPatch(labelsToRemove, true)
+	patch := BuildLabelPatch(labelsToRemove, true)
 
 	ns := namespace
 	if ns == "" {
@@ -330,8 +353,8 @@ func (s *Server) removeLabelsInCluster(ctx context.Context, client *kubernetes.C
 	return result, nil
 }
 
-// buildLabelPatch creates a JSON merge patch for labels
-func buildLabelPatch(labels map[string]string, remove bool) []byte {
+// BuildLabelPatch creates a JSON merge patch for labels.
+func BuildLabelPatch(labels map[string]string, remove bool) []byte {
 	labelMap := make(map[string]interface{})
 	for k, v := range labels {
 		if remove {
@@ -349,83 +372,4 @@ func buildLabelPatch(labels map[string]string, remove bool) []byte {
 
 	data, _ := json.Marshal(patch)
 	return data
-}
-
-// labelToolDefs returns the tool definitions handled by this file.
-func (s *Server) labelToolDefs() []toolDef {
-	return []toolDef{
-		{
-			Name:        "add_labels",
-			Description: "Add labels to a Kubernetes resource across clusters.",
-			InputSchema: map[string]interface{}{
-				"type": "object",
-				"properties": map[string]interface{}{
-					"kind": map[string]interface{}{
-						"type":        "string",
-						"description": "Resource kind (e.g., Deployment, Service, Pod, Node)",
-					},
-					"name": map[string]interface{}{
-						"type":        "string",
-						"description": "Resource name",
-					},
-					"namespace": map[string]interface{}{
-						"type":        "string",
-						"description": "Namespace (default: default, ignored for cluster-scoped)",
-					},
-					"labels": map[string]interface{}{
-						"type":        "object",
-						"description": "Labels to add (key-value pairs)",
-					},
-					"dry_run": map[string]interface{}{
-						"type":        "boolean",
-						"description": "Preview changes without applying",
-					},
-					"clusters": map[string]interface{}{
-						"type":        "array",
-						"items":       map[string]interface{}{"type": "string"},
-						"description": "Target clusters (all clusters if not specified)",
-					},
-				},
-				"required": []string{"kind", "name", "labels"},
-			},
-			Handler: s.handleAddLabels,
-		},
-		{
-			Name:        "remove_labels",
-			Description: "Remove labels from a Kubernetes resource across clusters.",
-			InputSchema: map[string]interface{}{
-				"type": "object",
-				"properties": map[string]interface{}{
-					"kind": map[string]interface{}{
-						"type":        "string",
-						"description": "Resource kind (e.g., Deployment, Service, Pod, Node)",
-					},
-					"name": map[string]interface{}{
-						"type":        "string",
-						"description": "Resource name",
-					},
-					"namespace": map[string]interface{}{
-						"type":        "string",
-						"description": "Namespace (default: default, ignored for cluster-scoped)",
-					},
-					"labels": map[string]interface{}{
-						"type":        "array",
-						"items":       map[string]interface{}{"type": "string"},
-						"description": "Label keys to remove",
-					},
-					"dry_run": map[string]interface{}{
-						"type":        "boolean",
-						"description": "Preview changes without applying",
-					},
-					"clusters": map[string]interface{}{
-						"type":        "array",
-						"items":       map[string]interface{}{"type": "string"},
-						"description": "Target clusters (all clusters if not specified)",
-					},
-				},
-				"required": []string{"kind", "name", "labels"},
-			},
-			Handler: s.handleRemoveLabels,
-		},
-	}
 }
