@@ -151,9 +151,3 @@ func (s *Server) scaleAppInCluster(ctx context.Context, client *kubernetes.Clien
 func (s *Server) patchAppInCluster(ctx context.Context, client *kubernetes.Clientset, clusterName, appName, namespace string, patch []byte, patchType types.PatchType) (interface{}, error) {
 	return deploy.PatchAppInCluster(ctx, client, clusterName, appName, namespace, patch, patchType)
 }
-
-// boolPtr is retained as a package-level function for test compatibility
-// (tools_deploy_apply_branches_test.go).
-func boolPtr(b bool) *bool {
-	return deploy.BoolPtr(b)
-}
