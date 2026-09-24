@@ -1,4 +1,4 @@
-package mcp
+package gitops
 
 import (
 	"context"
@@ -16,26 +16,26 @@ import (
 // or silently accepting a missing repo.
 
 func TestHandleReconcileReturnsInvalidArgumentsErrorOnMalformedJSON(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{})
+	server := newTestServer(t, map[string]string{})
 
-	_, err := server.handleReconcile(context.Background(), []byte(`{invalid`))
+	_, err := server.HandleReconcile(context.Background(), []byte(`{invalid`))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid arguments")
 }
 
 func TestHandlePreviewChangesReturnsInvalidArgumentsErrorOnMalformedJSON(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{})
+	server := newTestServer(t, map[string]string{})
 
-	_, err := server.handlePreviewChanges(context.Background(), []byte(`{invalid`))
+	_, err := server.HandlePreviewChanges(context.Background(), []byte(`{invalid`))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid arguments")
 }
 
 func TestHandleReconcilePropagatesRepoRequiredFromSync(t *testing.T) {
 	setGitOpsTempDir(t)
-	server := newHelmTestServer(t, map[string]string{})
+	server := newTestServer(t, map[string]string{})
 
-	_, err := server.handleReconcile(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+	_, err := server.HandleReconcile(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 		"path": "manifests",
 	}))
 	require.Error(t, err)
@@ -44,9 +44,9 @@ func TestHandleReconcilePropagatesRepoRequiredFromSync(t *testing.T) {
 
 func TestHandlePreviewChangesPropagatesRepoRequiredFromSync(t *testing.T) {
 	setGitOpsTempDir(t)
-	server := newHelmTestServer(t, map[string]string{})
+	server := newTestServer(t, map[string]string{})
 
-	_, err := server.handlePreviewChanges(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+	_, err := server.HandlePreviewChanges(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 		"path": "manifests",
 	}))
 	require.Error(t, err)
@@ -63,9 +63,9 @@ func TestHandleReconcileForcesDryRunFalseEvenWhenCallerRequestsTrue(t *testing.T
 	repo := createGitRepo(t, map[string]string{
 		"manifests/app.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: demo\n",
 	})
-	server := newHelmTestServer(t, map[string]string{})
+	server := newTestServer(t, map[string]string{})
 
-	got, err := server.handleReconcile(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+	got, err := server.HandleReconcile(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 		"repo":     repo,
 		"path":     "manifests",
 		"clusters": []string{"missing"},
@@ -73,7 +73,7 @@ func TestHandleReconcileForcesDryRunFalseEvenWhenCallerRequestsTrue(t *testing.T
 	}))
 	require.NoError(t, err)
 
-	result := got.(*GitOpsSyncResult)
+	result := got.(*SyncResult)
 	assert.False(t, result.DryRun, "reconcile must force dry_run=false")
 }
 
@@ -82,9 +82,9 @@ func TestHandlePreviewChangesForcesDryRunTrueEvenWhenCallerRequestsFalse(t *test
 	repo := createGitRepo(t, map[string]string{
 		"manifests/app.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: demo\n",
 	})
-	server := newHelmTestServer(t, map[string]string{})
+	server := newTestServer(t, map[string]string{})
 
-	got, err := server.handlePreviewChanges(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+	got, err := server.HandlePreviewChanges(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 		"repo":     repo,
 		"path":     "manifests",
 		"clusters": []string{"missing"},
@@ -92,6 +92,6 @@ func TestHandlePreviewChangesForcesDryRunTrueEvenWhenCallerRequestsFalse(t *test
 	}))
 	require.NoError(t, err)
 
-	result := got.(*GitOpsSyncResult)
+	result := got.(*SyncResult)
 	assert.True(t, result.DryRun, "preview must force dry_run=true")
 }

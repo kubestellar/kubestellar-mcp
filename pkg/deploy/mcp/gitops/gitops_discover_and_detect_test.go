@@ -1,4 +1,4 @@
-package mcp
+package gitops
 
 import (
 	"context"
@@ -18,15 +18,15 @@ func TestHandleDetectDriftDiscoversClustersWhenNoneProvided(t *testing.T) {
 	repo := createGitRepo(t, map[string]string{
 		"manifests/app.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: demo\n",
 	})
-	server := newHelmTestServer(t, map[string]string{})
+	server := newTestServer(t, map[string]string{})
 
-	got, err := server.handleDetectDrift(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+	got, err := server.HandleDetectDrift(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 		"repo": repo,
 		"path": "manifests",
 	}))
 	require.NoError(t, err)
 
-	result := got.(*GitOpsDriftResult)
+	result := got.(*DriftResult)
 	assert.Equal(t, 0, result.ClusterCount)
 	assert.Equal(t, 0, result.TotalDrifts)
 	assert.Empty(t, result.Drifts)
@@ -40,16 +40,16 @@ func TestHandleSyncFromGitDiscoversClustersWhenNoneProvided(t *testing.T) {
 	repo := createGitRepo(t, map[string]string{
 		"manifests/app.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: demo\n",
 	})
-	server := newHelmTestServer(t, map[string]string{})
+	server := newTestServer(t, map[string]string{})
 
-	got, err := server.handleSyncFromGit(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+	got, err := server.HandleSyncFromGit(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 		"repo":    repo,
 		"path":    "manifests",
 		"dry_run": true,
 	}))
 	require.NoError(t, err)
 
-	result := got.(*GitOpsSyncResult)
+	result := got.(*SyncResult)
 	assert.True(t, result.DryRun)
 	assert.Empty(t, result.Summaries)
 }
@@ -64,21 +64,20 @@ func TestHandleDetectDriftReportsErrorsForUnreachableCluster(t *testing.T) {
 	repo := createGitRepo(t, map[string]string{
 		"manifests/app.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: demo\n",
 	})
-	server := newHelmTestServer(t, map[string]string{
+	server := newTestServer(t, map[string]string{
 		"alpha": "https://127.0.0.1:1",
 	})
 
-	got, err := server.handleDetectDrift(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+	got, err := server.HandleDetectDrift(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 		"repo":     repo,
 		"path":     "manifests",
 		"clusters": []string{"alpha"},
 	}))
 	require.NoError(t, err)
 
-	result := got.(*GitOpsDriftResult)
+	result := got.(*DriftResult)
 	assert.Equal(t, 1, result.ClusterCount)
 	require.GreaterOrEqual(t, result.TotalDrifts, 1)
 	require.NotEmpty(t, result.Drifts)
 	assert.Equal(t, "alpha", result.Drifts[0].Cluster)
 }
-
