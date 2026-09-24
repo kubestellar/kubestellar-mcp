@@ -1,4 +1,4 @@
-package mcp
+package kubectl
 
 import (
 	"context"
@@ -51,7 +51,6 @@ func TestDeleteResourceInClusterAllKinds(t *testing.T) {
 		&rbacv1.ClusterRoleBinding{ObjectMeta: clusterMeta},
 	}
 	client := kubernetesfake.NewSimpleClientset(seed...)
-	server := newHelmTestServer(t, map[string]string{"c1": "https://c1.example.com"})
 
 	// One (kind-alias) form per case. Namespace-scoped kinds pass ns; cluster-scoped pass empty.
 	cases := []struct {
@@ -59,28 +58,28 @@ func TestDeleteResourceInClusterAllKinds(t *testing.T) {
 		namespace string
 	}{
 		{"deployment", ns},
-		{"Service", ns},           // case-insensitive
-		{"CONFIGMAPS", ns},        // upper-case alias
+		{"Service", ns},    // case-insensitive
+		{"CONFIGMAPS", ns}, // upper-case alias
 		{"secret", ns},
 		{"pod", ns},
 		{"statefulsets", ns},
-		{"ds", ns},                // daemonset alias
+		{"ds", ns}, // daemonset alias
 		{"job", ns},
 		{"cronjob", ns},
-		{"ing", ns},               // ingress alias
+		{"ing", ns}, // ingress alias
 		{"pvc", ns},
-		{"namespaces", ""},        // cluster-scoped
-		{"sa", ns},                // serviceaccount alias
+		{"namespaces", ""}, // cluster-scoped
+		{"sa", ns},         // serviceaccount alias
 		{"role", ns},
 		{"rolebinding", ns},
-		{"clusterrole", ""},       // cluster-scoped
+		{"clusterrole", ""}, // cluster-scoped
 		{"clusterrolebindings", ""},
 	}
 
 	for _, tc := range cases {
 		tc := tc
 		t.Run(tc.alias, func(t *testing.T) {
-			res, err := server.deleteResourceInCluster(context.Background(), client, "c1", tc.alias, name, tc.namespace, false)
+			res, err := DeleteResourceInCluster(context.Background(), client, "c1", tc.alias, name, tc.namespace, false)
 			require.NoError(t, err)
 			assert.Equal(t, "deleted", res.Status, "alias=%s message=%s", tc.alias, res.Message)
 			assert.Equal(t, "c1", res.Cluster)
@@ -97,9 +96,8 @@ func TestDeleteResourceInClusterEmptyNamespaceFallsBackToDefault(t *testing.T) {
 	client := kubernetesfake.NewSimpleClientset(
 		&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "p", Namespace: "default"}},
 	)
-	server := newHelmTestServer(t, map[string]string{"c1": "https://c1.example.com"})
 
-	res, err := server.deleteResourceInCluster(context.Background(), client, "c1", "pod", "p", "", false)
+	res, err := DeleteResourceInCluster(context.Background(), client, "c1", "pod", "p", "", false)
 	require.NoError(t, err)
 	assert.Equal(t, "deleted", res.Status)
 
@@ -113,9 +111,8 @@ func TestDeleteResourceInClusterEmptyNamespaceFallsBackToDefault(t *testing.T) {
 // from the k8s client is mapped to status="not-found".
 func TestDeleteResourceInClusterNotFoundMapping(t *testing.T) {
 	client := kubernetesfake.NewSimpleClientset() // empty tracker → delete returns NotFound
-	server := newHelmTestServer(t, map[string]string{"c1": "https://c1.example.com"})
 
-	res, err := server.deleteResourceInCluster(context.Background(), client, "c1", "deployment", "missing", "ns", false)
+	res, err := DeleteResourceInCluster(context.Background(), client, "c1", "deployment", "missing", "ns", false)
 	require.NoError(t, err)
 	assert.Equal(t, "not-found", res.Status)
 	assert.Contains(t, res.Message, "missing")
@@ -128,9 +125,8 @@ func TestDeleteResourceInClusterGenericErrorMapping(t *testing.T) {
 	client.PrependReactor("delete", "services", func(action k8stesting.Action) (bool, runtime.Object, error) {
 		return true, nil, errors.New("boom: server exploded")
 	})
-	server := newHelmTestServer(t, map[string]string{"c1": "https://c1.example.com"})
 
-	res, err := server.deleteResourceInCluster(context.Background(), client, "c1", "service", "svc", "ns", false)
+	res, err := DeleteResourceInCluster(context.Background(), client, "c1", "service", "svc", "ns", false)
 	require.NoError(t, err)
 	assert.Equal(t, "failed", res.Status)
 	assert.Equal(t, "boom: server exploded", res.Message)
@@ -144,9 +140,8 @@ func TestDeleteResourceInClusterNotFoundReactor(t *testing.T) {
 	client.PrependReactor("delete", "configmaps", func(action k8stesting.Action) (bool, runtime.Object, error) {
 		return true, nil, apierrors.NewNotFound(schema.GroupResource{Resource: "configmaps"}, "gone")
 	})
-	server := newHelmTestServer(t, map[string]string{"c1": "https://c1.example.com"})
 
-	res, err := server.deleteResourceInCluster(context.Background(), client, "c1", "cm", "gone", "ns", false)
+	res, err := DeleteResourceInCluster(context.Background(), client, "c1", "cm", "gone", "ns", false)
 	require.NoError(t, err)
 	assert.Equal(t, "not-found", res.Status)
 }
@@ -155,9 +150,8 @@ func TestDeleteResourceInClusterNotFoundReactor(t *testing.T) {
 // runs before any client call. Passing a nil client and a nil-safe kind that would
 // otherwise crash proves the client is never touched.
 func TestDeleteResourceInClusterDryRunSkipsClient(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{"c1": "https://c1.example.com"})
 
-	res, err := server.deleteResourceInCluster(context.Background(), nil, "c1", "deployment", "d", "ns", true)
+	res, err := DeleteResourceInCluster(context.Background(), nil, "c1", "deployment", "d", "ns", true)
 	require.NoError(t, err)
 	assert.Equal(t, "would-delete", res.Status)
 	assert.Contains(t, res.Message, "Would delete")

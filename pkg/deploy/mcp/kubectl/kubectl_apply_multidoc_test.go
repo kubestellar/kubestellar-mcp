@@ -1,4 +1,4 @@
-package mcp
+package kubectl
 
 import (
 	"context"
@@ -25,14 +25,14 @@ import (
 // isNamespaceKind branch: for kind: Namespace the value guarded by
 // ValidateNamespace is metadata.name (cluster-scoped resource).
 func TestApplyManifestDynamic_NamespaceKindValidatesName(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+	deps := newTestDeps(t, map[string]string{"alpha": "https://alpha.example.com"})
 
 	// Valid Namespace kind — should be would-apply in dryRun.
 	valid := `apiVersion: v1
 kind: Namespace
 metadata:
   name: my-app`
-	results, err := server.applyManifestDynamic(context.Background(), "alpha", valid, true)
+	results, err := ApplyManifestDynamic(context.Background(), deps, "alpha", valid, true)
 	require.NoError(t, err)
 	require.Len(t, results, 1)
 	assert.Equal(t, "would-apply", results[0].Status)
@@ -46,7 +46,7 @@ metadata:
 kind: Namespace
 metadata:
   name: kube-system`
-	results, err = server.applyManifestDynamic(context.Background(), "alpha", blocked, true)
+	results, err = ApplyManifestDynamic(context.Background(), deps, "alpha", blocked, true)
 	require.NoError(t, err)
 	require.Len(t, results, 1)
 	assert.Equal(t, "failed", results[0].Status)
@@ -58,7 +58,7 @@ metadata:
 // the fix for issue #626: a mid-stream validation failure now appends the failure
 // to results and continues, preserving all prior and subsequent results.
 func TestApplyManifestDynamic_MultiDocMidStreamNamespaceFailure_PinsBug(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+	deps := newTestDeps(t, map[string]string{"alpha": "https://alpha.example.com"})
 
 	manifest := `apiVersion: v1
 kind: ConfigMap
@@ -84,7 +84,7 @@ metadata:
 data:
   k: v`
 
-	results, err := server.applyManifestDynamic(context.Background(), "alpha", manifest, true)
+	results, err := ApplyManifestDynamic(context.Background(), deps, "alpha", manifest, true)
 	require.NoError(t, err)
 
 	// Fixed (#626): all three results are returned — cm1 success, cm2 failure, cm3 success.
@@ -101,7 +101,7 @@ data:
 // isNamespaceKind variant of the multi-doc mid-stream failure fix (#626):
 // a bad Namespace-kind doc in the middle no longer truncates results.
 func TestApplyManifestDynamic_MultiDocNamespaceKindMidStream_PinsBug(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+	deps := newTestDeps(t, map[string]string{"alpha": "https://alpha.example.com"})
 
 	manifest := `apiVersion: v1
 kind: ConfigMap
@@ -120,7 +120,7 @@ metadata:
   name: cm-last
   namespace: default`
 
-	results, err := server.applyManifestDynamic(context.Background(), "alpha", manifest, true)
+	results, err := ApplyManifestDynamic(context.Background(), deps, "alpha", manifest, true)
 	require.NoError(t, err)
 
 	// Fixed (#626): all three results returned — cm-first success, Namespace failure, cm-last success.
@@ -137,7 +137,7 @@ metadata:
 // label branch of ValidateNamespace via applyManifestDynamic (previously
 // only exercised through the blocklist branch).
 func TestApplyManifestDynamic_InvalidLabelNamespaceRejected(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+	deps := newTestDeps(t, map[string]string{"alpha": "https://alpha.example.com"})
 
 	// UPPERCASE namespace violates the k8sNamespaceRe regex.
 	manifest := `apiVersion: v1
@@ -146,7 +146,7 @@ metadata:
   name: cm
   namespace: BAD_NS`
 
-	results, err := server.applyManifestDynamic(context.Background(), "alpha", manifest, true)
+	results, err := ApplyManifestDynamic(context.Background(), deps, "alpha", manifest, true)
 	require.NoError(t, err)
 	require.Len(t, results, 1)
 	assert.Equal(t, "failed", results[0].Status)
@@ -157,7 +157,7 @@ metadata:
 // `namespace = "default"` branch that runs when a manifest omits
 // metadata.namespace for a namespaced resource.
 func TestApplyManifestDynamic_EmptyNamespaceDefaults(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+	deps := newTestDeps(t, map[string]string{"alpha": "https://alpha.example.com"})
 
 	// No metadata.namespace — should default to "default" and pass validation.
 	manifest := `apiVersion: v1
@@ -167,7 +167,7 @@ metadata:
 data:
   k: v`
 
-	results, err := server.applyManifestDynamic(context.Background(), "alpha", manifest, true)
+	results, err := ApplyManifestDynamic(context.Background(), deps, "alpha", manifest, true)
 	require.NoError(t, err)
 	require.Len(t, results, 1)
 	assert.Equal(t, "would-apply", results[0].Status)

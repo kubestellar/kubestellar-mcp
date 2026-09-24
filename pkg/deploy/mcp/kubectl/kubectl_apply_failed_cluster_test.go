@@ -1,4 +1,4 @@
-package mcp
+package kubectl
 
 import (
 	"context"
@@ -32,7 +32,7 @@ import (
 // handler's `if result.Error != ""` arm consumes.
 func TestHandleKubectlApplyFailedClusterProducesFailedResult(t *testing.T) {
 	// Kubeconfig has only "alpha"; we ask for "ghost" so GetClient fails.
-	server := newHelmTestServer(t, map[string]string{
+	deps := newTestDeps(t, map[string]string{
 		"alpha": "https://alpha.example.com",
 	})
 
@@ -49,7 +49,7 @@ data:
 		"dry_run":  true,
 	})
 
-	result, err := server.handleKubectlApply(context.Background(), args)
+	result, err := HandleKubectlApply(context.Background(), deps, args)
 	require.NoError(t, err)
 
 	resultMap, ok := result.(map[string]interface{})
@@ -79,7 +79,7 @@ data:
 // branch and the `if result.Error != ""` branch running against the
 // same handler invocation, which no existing test does.
 func TestHandleKubectlApplyMixedResultsAggregation(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{
+	deps := newTestDeps(t, map[string]string{
 		"alpha": "https://alpha.example.com",
 	})
 
@@ -94,7 +94,7 @@ metadata:
 		"dry_run":  true,
 	})
 
-	result, err := server.handleKubectlApply(context.Background(), args)
+	result, err := HandleKubectlApply(context.Background(), deps, args)
 	require.NoError(t, err)
 
 	resultMap, ok := result.(map[string]interface{})

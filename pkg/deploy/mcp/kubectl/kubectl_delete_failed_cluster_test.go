@@ -1,4 +1,4 @@
-package mcp
+package kubectl
 
 import (
 	"context"
@@ -22,7 +22,7 @@ func TestHandleDeleteResourceReportsFailedClusterResult(t *testing.T) {
 	// Kubeconfig has only "alpha"; caller asks about "ghost" → GetClient
 	// fails inside executeAcrossClusters and the ClusterResult.Error path
 	// is exercised.
-	server := newHelmTestServer(t, map[string]string{
+	deps := newTestDeps(t, map[string]string{
 		"alpha": "https://127.0.0.1:1",
 	})
 
@@ -33,7 +33,7 @@ func TestHandleDeleteResourceReportsFailedClusterResult(t *testing.T) {
 		"dry_run":  true,
 	})
 
-	got, err := server.handleDeleteResource(context.Background(), args)
+	got, err := HandleDeleteResource(context.Background(), deps, args)
 	require.NoError(t, err)
 
 	m, ok := got.(map[string]interface{})

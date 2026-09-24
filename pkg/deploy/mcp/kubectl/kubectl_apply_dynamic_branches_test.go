@@ -1,4 +1,4 @@
-package mcp
+package kubectl
 
 import (
 	"context"
@@ -34,7 +34,7 @@ import (
 // TestApplyManifestDynamic_UnknownClusterReturnsError exercises the
 // s.manager.GetConfig(clusterName) failure branch.
 func TestApplyManifestDynamic_UnknownClusterReturnsError(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+	deps := newTestDeps(t, map[string]string{"alpha": "https://alpha.example.com"})
 
 	manifest := `apiVersion: v1
 kind: ConfigMap
@@ -44,7 +44,7 @@ metadata:
 data:
   key: value`
 
-	results, err := server.applyManifestDynamic(context.Background(), "does-not-exist", manifest, false)
+	results, err := ApplyManifestDynamic(context.Background(), deps, "does-not-exist", manifest, false)
 	require.Error(t, err)
 	assert.Nil(t, results)
 	// Error wraps the cluster name and comes from the GetConfig failure.
@@ -64,7 +64,7 @@ func TestApplyManifestDynamic_UnknownKindEndToEnd(t *testing.T) {
 	}))
 	t.Cleanup(fake.Close)
 
-	server := newHelmTestServer(t, map[string]string{"c1": fake.URL})
+	deps := newTestDeps(t, map[string]string{"c1": fake.URL})
 
 	manifest := `apiVersion: example.com/v1
 kind: MadeUpResource
@@ -72,7 +72,7 @@ metadata:
   name: nope
   namespace: default`
 
-	results, err := server.applyManifestDynamic(context.Background(), "c1", manifest, false)
+	results, err := ApplyManifestDynamic(context.Background(), deps, "c1", manifest, false)
 	require.NoError(t, err)
 	require.Len(t, results, 1)
 	assert.Equal(t, "failed", results[0].Status)
@@ -200,7 +200,7 @@ func TestApplyManifestDynamic_NonDryRunCreatesThenUpdates(t *testing.T) {
 	api := startFakeConfigMapAPI(t, state)
 	t.Cleanup(api.Close)
 
-	server := newHelmTestServer(t, map[string]string{"c1": api.URL})
+	deps := newTestDeps(t, map[string]string{"c1": api.URL})
 
 	manifest := `apiVersion: v1
 kind: ConfigMap
@@ -211,7 +211,7 @@ data:
   key: v1`
 
 	// First call: GET returns 404 → dynamic client falls through to POST.
-	results, err := server.applyManifestDynamic(context.Background(), "c1", manifest, false)
+	results, err := ApplyManifestDynamic(context.Background(), deps, "c1", manifest, false)
 	require.NoError(t, err)
 	require.Len(t, results, 1)
 	assert.Equal(t, "created", results[0].Status, "first apply must take the Create branch")
@@ -223,7 +223,7 @@ data:
 	// object → dynamic client takes the PUT (update) branch, and the
 	// server code copies the resourceVersion from the existing object.
 	manifest2 := strings.Replace(manifest, "v1", "v2", 1)
-	results, err = server.applyManifestDynamic(context.Background(), "c1", manifest2, false)
+	results, err = ApplyManifestDynamic(context.Background(), deps, "c1", manifest2, false)
 	require.NoError(t, err)
 	require.Len(t, results, 1)
 	assert.Equal(t, "updated", results[0].Status, "second apply must take the Update branch")
@@ -235,18 +235,4 @@ data:
 	require.True(t, ok, "fake API should have the demo ConfigMap stored")
 	meta, _ := stored["metadata"].(map[string]interface{})
 	assert.Equal(t, "2", meta["resourceVersion"])
-}
-
-// TestParseYAML_MalformedYAMLReturnsError exercises parseYAML's early-
-// return branch where yamlToJSONBytes (k8syaml.ToJSON) rejects the input.
-// The rest of the function is well-covered by existing tests via the
-// happy path.
-func TestParseYAML_MalformedYAMLReturnsError(t *testing.T) {
-	// A YAML mapping opened but not closed is a hard parse error in
-	// k8s.io/apimachinery/pkg/util/yaml.
-	bad := []byte("key: {unterminated: mapping\n  another: entry")
-
-	var out map[string]interface{}
-	err := parseYAML(bad, &out)
-	require.Error(t, err)
 }

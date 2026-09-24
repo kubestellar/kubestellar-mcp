@@ -1,4 +1,4 @@
-package mcp
+package kubectl
 
 import (
 	"testing"
@@ -50,7 +50,7 @@ func TestIsSensitiveKind(t *testing.T) {
 
 	for _, tt := range blocked {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.True(t, isSensitiveKind(tt.kind), "kind %q should be blocked", tt.kind)
+			assert.True(t, fakeIsSensitiveKind(tt.kind), "kind %q should be blocked", tt.kind)
 		})
 	}
 }
@@ -66,14 +66,14 @@ func TestIsSensitiveKind_Allowed(t *testing.T) {
 
 	for _, kind := range allowed {
 		t.Run(kind, func(t *testing.T) {
-			assert.False(t, isSensitiveKind(kind), "kind %q should be allowed", kind)
+			assert.False(t, fakeIsSensitiveKind(kind), "kind %q should be allowed", kind)
 		})
 	}
 }
 
 // TestSensitiveKindError verifies error message format.
 func TestSensitiveKindError(t *testing.T) {
-	err := sensitiveKindError("ClusterRole")
+	err := fakeSensitiveKindError("ClusterRole")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "ClusterRole")
 	assert.Contains(t, err.Error(), "blocked")
@@ -130,7 +130,7 @@ func TestManifestSensitiveKind_JSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			kind, blocked := manifestSensitiveKind(tt.manifest)
+			kind, blocked := fakeManifestSensitiveKind(tt.manifest)
 			assert.Equal(t, tt.wantKind, kind)
 			assert.Equal(t, tt.wantBlock, blocked)
 		})
@@ -179,7 +179,7 @@ metadata:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			kind, blocked := manifestSensitiveKind(tt.manifest)
+			kind, blocked := fakeManifestSensitiveKind(tt.manifest)
 			assert.Equal(t, tt.wantKind, kind)
 			assert.Equal(t, tt.wantBlock, blocked)
 		})
@@ -203,7 +203,7 @@ func TestManifestSensitiveKind_EdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			kind, blocked := manifestSensitiveKind(tt.manifest)
+			kind, blocked := fakeManifestSensitiveKind(tt.manifest)
 			assert.Equal(t, tt.wantKind, kind)
 			assert.Equal(t, tt.wantBlock, blocked)
 		})

@@ -1,4 +1,4 @@
-package mcp
+package kubectl
 
 import (
 	"context"
@@ -54,13 +54,13 @@ func TestHandleKubectlApply_BlocksSensitiveKindInManifest(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+			deps := newTestDeps(t, map[string]string{"alpha": "https://alpha.example.com"})
 			args := mustMarshalJSON(t, map[string]interface{}{
 				"manifest": tc.manifest,
 				"clusters": []string{"alpha"},
 				"dry_run":  true,
 			})
-			_, err := server.handleKubectlApply(context.Background(), args)
+			_, err := HandleKubectlApply(context.Background(), deps, args)
 			require.Error(t, err, "sensitive kind %q must be rejected", tc.kindMsg)
 			assert.Contains(t, err.Error(), tc.kindMsg)
 			assert.Contains(t, err.Error(), "blocked")
@@ -74,7 +74,7 @@ func TestHandleKubectlApply_BlocksSensitiveKindInManifest(t *testing.T) {
 // AFTER an innocent doc. Without walking every document, a caller could
 // smuggle a ClusterRole past the check by prepending a benign ConfigMap.
 func TestHandleKubectlApply_BlocksSensitiveKindInMultiDoc(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+	deps := newTestDeps(t, map[string]string{"alpha": "https://alpha.example.com"})
 
 	manifest := `apiVersion: v1
 kind: ConfigMap
@@ -92,7 +92,7 @@ metadata:
 		"clusters": []string{"alpha"},
 		"dry_run":  true,
 	})
-	_, err := server.handleKubectlApply(context.Background(), args)
+	_, err := HandleKubectlApply(context.Background(), deps, args)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "ClusterRole")
 	assert.Contains(t, err.Error(), "blocked")
@@ -106,14 +106,14 @@ func TestHandleDeleteResource_BlocksSensitiveKind(t *testing.T) {
 	cases := []string{"Secret", "ClusterRole", "ClusterRoleBinding", "ServiceAccount", "secret", "clusterrole"}
 	for _, kind := range cases {
 		t.Run(kind, func(t *testing.T) {
-			server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+			deps := newTestDeps(t, map[string]string{"alpha": "https://alpha.example.com"})
 			args := mustMarshalJSON(t, map[string]interface{}{
 				"kind":     kind,
 				"name":     "target",
 				"clusters": []string{"alpha"},
 				"dry_run":  true,
 			})
-			_, err := server.handleDeleteResource(context.Background(), args)
+			_, err := HandleDeleteResource(context.Background(), deps, args)
 			require.Error(t, err, "delete on sensitive kind %q must be rejected", kind)
 			assert.Contains(t, err.Error(), kind)
 			assert.Contains(t, err.Error(), "blocked")
@@ -137,8 +137,8 @@ func TestHandleDeleteResource_RequiresKindAndName(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			server := newHelmTestServer(t, map[string]string{})
-			_, err := server.handleDeleteResource(context.Background(), mustMarshalJSON(t, tc.args))
+			deps := newTestDeps(t, map[string]string{})
+			_, err := HandleDeleteResource(context.Background(), deps, mustMarshalJSON(t, tc.args))
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), "kind and name are required")
 		})

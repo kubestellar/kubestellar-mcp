@@ -1,4 +1,4 @@
-package mcp
+package kubectl
 
 import (
 	"context"
@@ -10,44 +10,44 @@ import (
 )
 
 func TestHandleDeleteResourceMissingKind(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+	deps := newTestDeps(t, map[string]string{"alpha": "https://alpha.example.com"})
 
 	args := mustMarshalJSON(t, map[string]interface{}{
 		"name": "my-pod",
 	})
-	_, err := server.handleDeleteResource(context.Background(), args)
+	_, err := HandleDeleteResource(context.Background(), deps, args)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "kind and name are required")
 }
 
 func TestHandleDeleteResourceMissingName(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+	deps := newTestDeps(t, map[string]string{"alpha": "https://alpha.example.com"})
 
 	args := mustMarshalJSON(t, map[string]interface{}{
 		"kind": "Pod",
 	})
-	_, err := server.handleDeleteResource(context.Background(), args)
+	_, err := HandleDeleteResource(context.Background(), deps, args)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "kind and name are required")
 }
 
 func TestHandleDeleteResourceInvalidArguments(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+	deps := newTestDeps(t, map[string]string{"alpha": "https://alpha.example.com"})
 
-	_, err := server.handleDeleteResource(context.Background(), []byte(`{invalid`))
+	_, err := HandleDeleteResource(context.Background(), deps, []byte(`{invalid`))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid arguments")
 }
 
 func TestHandleDeleteResourceEmptyClusterList(t *testing.T) {
 	// With no clusters configured, DiscoverClusters returns empty list
-	server := newHelmTestServer(t, map[string]string{})
+	deps := newTestDeps(t, map[string]string{})
 
 	args := mustMarshalJSON(t, map[string]interface{}{
 		"kind": "Pod",
 		"name": "my-pod",
 	})
-	result, err := server.handleDeleteResource(context.Background(), args)
+	result, err := HandleDeleteResource(context.Background(), deps, args)
 	require.NoError(t, err)
 
 	// Should return success with zero results since there are no clusters
@@ -57,7 +57,7 @@ func TestHandleDeleteResourceEmptyClusterList(t *testing.T) {
 }
 
 func TestHandleDeleteResourceDryRunUnsupportedKind(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+	deps := newTestDeps(t, map[string]string{"alpha": "https://alpha.example.com"})
 
 	args := mustMarshalJSON(t, map[string]interface{}{
 		"kind":     "Widget",
@@ -65,7 +65,7 @@ func TestHandleDeleteResourceDryRunUnsupportedKind(t *testing.T) {
 		"dry_run":  true,
 		"clusters": []string{"alpha"},
 	})
-	result, err := server.handleDeleteResource(context.Background(), args)
+	result, err := HandleDeleteResource(context.Background(), deps, args)
 	if err != nil {
 		assert.Contains(t, err.Error(), "alpha")
 	} else {
@@ -80,31 +80,31 @@ func TestHandleDeleteResourceDryRunUnsupportedKind(t *testing.T) {
 }
 
 func TestHandleKubectlApplyMissingManifest(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+	deps := newTestDeps(t, map[string]string{"alpha": "https://alpha.example.com"})
 
 	args := mustMarshalJSON(t, map[string]interface{}{
 		"manifest": "",
 	})
-	_, err := server.handleKubectlApply(context.Background(), args)
+	_, err := HandleKubectlApply(context.Background(), deps, args)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "manifest is required")
 }
 
 func TestHandleKubectlApplyInvalidArguments(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+	deps := newTestDeps(t, map[string]string{"alpha": "https://alpha.example.com"})
 
-	_, err := server.handleKubectlApply(context.Background(), []byte(`{bad json`))
+	_, err := HandleKubectlApply(context.Background(), deps, []byte(`{bad json`))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid arguments")
 }
 
 func TestHandleKubectlApplyEmptyClusters(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{})
+	deps := newTestDeps(t, map[string]string{})
 
 	args := mustMarshalJSON(t, map[string]interface{}{
 		"manifest": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: test\n",
 	})
-	result, err := server.handleKubectlApply(context.Background(), args)
+	result, err := HandleKubectlApply(context.Background(), deps, args)
 	require.NoError(t, err)
 
 	resultMap, ok := result.(map[string]interface{})
@@ -114,7 +114,7 @@ func TestHandleKubectlApplyEmptyClusters(t *testing.T) {
 }
 
 func TestHandleKubectlApplyDryRunReturnsWouldApply(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+	deps := newTestDeps(t, map[string]string{"alpha": "https://alpha.example.com"})
 
 	manifest := `apiVersion: v1
 kind: ConfigMap
@@ -130,7 +130,7 @@ data:
 		"clusters": []string{"alpha"},
 	})
 
-	result, err := server.handleKubectlApply(context.Background(), args)
+	result, err := HandleKubectlApply(context.Background(), deps, args)
 	if err == nil {
 		resultMap, ok := result.(map[string]interface{})
 		require.True(t, ok)
@@ -147,14 +147,14 @@ data:
 }
 
 func TestHandleKubectlApplyInvalidYAML(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+	deps := newTestDeps(t, map[string]string{"alpha": "https://alpha.example.com"})
 
 	args := mustMarshalJSON(t, map[string]interface{}{
 		"manifest": "this is not valid yaml: [[[",
 		"clusters": []string{"alpha"},
 	})
 
-	result, err := server.handleKubectlApply(context.Background(), args)
+	result, err := HandleKubectlApply(context.Background(), deps, args)
 	if err == nil {
 		resultMap, ok := result.(map[string]interface{})
 		require.True(t, ok)
@@ -166,7 +166,7 @@ func TestHandleKubectlApplyInvalidYAML(t *testing.T) {
 }
 
 func TestHandleKubectlApplyMultiDocManifest(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{})
+	deps := newTestDeps(t, map[string]string{})
 
 	manifest := `apiVersion: v1
 kind: ConfigMap
@@ -183,7 +183,7 @@ metadata:
 		"dry_run":  true,
 	})
 
-	result, err := server.handleKubectlApply(context.Background(), args)
+	result, err := HandleKubectlApply(context.Background(), deps, args)
 	require.NoError(t, err)
 
 	resultMap, ok := result.(map[string]interface{})
@@ -192,9 +192,7 @@ metadata:
 }
 
 func TestDeleteResourceInClusterUnsupportedKind(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
-
-	result, err := server.deleteResourceInCluster(context.Background(), nil, "alpha", "Widget", "my-widget", "default", false)
+	result, err := DeleteResourceInCluster(context.Background(), nil, "alpha", "Widget", "my-widget", "default", false)
 	require.NoError(t, err)
 
 	assert.Equal(t, "failed", result.Status)
@@ -202,16 +200,14 @@ func TestDeleteResourceInClusterUnsupportedKind(t *testing.T) {
 }
 
 func TestDeleteResourceInClusterDryRun(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
-
-	result, err := server.deleteResourceInCluster(context.Background(), nil, "alpha", "Pod", "my-pod", "default", true)
+	result, err := DeleteResourceInCluster(context.Background(), nil, "alpha", "Pod", "my-pod", "default", true)
 	require.NoError(t, err)
 
 	assert.Equal(t, "would-delete", result.Status)
 }
 
 func TestApplyManifestDynamicDryRun(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+	deps := newTestDeps(t, map[string]string{"alpha": "https://alpha.example.com"})
 
 	manifest := `apiVersion: v1
 kind: ConfigMap
@@ -221,7 +217,7 @@ metadata:
 data:
   key: value`
 
-	results, err := server.applyManifestDynamic(context.Background(), "alpha", manifest, true)
+	results, err := ApplyManifestDynamic(context.Background(), deps, "alpha", manifest, true)
 	if err != nil {
 		assert.Contains(t, err.Error(), "alpha")
 	} else {
@@ -233,9 +229,9 @@ data:
 }
 
 func TestApplyManifestDynamicInvalidYAML(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+	deps := newTestDeps(t, map[string]string{"alpha": "https://alpha.example.com"})
 
-	results, err := server.applyManifestDynamic(context.Background(), "alpha", "not: [valid: yaml: {{", true)
+	results, err := ApplyManifestDynamic(context.Background(), deps, "alpha", "not: [valid: yaml: {{", true)
 	if err != nil {
 		return
 	}
@@ -245,11 +241,11 @@ func TestApplyManifestDynamicInvalidYAML(t *testing.T) {
 }
 
 func TestApplyManifestDynamicUnknownKind(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+	deps := newTestDeps(t, map[string]string{"alpha": "https://alpha.example.com"})
 
 	manifest := `{"apiVersion":"v1","kind":"UnknownThing","metadata":{"name":"x"}}`
 
-	results, err := server.applyManifestDynamic(context.Background(), "alpha", manifest, false)
+	results, err := ApplyManifestDynamic(context.Background(), deps, "alpha", manifest, false)
 	if err != nil {
 		return
 	}
@@ -259,7 +255,7 @@ func TestApplyManifestDynamicUnknownKind(t *testing.T) {
 }
 
 func TestApplyManifestDynamicMultiDoc(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+	deps := newTestDeps(t, map[string]string{"alpha": "https://alpha.example.com"})
 
 	manifest := `apiVersion: v1
 kind: ConfigMap
@@ -273,7 +269,7 @@ metadata:
   name: cm2
   namespace: default`
 
-	results, err := server.applyManifestDynamic(context.Background(), "alpha", manifest, true)
+	results, err := ApplyManifestDynamic(context.Background(), deps, "alpha", manifest, true)
 	if err != nil {
 		return
 	}
@@ -285,11 +281,11 @@ metadata:
 }
 
 func TestApplyManifestDynamicEmptyDocs(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+	deps := newTestDeps(t, map[string]string{"alpha": "https://alpha.example.com"})
 
 	manifest := "---\n---\n"
 
-	results, err := server.applyManifestDynamic(context.Background(), "alpha", manifest, true)
+	results, err := ApplyManifestDynamic(context.Background(), deps, "alpha", manifest, true)
 	if err != nil {
 		return
 	}
