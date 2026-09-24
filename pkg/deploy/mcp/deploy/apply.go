@@ -1,4 +1,4 @@
-package mcp
+package deploy
 
 import (
 	"context"
@@ -19,12 +19,12 @@ import (
 )
 
 // boolPtr returns a pointer to a bool value
-func boolPtr(b bool) *bool {
+func BoolPtr(b bool) *bool {
 	return &b
 }
 
 // applyManifest applies a manifest to a cluster
-func (s *Server) applyManifest(ctx context.Context, client kubernetes.Interface, clusterName, manifest string, dryRun bool) ([]DeployResult, error) {
+func ApplyManifest(ctx context.Context, d Deps, client kubernetes.Interface, clusterName, manifest string, dryRun bool) ([]DeployResult, error) {
 	_ = client
 
 	var results []DeployResult
@@ -71,18 +71,18 @@ func (s *Server) applyManifest(ctx context.Context, client kubernetes.Interface,
 		return results, nil
 	}
 
-	reader := s.getManifestReader()
+	reader := d.GetManifestReader()
 	manifests, err := reader.ReadFromReader(strings.NewReader(manifest))
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode manifest: %w", err)
 	}
 
-	config, err := s.manager.GetConfig(clusterName)
+	config, err := d.GetConfig(clusterName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get config for cluster %s: %w", clusterName, err)
 	}
 
-	syncer, err := s.getManifestSyncer(config)
+	syncer, err := d.GetManifestSyncer(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create manifest syncer: %w", err)
 	}
@@ -105,7 +105,7 @@ func (s *Server) applyManifest(ctx context.Context, client kubernetes.Interface,
 }
 
 // applyDeployment creates or updates a deployment
-func (s *Server) applyDeployment(ctx context.Context, client kubernetes.Interface, rawObj map[string]interface{}, namespace string) (string, error) {
+func ApplyDeployment(ctx context.Context, client kubernetes.Interface, rawObj map[string]interface{}, namespace string) (string, error) {
 	data, err := json.Marshal(rawObj)
 	if err != nil {
 		return "", err
@@ -131,7 +131,7 @@ func (s *Server) applyDeployment(ctx context.Context, client kubernetes.Interfac
 
 	updated, err := client.AppsV1().Deployments(namespace).Patch(ctx, deployment.Name, types.ApplyPatchType, data, metav1.PatchOptions{
 		FieldManager: "kubestellar-deploy",
-		Force:        boolPtr(true),
+		Force:        BoolPtr(true),
 	})
 	if err != nil {
 		return "", err
@@ -146,7 +146,7 @@ func (s *Server) applyDeployment(ctx context.Context, client kubernetes.Interfac
 }
 
 // applyService creates or updates a service
-func (s *Server) applyService(ctx context.Context, client kubernetes.Interface, rawObj map[string]interface{}, namespace string) (string, error) {
+func ApplyService(ctx context.Context, client kubernetes.Interface, rawObj map[string]interface{}, namespace string) (string, error) {
 	data, err := json.Marshal(rawObj)
 	if err != nil {
 		return "", err
@@ -172,7 +172,7 @@ func (s *Server) applyService(ctx context.Context, client kubernetes.Interface, 
 
 	updated, err := client.CoreV1().Services(namespace).Patch(ctx, service.Name, types.ApplyPatchType, data, metav1.PatchOptions{
 		FieldManager: "kubestellar-deploy",
-		Force:        boolPtr(true),
+		Force:        BoolPtr(true),
 	})
 	if err != nil {
 		return "", err
@@ -187,7 +187,7 @@ func (s *Server) applyService(ctx context.Context, client kubernetes.Interface, 
 }
 
 // applyConfigMap creates or updates a configmap
-func (s *Server) applyConfigMap(ctx context.Context, client kubernetes.Interface, rawObj map[string]interface{}, namespace string) (string, error) {
+func ApplyConfigMap(ctx context.Context, client kubernetes.Interface, rawObj map[string]interface{}, namespace string) (string, error) {
 	data, err := json.Marshal(rawObj)
 	if err != nil {
 		return "", err
@@ -213,7 +213,7 @@ func (s *Server) applyConfigMap(ctx context.Context, client kubernetes.Interface
 
 	updated, err := client.CoreV1().ConfigMaps(namespace).Patch(ctx, cm.Name, types.ApplyPatchType, data, metav1.PatchOptions{
 		FieldManager: "kubestellar-deploy",
-		Force:        boolPtr(true),
+		Force:        BoolPtr(true),
 	})
 	if err != nil {
 		return "", err
@@ -228,7 +228,7 @@ func (s *Server) applyConfigMap(ctx context.Context, client kubernetes.Interface
 }
 
 // applySecret creates or updates a secret
-func (s *Server) applySecret(ctx context.Context, client kubernetes.Interface, rawObj map[string]interface{}, namespace string) (string, error) {
+func ApplySecret(ctx context.Context, client kubernetes.Interface, rawObj map[string]interface{}, namespace string) (string, error) {
 	data, err := json.Marshal(rawObj)
 	if err != nil {
 		return "", err
@@ -254,7 +254,7 @@ func (s *Server) applySecret(ctx context.Context, client kubernetes.Interface, r
 
 	updated, err := client.CoreV1().Secrets(namespace).Patch(ctx, secret.Name, types.ApplyPatchType, data, metav1.PatchOptions{
 		FieldManager: "kubestellar-deploy",
-		Force:        boolPtr(true),
+		Force:        BoolPtr(true),
 	})
 	if err != nil {
 		return "", err
