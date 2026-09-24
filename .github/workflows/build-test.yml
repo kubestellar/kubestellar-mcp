@@ -76,6 +76,17 @@ jobs:
             .github/go-coverage-ratchet.txt \
             .github/go-package-coverage-ratchet.txt
 
+      - name: Check ratchet completeness
+        # Fails if any Go package under pkg/ cmd/ internal/ ships non-test
+        # code but is not listed in .github/go-package-coverage-ratchet.txt.
+        # Unlisted packages are silently unenforced by
+        # check-go-package-coverage.sh — their coverage can regress to 0%
+        # while CI stays green (kubestellar-mcp#802, #980).
+        run: |
+          chmod +x scripts/check-go-ratchet-completeness.sh
+          ./scripts/check-go-ratchet-completeness.sh \
+            .github/go-package-coverage-ratchet.txt --strict
+
       - name: Run shell tests
         # Auto-discovers scripts/__tests__/*.test.sh (regression suite for
         # the coverage-ratchet helpers this workflow already invokes) and
