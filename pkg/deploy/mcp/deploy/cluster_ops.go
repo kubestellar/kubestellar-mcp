@@ -1,4 +1,4 @@
-package mcp
+package deploy
 
 import (
 	"context"
@@ -7,10 +7,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/app"
 )
 
 // scaleAppInCluster scales an app in a single cluster
-func (s *Server) scaleAppInCluster(ctx context.Context, client *kubernetes.Clientset, clusterName, appName, namespace string, replicas int32) (interface{}, error) {
+func ScaleAppInCluster(ctx context.Context, client *kubernetes.Clientset, clusterName, appName, namespace string, replicas int32) (interface{}, error) {
 	ns := namespace
 	if ns == "" {
 		ns = "default"
@@ -23,7 +25,7 @@ func (s *Server) scaleAppInCluster(ctx context.Context, client *kubernetes.Clien
 	}
 
 	for _, d := range deployments.Items {
-		if matchesApp(d.Name, d.Labels, appName) {
+		if app.MatchesApp(d.Name, d.Labels, appName) {
 			oldReplicas := int32(1)
 			if d.Spec.Replicas != nil {
 				oldReplicas = *d.Spec.Replicas
@@ -46,7 +48,7 @@ func (s *Server) scaleAppInCluster(ctx context.Context, client *kubernetes.Clien
 }
 
 // patchAppInCluster patches an app in a single cluster
-func (s *Server) patchAppInCluster(ctx context.Context, client *kubernetes.Clientset, clusterName, appName, namespace string, patch []byte, patchType types.PatchType) (interface{}, error) {
+func PatchAppInCluster(ctx context.Context, client *kubernetes.Clientset, clusterName, appName, namespace string, patch []byte, patchType types.PatchType) (interface{}, error) {
 	ns := namespace
 	if ns == "" {
 		ns = "default"
@@ -59,7 +61,7 @@ func (s *Server) patchAppInCluster(ctx context.Context, client *kubernetes.Clien
 	}
 
 	for _, d := range deployments.Items {
-		if matchesApp(d.Name, d.Labels, appName) {
+		if app.MatchesApp(d.Name, d.Labels, appName) {
 			_, err := client.AppsV1().Deployments(ns).Patch(ctx, d.Name, patchType, patch, metav1.PatchOptions{})
 			if err != nil {
 				return nil, err
