@@ -38,6 +38,8 @@ cmd/kubestellar-ops 100.0
 # --- Tier 2: Supporting packages ---
 pkg/metrics 100.0
 pkg/progress 98.4
+pkg/security/namespace 100.0
+internal/version/versioncmd 100.0
 
 # --- Statement-less packages (excluded from coverage enforcement) ---
 # Threshold "-" marks a package as intentionally excluded because it has
