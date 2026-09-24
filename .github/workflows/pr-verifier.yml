@@ -22,7 +22,7 @@ jobs:
         run: |
           # Allow optional emoji prefix and [scanner], [agent], [ci-maintainer], [quality], [sec-check] prefix
           # before the conventional commit type for automated PRs.
-          PATTERN='^([^A-Za-z[]+ )?(\[(scanner|agent|ci-maintainer|quality|sec-check)\] )?(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?!?: .+'
+          PATTERN='^([^A-Za-z[]+ )?(\[(scanner|agent|ci-maintainer|quality|sec-check)\] )?(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|ratchet)(\(.+\))?!?: .+'
           if echo "$PR_TITLE" | grep -qE "$PATTERN"; then
             echo "PR title is valid: $PR_TITLE"
           else
@@ -37,6 +37,6 @@ jobs:
             echo "  🌱 [scanner] fix: pin SHA"
             echo "  feat(scope): add feature"
             echo ""
-            echo "Allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert"
+            echo "Allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert, ratchet"
             exit 1
           fi
