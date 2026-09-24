@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/kubestellar/kubestellar-mcp/internal/version/versioncmd"
 	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp"
 )
 
@@ -55,13 +56,7 @@ Examples:
 }
 
 func newVersionCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:   "version",
-		Short: "Print version information",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("kubestellar-deploy version dev")
-		},
-	}
+	return versioncmd.New("kubestellar-deploy")
 }
 
 func Execute() error {
