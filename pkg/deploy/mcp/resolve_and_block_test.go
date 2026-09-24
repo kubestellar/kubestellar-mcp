@@ -3,11 +3,30 @@ package mcp
 import (
 	"strings"
 	"testing"
+
+	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/helm"
 )
 
+// resolveAndBlock delegates to helm.ResolveAndBlock. Retained as a
+// package-level function for test compatibility now that the SSRF gate
+// lives in pkg/deploy/mcp/helm (epic #983).
+func resolveAndBlock(host string) error {
+	return helm.ResolveAndBlock(host)
+}
+
+// setHelmMockResolver installs a stub DNS resolver on the helm sub-package
+// for the duration of the test, so that helm.ResolveAndBlock (and the
+// validators that call it) do not perform real network calls. Retained for
+// test compatibility now that the resolver lives in pkg/deploy/mcp/helm.
+func setHelmMockResolver(t *testing.T, resolve func(host string) (addrs []string, err error)) {
+	t.Helper()
+	restore := helm.SetHostResolver(resolve)
+	t.Cleanup(restore)
+}
+
 // resolveAndBlock is the SSRF gate used by validateHelmRepoURL and the OCI
-// chart ref path (tools_helm.go:171). go tool cover reports 63.6% on this
-// function; the previously-uncovered arms are:
+// chart ref path (tools_helm.go:171 pre-refactor, now pkg/deploy/mcp/helm/validate.go).
+// go tool cover reports 63.6% on this function; the previously-uncovered arms are:
 //
 //   - host is a literal IP that isHelmBlockedIP accepts (loopback/private/
 //     link-local/CGNAT/cloud-metadata/IETF-reserved) -- must return

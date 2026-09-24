@@ -1,4 +1,4 @@
-package mcp
+package helm
 
 import (
 	"bytes"
@@ -47,7 +47,7 @@ func (s *Server) handleHelmList(ctx context.Context, args json.RawMessage) (inte
 	// Get target clusters
 	targetClusters := params.Clusters
 	if len(targetClusters) == 0 {
-		clusters, err := s.manager.DiscoverClusters()
+		clusters, err := s.Access.DiscoverClusters()
 		if err != nil {
 			return nil, err
 		}
@@ -115,5 +115,3 @@ func (s *Server) helmReleaseExists(ctx context.Context, cluster, releaseName, na
 	cmd := exec.CommandContext(ctx, "helm", cmdArgs...)
 	return cmd.Run() == nil
 }
-
-// handleHelmRollback rolls back a Helm release to a previous revision

@@ -1,4 +1,4 @@
-package mcp
+package helm
 
 import (
 	"bytes"
@@ -79,7 +79,7 @@ func (s *Server) parseHelmInstallArgs(args json.RawMessage) (helmInstallParams, 
 	// Get target clusters
 	targetClusters := params.Clusters
 	if len(targetClusters) == 0 {
-		clusters, err := s.manager.DiscoverClusters()
+		clusters, err := s.Access.DiscoverClusters()
 		if err != nil {
 			return params, nil, err
 		}
@@ -197,5 +197,3 @@ func (s *Server) helmInstall(ctx context.Context, cluster, releaseName, chart, n
 		Message:     stdout.String(),
 	}
 }
-
-// handleHelmUninstall uninstalls a Helm release from clusters

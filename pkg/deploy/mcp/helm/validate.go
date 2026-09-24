@@ -1,4 +1,4 @@
-package mcp
+package helm
 
 import (
 	"fmt"
@@ -250,6 +250,31 @@ func validateHelmClusters(clusters []string) error {
 		}
 	}
 	return nil
+}
+
+// ValidateClusters is the exported form of validateHelmClusters, re-used by
+// the kustomize sub-package's Deps.ValidateClusters (see
+// pkg/deploy/mcp/kustomize_adapter.go) so both domains share the same
+// flag-injection guard on cluster names (#289).
+func ValidateClusters(clusters []string) error {
+	return validateHelmClusters(clusters)
+}
+
+// ResolveAndBlock is the exported form of resolveAndBlock, retained for root
+// package test compatibility (pkg/deploy/mcp/resolve_and_block_test.go),
+// which exercises this SSRF gate directly.
+func ResolveAndBlock(host string) error {
+	return resolveAndBlock(host)
+}
+
+// SetHostResolver replaces the DNS resolver used by validateHelmRepoURL,
+// validateHelmChartRef, and resolveAndBlock, returning a function that
+// restores the previous resolver. Retained for root package test
+// compatibility (pkg/deploy/mcp/resolve_and_block_test.go).
+func SetHostResolver(resolve func(host string) (addrs []string, err error)) (restore func()) {
+	orig := helmHostResolver
+	helmHostResolver = resolve
+	return func() { helmHostResolver = orig }
 }
 
 // validateHelmInstallParams runs all of the SSRF and flag-injection guards

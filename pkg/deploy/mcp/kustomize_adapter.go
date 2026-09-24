@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/helm"
 	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/kustomize"
 )
 
@@ -13,7 +14,7 @@ import (
 func (s *Server) kustomizeToolDefs() []toolDef {
 	deps := kustomize.Deps{
 		DiscoverClusters: s.manager.DiscoverClusters,
-		ValidateClusters: validateHelmClusters,
+		ValidateClusters: helm.ValidateClusters,
 		ValidateManifest: validateManifestDocs,
 	}
 

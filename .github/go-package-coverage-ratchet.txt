@@ -16,10 +16,11 @@
 # .github/go-coverage-ratchet.txt masked pkg/deploy/mcp at 94%.
 
 # --- Tier 1: Deploy / MCP tool surface (kubectl, helm, kustomize, gitops) ---
-pkg/deploy/mcp 94.5
+pkg/deploy/mcp 95.5
 pkg/deploy/mcp/app 97.5
 pkg/deploy/mcp/deploy 93.0
 pkg/deploy/mcp/gitops 97.0
+pkg/deploy/mcp/helm 93.5
 pkg/deploy/mcp/kubectl 97.5
 pkg/deploy/mcp/kustomize 96.0
 pkg/deploy/mcp/labels 99.0
