@@ -1,4 +1,4 @@
-package mcp
+package kustomize
 
 import (
 	"context"
@@ -22,15 +22,15 @@ import (
 // and 293.4 for this handler.
 func TestHandleKustomizeDeleteDiscoversClustersWhenNoneProvided(t *testing.T) {
 	setupFakeKustomize(t)
-	server := newHelmTestServer(t, map[string]string{
+	deps := newTestDeps(t, map[string]string{
 		"alpha": "https://alpha.example.com",
 		"beta":  "https://beta.example.com",
 	})
 	dir := createTestKustomization(t, "kustomization.yaml")
 	t.Setenv("FAKE_KUSTOMIZE_BUILD_STDOUT", "kind: ConfigMap\n")
 
-	got, err := server.handleKustomizeDelete(context.Background(), mustMarshalJSON(t, map[string]interface{}{
-		"path":    dir,
+	got, err := deps.handleKustomizeDelete(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+		"path": dir,
 		// no `clusters` → discovery fallback populates targetClusters
 		"dry_run": true,
 	}))

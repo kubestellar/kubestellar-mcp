@@ -1,4 +1,4 @@
-package mcp
+package kustomize
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 )
 
 func TestHandleKustomizeBuildValidatesPath(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{})
+	deps := newTestDeps(t, map[string]string{})
 
 	tests := []struct {
 		name    string
@@ -24,7 +24,7 @@ func TestHandleKustomizeBuildValidatesPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := server.handleKustomizeBuild(context.Background(), mustMarshalJSON(t, tt.args))
+			_, err := deps.handleKustomizeBuild(context.Background(), mustMarshalJSON(t, tt.args))
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tt.wantErr)
 		})
@@ -42,7 +42,7 @@ func TestHandleKustomizeBuildRejectsResolvedPathOutsideAllowedDirectories(t *tes
 	isolatedTmp := t.TempDir()
 	t.Setenv("TMPDIR", isolatedTmp)
 
-	server := newHelmTestServer(t, map[string]string{})
+	deps := newTestDeps(t, map[string]string{})
 
 	workingDir, err := os.Getwd()
 	require.NoError(t, err)
@@ -67,7 +67,7 @@ func TestHandleKustomizeBuildRejectsResolvedPathOutsideAllowedDirectories(t *tes
 	require.NoError(t, os.Symlink(outsideDir, linkPath))
 	t.Cleanup(func() { _ = os.Remove(linkPath) })
 
-	_, err = server.handleKustomizeBuild(context.Background(), mustMarshalJSON(t, map[string]interface{}{"path": linkPath}))
+	_, err = deps.handleKustomizeBuild(context.Background(), mustMarshalJSON(t, map[string]interface{}{"path": linkPath}))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "outside allowed directories")
 }
@@ -84,11 +84,11 @@ func TestParseKustomizeBuildResultValidatesTypes(t *testing.T) {
 
 func TestHandleKustomizeBuildCountsResources(t *testing.T) {
 	logFile := setupFakeKustomize(t)
-	server := newHelmTestServer(t, map[string]string{})
+	deps := newTestDeps(t, map[string]string{})
 	dir := createTestKustomization(t, "kustomization.yaml")
 	t.Setenv("FAKE_KUSTOMIZE_BUILD_STDOUT", "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: demo\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: demo\n")
 
-	got, err := server.handleKustomizeBuild(context.Background(), mustMarshalJSON(t, map[string]interface{}{"path": dir}))
+	got, err := deps.handleKustomizeBuild(context.Background(), mustMarshalJSON(t, map[string]interface{}{"path": dir}))
 	require.NoError(t, err)
 
 	result := got.(map[string]interface{})
@@ -100,12 +100,12 @@ func TestHandleKustomizeBuildCountsResources(t *testing.T) {
 
 func TestHandleKustomizeBuildFallsBackToKubectlKustomize(t *testing.T) {
 	logFile := setupFakeKustomize(t)
-	server := newHelmTestServer(t, map[string]string{})
+	deps := newTestDeps(t, map[string]string{})
 	dir := createTestKustomization(t, "kustomization.yml")
 	t.Setenv("FAKE_KUSTOMIZE_BUILD_FAIL", "1")
 	t.Setenv("FAKE_KUBECTL_KUSTOMIZE_STDOUT", "apiVersion: v1\nkind: Service\nmetadata:\n  name: demo\n")
 
-	got, err := server.handleKustomizeBuild(context.Background(), mustMarshalJSON(t, map[string]interface{}{"path": dir}))
+	got, err := deps.handleKustomizeBuild(context.Background(), mustMarshalJSON(t, map[string]interface{}{"path": dir}))
 	require.NoError(t, err)
 
 	result := got.(map[string]interface{})
@@ -119,12 +119,12 @@ func TestHandleKustomizeBuildFallsBackToKubectlKustomize(t *testing.T) {
 
 func TestHandleKustomizeApplyRejectsInvalidClusterNames(t *testing.T) {
 	setupFakeKustomize(t)
-	server := newHelmTestServer(t, map[string]string{})
+	deps := newTestDeps(t, map[string]string{})
 	dir := createTestKustomization(t, "kustomization.yaml")
 	t.Setenv("FAKE_KUSTOMIZE_BUILD_STDOUT", "kind: ConfigMap\n")
 
 	for _, badCluster := range []string{"--server=http://evil.example.com", "-x", "--token=leaked"} {
-		_, err := server.handleKustomizeApply(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+		_, err := deps.handleKustomizeApply(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 			"path":     dir,
 			"clusters": []string{badCluster},
 			"dry_run":  true,
@@ -136,12 +136,12 @@ func TestHandleKustomizeApplyRejectsInvalidClusterNames(t *testing.T) {
 
 func TestHandleKustomizeDeleteRejectsInvalidClusterNames(t *testing.T) {
 	setupFakeKustomize(t)
-	server := newHelmTestServer(t, map[string]string{})
+	deps := newTestDeps(t, map[string]string{})
 	dir := createTestKustomization(t, "kustomization.yaml")
 	t.Setenv("FAKE_KUSTOMIZE_BUILD_STDOUT", "kind: Deployment\n")
 
 	for _, badCluster := range []string{"--server=http://evil.example.com", "-x", "--kubeconfig=/etc/passwd"} {
-		_, err := server.handleKustomizeDelete(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+		_, err := deps.handleKustomizeDelete(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 			"path":     dir,
 			"clusters": []string{badCluster},
 			"dry_run":  true,
@@ -152,9 +152,9 @@ func TestHandleKustomizeDeleteRejectsInvalidClusterNames(t *testing.T) {
 }
 
 func TestApplyKustomizeDryRunReturnsWouldApply(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{})
+	deps := newTestDeps(t, map[string]string{})
 
-	result := server.applyKustomize(context.Background(), "alpha", "/workdir/demo", "kind: ConfigMap\n", 3, true)
+	result := deps.applyKustomize(context.Background(), "alpha", "/workdir/demo", "kind: ConfigMap\n", 3, true)
 
 	assert.Equal(t, "alpha", result.Cluster)
 	assert.Equal(t, "would-apply", result.Status)
@@ -164,11 +164,11 @@ func TestApplyKustomizeDryRunReturnsWouldApply(t *testing.T) {
 
 func TestHandleKustomizeApplyDryRunAcrossExplicitClusters(t *testing.T) {
 	setupFakeKustomize(t)
-	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com", "beta": "https://beta.example.com"})
+	deps := newTestDeps(t, map[string]string{"alpha": "https://alpha.example.com", "beta": "https://beta.example.com"})
 	dir := createTestKustomization(t, "kustomization.yaml")
 	t.Setenv("FAKE_KUSTOMIZE_BUILD_STDOUT", "kind: ConfigMap\n---\nkind: Service\n")
 
-	got, err := server.handleKustomizeApply(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+	got, err := deps.handleKustomizeApply(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 		"path":     dir,
 		"clusters": []string{"beta", "alpha"},
 		"dry_run":  true,
@@ -191,23 +191,23 @@ func TestHandleKustomizeApplyDryRunAcrossExplicitClusters(t *testing.T) {
 
 func TestHandleKustomizeApplyReturnsNoClustersAvailable(t *testing.T) {
 	setupFakeKustomize(t)
-	server := newHelmTestServer(t, map[string]string{})
+	deps := newTestDeps(t, map[string]string{})
 	dir := createTestKustomization(t, "kustomization.yaml")
 	t.Setenv("FAKE_KUSTOMIZE_BUILD_STDOUT", "kind: ConfigMap\n")
 
-	_, err := server.handleKustomizeApply(context.Background(), mustMarshalJSON(t, map[string]interface{}{"path": dir, "dry_run": true}))
+	_, err := deps.handleKustomizeApply(context.Background(), mustMarshalJSON(t, map[string]interface{}{"path": dir, "dry_run": true}))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no clusters available")
 }
 
 func TestHandleKustomizeApplyRunsKubectlApply(t *testing.T) {
 	logFile := setupFakeKustomize(t)
-	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+	deps := newTestDeps(t, map[string]string{"alpha": "https://alpha.example.com"})
 	dir := createTestKustomization(t, "kustomization.yaml")
 	t.Setenv("FAKE_KUSTOMIZE_BUILD_STDOUT", "kind: ConfigMap\nmetadata:\n  name: demo\n")
 	t.Setenv("FAKE_KUBECTL_APPLY_STDOUT", "configmap/demo created")
 
-	got, err := server.handleKustomizeApply(context.Background(), mustMarshalJSON(t, map[string]interface{}{"path": dir, "clusters": []string{"alpha"}}))
+	got, err := deps.handleKustomizeApply(context.Background(), mustMarshalJSON(t, map[string]interface{}{"path": dir, "clusters": []string{"alpha"}}))
 	require.NoError(t, err)
 
 	result := got.(map[string]interface{})
@@ -224,9 +224,9 @@ func TestHandleKustomizeApplyRunsKubectlApply(t *testing.T) {
 }
 
 func TestDeleteKustomizeDryRunReturnsWouldDelete(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{})
+	deps := newTestDeps(t, map[string]string{})
 
-	result := server.deleteKustomize(context.Background(), "beta", "/workdir/demo", "kind: Service\n", 2, true)
+	result := deps.deleteKustomize(context.Background(), "beta", "/workdir/demo", "kind: Service\n", 2, true)
 
 	assert.Equal(t, "beta", result.Cluster)
 	assert.Equal(t, "would-delete", result.Status)
@@ -236,12 +236,12 @@ func TestDeleteKustomizeDryRunReturnsWouldDelete(t *testing.T) {
 
 func TestHandleKustomizeDeleteRunsKubectlDelete(t *testing.T) {
 	logFile := setupFakeKustomize(t)
-	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+	deps := newTestDeps(t, map[string]string{"alpha": "https://alpha.example.com"})
 	dir := createTestKustomization(t, "kustomization.yaml")
 	t.Setenv("FAKE_KUSTOMIZE_BUILD_STDOUT", "kind: Deployment\nmetadata:\n  name: demo\n")
 	t.Setenv("FAKE_KUBECTL_DELETE_STDOUT", "deployment.apps/demo deleted")
 
-	got, err := server.handleKustomizeDelete(context.Background(), mustMarshalJSON(t, map[string]interface{}{"path": dir, "clusters": []string{"alpha"}}))
+	got, err := deps.handleKustomizeDelete(context.Background(), mustMarshalJSON(t, map[string]interface{}{"path": dir, "clusters": []string{"alpha"}}))
 	require.NoError(t, err)
 
 	result := got.(map[string]interface{})

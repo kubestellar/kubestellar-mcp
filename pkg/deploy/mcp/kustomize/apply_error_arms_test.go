@@ -1,4 +1,4 @@
-package mcp
+package kustomize
 
 import (
 	"context"
@@ -17,7 +17,7 @@ import (
 // tests.
 func TestHandleKustomizeApplyRejectsSensitiveKindInBuildOutput(t *testing.T) {
 	setupFakeKustomize(t)
-	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+	deps := newTestDeps(t, map[string]string{"alpha": "https://alpha.example.com"})
 	dir := createTestKustomization(t, "kustomization.yaml")
 
 	// A Secret in the build output must be rejected before any cluster
@@ -25,7 +25,7 @@ func TestHandleKustomizeApplyRejectsSensitiveKindInBuildOutput(t *testing.T) {
 	t.Setenv("FAKE_KUSTOMIZE_BUILD_STDOUT",
 		"apiVersion: v1\nkind: Secret\nmetadata:\n  name: leaked\n  namespace: default\ndata:\n  token: dGVzdA==\n")
 
-	_, err := server.handleKustomizeApply(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+	_, err := deps.handleKustomizeApply(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 		"path":     dir,
 		"clusters": []string{"alpha"},
 		"dry_run":  true,

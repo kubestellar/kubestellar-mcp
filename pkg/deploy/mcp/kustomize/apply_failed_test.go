@@ -1,4 +1,4 @@
-package mcp
+package kustomize
 
 import (
 	"context"
@@ -15,12 +15,12 @@ import (
 // is the critical decision point for multi-cluster fan-out reporting.
 func TestApplyKustomizeFailedArm(t *testing.T) {
 	setupFakeKustomize(t)
-	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+	deps := newTestDeps(t, map[string]string{"alpha": "https://alpha.example.com"})
 
 	t.Setenv("FAKE_KUBECTL_APPLY_FAIL", "1")
 	t.Setenv("FAKE_KUBECTL_APPLY_STDERR", "error: the server rejected the manifest")
 
-	result := server.applyKustomize(
+	result := deps.applyKustomize(
 		context.Background(),
 		"alpha",
 		"/workdir/demo",
@@ -42,14 +42,14 @@ func TestApplyKustomizeFailedArm(t *testing.T) {
 // KustomizeResult carries Status="failed" and the stderr message.
 func TestHandleKustomizeApplyReportsFailedPerCluster(t *testing.T) {
 	setupFakeKustomize(t)
-	server := newHelmTestServer(t, map[string]string{"alpha": "https://alpha.example.com"})
+	deps := newTestDeps(t, map[string]string{"alpha": "https://alpha.example.com"})
 	dir := createTestKustomization(t, "kustomization.yaml")
 
 	t.Setenv("FAKE_KUSTOMIZE_BUILD_STDOUT", "kind: ConfigMap\nmetadata:\n  name: demo\n")
 	t.Setenv("FAKE_KUBECTL_APPLY_FAIL", "1")
 	t.Setenv("FAKE_KUBECTL_APPLY_STDERR", "namespaces \"missing\" not found")
 
-	got, err := server.handleKustomizeApply(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+	got, err := deps.handleKustomizeApply(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 		"path":     dir,
 		"clusters": []string{"alpha"},
 	}))
