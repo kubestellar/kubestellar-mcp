@@ -16,6 +16,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kubestellar/kubestellar-mcp/internal/version"
+	"github.com/kubestellar/kubestellar-mcp/internal/version/versioncmd"
 	"github.com/kubestellar/kubestellar-mcp/pkg/cmd/ai"
 	"github.com/kubestellar/kubestellar-mcp/pkg/cmd/clusters"
 	"github.com/kubestellar/kubestellar-mcp/pkg/cmd/upgrade"
@@ -212,13 +213,5 @@ func initConfig() {
 }
 
 func newVersionCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:   "version",
-		Short: "Print version information",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("kubestellar-ops version %s\n", version.Version)
-			fmt.Printf("  Build date: %s\n", version.BuildDate)
-			fmt.Printf("  Git commit: %s\n", version.GitCommit)
-		},
-	}
+	return versioncmd.New("kubestellar-ops")
 }
