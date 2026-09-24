@@ -1,4 +1,15 @@
-package mcp
+// Package app implements the "app" domain MCP tools (get_app_instances,
+// get_app_status, get_app_logs) extracted from pkg/deploy/mcp as part of
+// epic #983 (decompose pkg/deploy/mcp into per-domain sub-packages).
+//
+// This package is behavior-preserving: it holds the exact logic that used to
+// live in pkg/deploy/mcp/tools_app.go, moved to functions/methods that take
+// a narrow Executor interface instead of the monolithic *Server type. The
+// root package (pkg/deploy/mcp) wires this package in via a thin adapter
+// (app_adapter.go) that re-exports the identifiers still referenced by
+// in-package tests, mirroring the pattern used by pkg/mcp/tools/upgrades and
+// pkg/mcp/server/upgrades.go.
+package app
 
 import (
 	"bytes"
@@ -18,7 +29,14 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/ai/claude"
+	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 )
+
+// Executor is the narrow slice of *multicluster.Executor that the app-domain
+// handlers need: running a callback across one or all clusters.
+type Executor interface {
+	Execute(ctx context.Context, clusterName string, fn multicluster.ExecuteFunc) ([]multicluster.ClusterResult, error)
+}
 
 // AppInstance represents an app instance in a cluster
 type AppInstance struct {
@@ -33,9 +51,9 @@ type AppInstance struct {
 
 // AppStatus represents unified status of an app
 type AppStatus struct {
-	App             string        `json:"app"`
-	TotalClusters   int           `json:"totalClusters"`
-	HealthyClusters int           `json:"healthyClusters"`
+	App             string `json:"app"`
+	TotalClusters   int    `json:"totalClusters"`
+	HealthyClusters int    `json:"healthyClusters"`
 	// UncheckedClusters counts clusters that could not be queried at all
 	// (connectivity failure, RBAC denial, timeout, etc.). These clusters are
 	// excluded from TotalClusters/HealthyClusters because we have no
@@ -59,8 +77,8 @@ type LogEntry struct {
 	Message   string `json:"message"`
 }
 
-// handleGetAppInstances finds all instances of an app across clusters
-func (s *Server) handleGetAppInstances(ctx context.Context, args json.RawMessage) (interface{}, error) {
+// GetAppInstances finds all instances of an app across clusters
+func GetAppInstances(ctx context.Context, executor Executor, args json.RawMessage) (interface{}, error) {
 	var params struct {
 		App       string `json:"app"`
 		Namespace string `json:"namespace,omitempty"`
@@ -78,8 +96,8 @@ func (s *Server) handleGetAppInstances(ctx context.Context, args json.RawMessage
 		}
 	}
 
-	results, err := s.executor.Execute(ctx, "", func(ctx context.Context, client *kubernetes.Clientset, clusterName string) (interface{}, error) {
-		return s.findAppInCluster(ctx, client, clusterName, params.App, params.Namespace)
+	results, err := executor.Execute(ctx, "", func(ctx context.Context, client *kubernetes.Clientset, clusterName string) (interface{}, error) {
+		return FindAppInCluster(ctx, client, clusterName, params.App, params.Namespace)
 	})
 	if err != nil {
 		return nil, err
@@ -91,7 +109,7 @@ func (s *Server) handleGetAppInstances(ctx context.Context, args json.RawMessage
 	// instance of an app that happens to be unreachable would make this
 	// tool report "count: 0" — indistinguishable from the app genuinely
 	// not being deployed anywhere (same false-negative class fixed for
-	// handleGetAppStatus's overallStatus).
+	// GetAppStatus's overallStatus).
 	var instances []AppInstance
 	var uncheckedClusters []string
 	for _, result := range results {
@@ -116,8 +134,8 @@ func (s *Server) handleGetAppInstances(ctx context.Context, args json.RawMessage
 	return response, nil
 }
 
-// findAppInCluster searches for an app in a single cluster
-func (s *Server) findAppInCluster(ctx context.Context, client *kubernetes.Clientset, clusterName, appName, namespace string) ([]AppInstance, error) {
+// FindAppInCluster searches for an app in a single cluster
+func FindAppInCluster(ctx context.Context, client *kubernetes.Clientset, clusterName, appName, namespace string) ([]AppInstance, error) {
 	var instances []AppInstance
 	ns := namespace
 	if ns == "" {
@@ -134,7 +152,7 @@ func (s *Server) findAppInCluster(ctx context.Context, client *kubernetes.Client
 	// one of these (RBAC denial, API server unreachable, context timeout,
 	// etc.) must not be swallowed: silently treating it as "no instances
 	// found" lets a cluster that couldn't actually be checked count as
-	// healthy (or drop out of the status entirely) in handleGetAppStatus's
+	// healthy (or drop out of the status entirely) in GetAppStatus's
 	// aggregation, which can misreport overall app health as "healthy" while
 	// one cluster's real state is unknown. Collect and surface every error
 	// instead so the caller can distinguish "not deployed here" from
@@ -146,15 +164,15 @@ func (s *Server) findAppInCluster(ctx context.Context, client *kubernetes.Client
 		listErrs = append(listErrs, fmt.Errorf("list deployments: %w", err))
 	} else {
 		for _, d := range deployments.Items {
-			if matchesApp(d.Name, d.Labels, appName) {
+			if MatchesApp(d.Name, d.Labels, appName) {
 				instances = append(instances, AppInstance{
 					Cluster:       clusterName,
 					Namespace:     d.Namespace,
 					Name:          d.Name,
 					Kind:          "Deployment",
-					Replicas:      replicasOrDefault(d.Spec.Replicas),
+					Replicas:      ReplicasOrDefault(d.Spec.Replicas),
 					ReadyReplicas: d.Status.ReadyReplicas,
-					Status:        getDeploymentStatus(&d),
+					Status:        GetDeploymentStatus(&d),
 				})
 			}
 		}
@@ -165,15 +183,15 @@ func (s *Server) findAppInCluster(ctx context.Context, client *kubernetes.Client
 		listErrs = append(listErrs, fmt.Errorf("list statefulsets: %w", err))
 	} else {
 		for _, s := range statefulsets.Items {
-			if matchesApp(s.Name, s.Labels, appName) {
+			if MatchesApp(s.Name, s.Labels, appName) {
 				instances = append(instances, AppInstance{
 					Cluster:       clusterName,
 					Namespace:     s.Namespace,
 					Name:          s.Name,
 					Kind:          "StatefulSet",
-					Replicas:      replicasOrDefault(s.Spec.Replicas),
+					Replicas:      ReplicasOrDefault(s.Spec.Replicas),
 					ReadyReplicas: s.Status.ReadyReplicas,
-					Status:        getStatefulSetStatus(&s),
+					Status:        GetStatefulSetStatus(&s),
 				})
 			}
 		}
@@ -184,7 +202,7 @@ func (s *Server) findAppInCluster(ctx context.Context, client *kubernetes.Client
 		listErrs = append(listErrs, fmt.Errorf("list daemonsets: %w", err))
 	} else {
 		for _, d := range daemonsets.Items {
-			if matchesApp(d.Name, d.Labels, appName) {
+			if MatchesApp(d.Name, d.Labels, appName) {
 				instances = append(instances, AppInstance{
 					Cluster:       clusterName,
 					Namespace:     d.Namespace,
@@ -192,7 +210,7 @@ func (s *Server) findAppInCluster(ctx context.Context, client *kubernetes.Client
 					Kind:          "DaemonSet",
 					Replicas:      d.Status.DesiredNumberScheduled,
 					ReadyReplicas: d.Status.NumberReady,
-					Status:        getDaemonSetStatus(&d),
+					Status:        GetDaemonSetStatus(&d),
 				})
 			}
 		}
@@ -204,8 +222,8 @@ func (s *Server) findAppInCluster(ctx context.Context, client *kubernetes.Client
 	return instances, nil
 }
 
-// handleGetAppStatus returns unified status of an app
-func (s *Server) handleGetAppStatus(ctx context.Context, args json.RawMessage) (interface{}, error) {
+// GetAppStatus returns unified status of an app
+func GetAppStatus(ctx context.Context, executor Executor, args json.RawMessage) (interface{}, error) {
 	var params struct {
 		App       string `json:"app"`
 		Namespace string `json:"namespace,omitempty"`
@@ -223,8 +241,8 @@ func (s *Server) handleGetAppStatus(ctx context.Context, args json.RawMessage) (
 		}
 	}
 
-	results, err := s.executor.Execute(ctx, "", func(ctx context.Context, client *kubernetes.Clientset, clusterName string) (interface{}, error) {
-		return s.findAppInCluster(ctx, client, clusterName, params.App, params.Namespace)
+	results, err := executor.Execute(ctx, "", func(ctx context.Context, client *kubernetes.Clientset, clusterName string) (interface{}, error) {
+		return FindAppInCluster(ctx, client, clusterName, params.App, params.Namespace)
 	})
 	if err != nil {
 		return nil, err
@@ -292,8 +310,8 @@ func (s *Server) handleGetAppStatus(ctx context.Context, args json.RawMessage) (
 	return status, nil
 }
 
-// handleGetAppLogs returns aggregated logs from an app
-func (s *Server) handleGetAppLogs(ctx context.Context, args json.RawMessage) (interface{}, error) {
+// GetAppLogs returns aggregated logs from an app
+func GetAppLogs(ctx context.Context, executor Executor, args json.RawMessage) (interface{}, error) {
 	var params struct {
 		App       string `json:"app"`
 		Namespace string `json:"namespace"`
@@ -317,8 +335,8 @@ func (s *Server) handleGetAppLogs(ctx context.Context, args json.RawMessage) (in
 		params.Tail = 100
 	}
 
-	results, err := s.executor.Execute(ctx, "", func(ctx context.Context, client *kubernetes.Clientset, clusterName string) (interface{}, error) {
-		return s.getLogsFromCluster(ctx, client, clusterName, params.App, params.Namespace, params.Tail, params.Since)
+	results, err := executor.Execute(ctx, "", func(ctx context.Context, client *kubernetes.Clientset, clusterName string) (interface{}, error) {
+		return GetLogsFromCluster(ctx, client, clusterName, params.App, params.Namespace, params.Tail, params.Since)
 	})
 	if err != nil {
 		return nil, err
@@ -342,8 +360,8 @@ func (s *Server) handleGetAppLogs(ctx context.Context, args json.RawMessage) (in
 	}, nil
 }
 
-// getLogsFromCluster gets logs for an app from a single cluster
-func (s *Server) getLogsFromCluster(ctx context.Context, client *kubernetes.Clientset, clusterName, appName, namespace string, tail int64, since string) ([]LogEntry, error) {
+// GetLogsFromCluster gets logs for an app from a single cluster
+func GetLogsFromCluster(ctx context.Context, client *kubernetes.Clientset, clusterName, appName, namespace string, tail int64, since string) ([]LogEntry, error) {
 	ns := namespace
 	if ns == "" {
 		ns = metav1.NamespaceAll
@@ -366,7 +384,7 @@ func (s *Server) getLogsFromCluster(ctx context.Context, client *kubernetes.Clie
 	var mu sync.Mutex
 
 	for _, pod := range pods.Items {
-		if !matchesApp(pod.Name, pod.Labels, appName) {
+		if !MatchesApp(pod.Name, pod.Labels, appName) {
 			continue
 		}
 
@@ -424,8 +442,8 @@ func (s *Server) getLogsFromCluster(ctx context.Context, client *kubernetes.Clie
 	return logs, nil
 }
 
-// matchesApp checks if a resource matches the app name
-func matchesApp(name string, labels map[string]string, appName string) bool {
+// MatchesApp checks if a resource matches the app name
+func MatchesApp(name string, labels map[string]string, appName string) bool {
 	// Check common app labels
 	if labels["app"] == appName ||
 		labels["app.kubernetes.io/name"] == appName ||
@@ -436,7 +454,8 @@ func matchesApp(name string, labels map[string]string, appName string) bool {
 	return strings.Contains(name, appName)
 }
 
-func replicasOrDefault(replicas *int32) int32 {
+// ReplicasOrDefault returns the given replica count, or a default of 1 if nil.
+func ReplicasOrDefault(replicas *int32) int32 {
 	const defaultReplicas int32 = 1
 	if replicas == nil {
 		return defaultReplicas
@@ -444,9 +463,9 @@ func replicasOrDefault(replicas *int32) int32 {
 	return *replicas
 }
 
-// getDeploymentStatus returns status for a deployment
-func getDeploymentStatus(d *appsv1.Deployment) string {
-	if d.Status.ReadyReplicas == replicasOrDefault(d.Spec.Replicas) {
+// GetDeploymentStatus returns status for a deployment
+func GetDeploymentStatus(d *appsv1.Deployment) string {
+	if d.Status.ReadyReplicas == ReplicasOrDefault(d.Spec.Replicas) {
 		return "healthy"
 	}
 	if d.Status.ReadyReplicas > 0 {
@@ -455,9 +474,9 @@ func getDeploymentStatus(d *appsv1.Deployment) string {
 	return "failed"
 }
 
-// getStatefulSetStatus returns status for a statefulset
-func getStatefulSetStatus(s *appsv1.StatefulSet) string {
-	if s.Status.ReadyReplicas == replicasOrDefault(s.Spec.Replicas) {
+// GetStatefulSetStatus returns status for a statefulset
+func GetStatefulSetStatus(s *appsv1.StatefulSet) string {
+	if s.Status.ReadyReplicas == ReplicasOrDefault(s.Spec.Replicas) {
 		return "healthy"
 	}
 	if s.Status.ReadyReplicas > 0 {
@@ -466,8 +485,8 @@ func getStatefulSetStatus(s *appsv1.StatefulSet) string {
 	return "failed"
 }
 
-// getDaemonSetStatus returns status for a daemonset
-func getDaemonSetStatus(d *appsv1.DaemonSet) string {
+// GetDaemonSetStatus returns status for a daemonset
+func GetDaemonSetStatus(d *appsv1.DaemonSet) string {
 	if d.Status.NumberReady == d.Status.DesiredNumberScheduled {
 		return "healthy"
 	}
@@ -475,75 +494,4 @@ func getDaemonSetStatus(d *appsv1.DaemonSet) string {
 		return "degraded"
 	}
 	return "failed"
-}
-
-// appToolDefs returns the tool definitions handled by this file.
-func (s *Server) appToolDefs() []toolDef {
-	return []toolDef{
-		{
-			Name:        "get_app_instances",
-			Description: "Find all instances of an app across all clusters. Returns where the app is running, replica counts, and health status.",
-			InputSchema: map[string]interface{}{
-				"type": "object",
-				"properties": map[string]interface{}{
-					"app": map[string]interface{}{
-						"type":        "string",
-						"description": "App name to search for (matches label app=<name> or name contains <name>)",
-					},
-					"namespace": map[string]interface{}{
-						"type":        "string",
-						"description": "Namespace to search in (all namespaces if not specified)",
-					},
-				},
-				"required": []string{"app"},
-			},
-			Handler: s.handleGetAppInstances,
-		},
-		{
-			Name:        "get_app_status",
-			Description: "Get unified status of an app across all clusters. Shows health (healthy/degraded/failed), replica counts, and any issues.",
-			InputSchema: map[string]interface{}{
-				"type": "object",
-				"properties": map[string]interface{}{
-					"app": map[string]interface{}{
-						"type":        "string",
-						"description": "App name",
-					},
-					"namespace": map[string]interface{}{
-						"type":        "string",
-						"description": "Namespace (all namespaces if not specified)",
-					},
-				},
-				"required": []string{"app"},
-			},
-			Handler: s.handleGetAppStatus,
-		},
-		{
-			Name:        "get_app_logs",
-			Description: "Get aggregated logs from an app across all clusters. Logs are labeled with cluster name for easy identification.",
-			InputSchema: map[string]interface{}{
-				"type": "object",
-				"properties": map[string]interface{}{
-					"app": map[string]interface{}{
-						"type":        "string",
-						"description": "App name",
-					},
-					"namespace": map[string]interface{}{
-						"type":        "string",
-						"description": "Namespace (all namespaces if not specified)",
-					},
-					"tail": map[string]interface{}{
-						"type":        "integer",
-						"description": "Number of lines from end (default 100)",
-					},
-					"since": map[string]interface{}{
-						"type":        "string",
-						"description": "Only return logs newer than duration (e.g., 1h, 30m)",
-					},
-				},
-				"required": []string{"app"},
-			},
-			Handler: s.handleGetAppLogs,
-		},
-	}
 }
