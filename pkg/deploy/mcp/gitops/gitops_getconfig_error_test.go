@@ -1,10 +1,10 @@
-package mcp
+package gitops
 
 import (
 	"context"
 	"testing"
 
-	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
+	upstreamgitops "github.com/kubestellar/kubestellar-mcp/pkg/gitops"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -21,22 +21,22 @@ func TestHandleDetectDriftReportsGetConfigError(t *testing.T) {
 		"manifests/app.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: demo\n",
 	})
 	// Kubeconfig has only "alpha"; caller asks about "ghost" → GetConfig fails.
-	server := newHelmTestServer(t, map[string]string{
+	server := newTestServer(t, map[string]string{
 		"alpha": "https://127.0.0.1:1",
 	})
 
-	got, err := server.handleDetectDrift(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+	got, err := server.HandleDetectDrift(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 		"repo":     repo,
 		"path":     "manifests",
 		"clusters": []string{"ghost"},
 	}))
 	require.NoError(t, err)
 
-	result := got.(*GitOpsDriftResult)
+	result := got.(*DriftResult)
 	assert.Equal(t, 1, result.ClusterCount)
 	require.Len(t, result.Drifts, 1)
 	assert.Equal(t, "ghost", result.Drifts[0].Cluster)
-	assert.Equal(t, gitops.DriftTypeMissing, result.Drifts[0].DriftType)
+	assert.Equal(t, upstreamgitops.DriftTypeMissing, result.Drifts[0].DriftType)
 	require.NotEmpty(t, result.Drifts[0].Differences)
 	assert.Contains(t, result.Drifts[0].Differences[0], "Failed to get config")
 }
@@ -50,11 +50,11 @@ func TestHandleSyncFromGitReportsGetConfigError(t *testing.T) {
 	repo := createGitRepo(t, map[string]string{
 		"manifests/app.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: demo\n",
 	})
-	server := newHelmTestServer(t, map[string]string{
+	server := newTestServer(t, map[string]string{
 		"alpha": "https://127.0.0.1:1",
 	})
 
-	got, err := server.handleSyncFromGit(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+	got, err := server.HandleSyncFromGit(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 		"repo":     repo,
 		"path":     "manifests",
 		"clusters": []string{"ghost"},
@@ -62,12 +62,12 @@ func TestHandleSyncFromGitReportsGetConfigError(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	result := got.(*GitOpsSyncResult)
+	result := got.(*SyncResult)
 	require.Len(t, result.Summaries, 1)
 	assert.Equal(t, "ghost", result.Summaries[0].Cluster)
 	assert.Equal(t, 1, result.Summaries[0].Failed)
 	require.Len(t, result.Summaries[0].Results, 1)
-	assert.Equal(t, gitops.SyncActionFailed, result.Summaries[0].Results[0].Action)
+	assert.Equal(t, upstreamgitops.SyncActionFailed, result.Summaries[0].Results[0].Action)
 	assert.Contains(t, result.Summaries[0].Results[0].Message, "Failed to get config")
 }
 
@@ -84,19 +84,19 @@ func TestHandleDetectDriftDiscoveryPopulatesTargets(t *testing.T) {
 	repo := createGitRepo(t, map[string]string{
 		"manifests/app.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: demo\n",
 	})
-	server := newHelmTestServer(t, map[string]string{
+	server := newTestServer(t, map[string]string{
 		"alpha": "https://127.0.0.1:1",
 		"beta":  "https://127.0.0.1:2",
 	})
 
-	got, err := server.handleDetectDrift(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+	got, err := server.HandleDetectDrift(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 		"repo": repo,
 		"path": "manifests",
 		// no `clusters` → discovery fallback populates targetClusters
 	}))
 	require.NoError(t, err)
 
-	result := got.(*GitOpsDriftResult)
+	result := got.(*DriftResult)
 	assert.Equal(t, 2, result.ClusterCount)
 	// Both discovered clusters must appear in the drift results.
 	seen := map[string]bool{}
@@ -115,12 +115,12 @@ func TestHandleSyncFromGitDiscoveryPopulatesTargets(t *testing.T) {
 	repo := createGitRepo(t, map[string]string{
 		"manifests/app.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: demo\n",
 	})
-	server := newHelmTestServer(t, map[string]string{
+	server := newTestServer(t, map[string]string{
 		"alpha": "https://127.0.0.1:1",
 		"beta":  "https://127.0.0.1:2",
 	})
 
-	got, err := server.handleSyncFromGit(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+	got, err := server.HandleSyncFromGit(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 		"repo":    repo,
 		"path":    "manifests",
 		"dry_run": true,
@@ -128,7 +128,7 @@ func TestHandleSyncFromGitDiscoveryPopulatesTargets(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	result := got.(*GitOpsSyncResult)
+	result := got.(*SyncResult)
 	require.Len(t, result.Summaries, 2)
 	seen := map[string]bool{}
 	for _, s := range result.Summaries {

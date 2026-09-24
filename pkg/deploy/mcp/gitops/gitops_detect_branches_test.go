@@ -1,11 +1,11 @@
-package mcp
+package gitops
 
 import (
 	"context"
 	"errors"
 	"testing"
 
-	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
+	upstreamgitops "github.com/kubestellar/kubestellar-mcp/pkg/gitops"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/client-go/rest"
@@ -14,7 +14,7 @@ import (
 // These tests cover the per-cluster drift-detection body inside
 // handleDetectDrift's runGitOpsClusterTasks closure (tools_gitops.go) now
 // that it routes through the s.getDriftDetector factory instead of calling
-// gitops.NewDriftDetector directly. Because the factory is injectable, we can
+// upstreamgitops.NewDriftDetector directly. Because the factory is injectable, we can
 // exercise:
 //   - the detector-construction error branch ("Failed to create detector")
 //   - the detector.DetectDrift error branch ("Failed to detect drift")
@@ -22,13 +22,13 @@ import (
 //
 // without talking to a real API server.
 
-// stubDriftDetector is a fully-controllable driftDetector test double.
+// stubDriftDetector is a fully-controllable DriftDetector test double.
 type stubDriftDetector struct {
-	drifts []gitops.DriftResult
+	drifts []upstreamgitops.DriftResult
 	err    error
 }
 
-func (d *stubDriftDetector) DetectDrift(_ context.Context, _ []gitops.Manifest, _ string) ([]gitops.DriftResult, error) {
+func (d *stubDriftDetector) DetectDrift(_ context.Context, _ []upstreamgitops.Manifest, _ string) ([]upstreamgitops.DriftResult, error) {
 	return d.drifts, d.err
 }
 
@@ -37,25 +37,25 @@ func TestHandleDetectDriftReportsDetectorFactoryError(t *testing.T) {
 	repo := createGitRepo(t, map[string]string{
 		"manifests/app.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: demo\n",
 	})
-	server := newHelmTestServer(t, map[string]string{
+	server := newTestServer(t, map[string]string{
 		"alpha": "https://127.0.0.1:1",
 	})
 	factoryErr := errors.New("factory boom")
-	server.newDriftDetector = func(*rest.Config) (driftDetector, error) {
+	server.NewDriftDetector = func(*rest.Config) (DriftDetector, error) {
 		return nil, factoryErr
 	}
 
-	got, err := server.handleDetectDrift(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+	got, err := server.HandleDetectDrift(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 		"repo":     repo,
 		"path":     "manifests",
 		"clusters": []string{"alpha"},
 	}))
 	require.NoError(t, err)
 
-	result := got.(*GitOpsDriftResult)
+	result := got.(*DriftResult)
 	require.Len(t, result.Drifts, 1)
 	assert.Equal(t, "alpha", result.Drifts[0].Cluster)
-	assert.Equal(t, gitops.DriftTypeMissing, result.Drifts[0].DriftType)
+	assert.Equal(t, upstreamgitops.DriftTypeMissing, result.Drifts[0].DriftType)
 	require.Len(t, result.Drifts[0].Differences, 1)
 	assert.Contains(t, result.Drifts[0].Differences[0], "Failed to create detector")
 	assert.Contains(t, result.Drifts[0].Differences[0], factoryErr.Error())
@@ -66,25 +66,25 @@ func TestHandleDetectDriftReportsDetectDriftError(t *testing.T) {
 	repo := createGitRepo(t, map[string]string{
 		"manifests/app.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: demo\n",
 	})
-	server := newHelmTestServer(t, map[string]string{
+	server := newTestServer(t, map[string]string{
 		"alpha": "https://127.0.0.1:1",
 	})
 	detectErr := errors.New("detect boom")
-	server.newDriftDetector = func(*rest.Config) (driftDetector, error) {
+	server.NewDriftDetector = func(*rest.Config) (DriftDetector, error) {
 		return &stubDriftDetector{err: detectErr}, nil
 	}
 
-	got, err := server.handleDetectDrift(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+	got, err := server.HandleDetectDrift(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 		"repo":     repo,
 		"path":     "manifests",
 		"clusters": []string{"alpha"},
 	}))
 	require.NoError(t, err)
 
-	result := got.(*GitOpsDriftResult)
+	result := got.(*DriftResult)
 	require.Len(t, result.Drifts, 1)
 	assert.Equal(t, "alpha", result.Drifts[0].Cluster)
-	assert.Equal(t, gitops.DriftTypeMissing, result.Drifts[0].DriftType)
+	assert.Equal(t, upstreamgitops.DriftTypeMissing, result.Drifts[0].DriftType)
 	require.Len(t, result.Drifts[0].Differences, 1)
 	assert.Contains(t, result.Drifts[0].Differences[0], "Failed to detect drift")
 	assert.Contains(t, result.Drifts[0].Differences[0], detectErr.Error())
@@ -95,30 +95,30 @@ func TestHandleDetectDriftAppendsSuccessDrifts(t *testing.T) {
 	repo := createGitRepo(t, map[string]string{
 		"manifests/app.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: demo\n",
 	})
-	server := newHelmTestServer(t, map[string]string{
+	server := newTestServer(t, map[string]string{
 		"alpha": "https://127.0.0.1:1",
 	})
-	wantDrifts := []gitops.DriftResult{{
+	wantDrifts := []upstreamgitops.DriftResult{{
 		Cluster:     "alpha",
 		ResourceKey: "ConfigMap/default/demo",
 		Kind:        "ConfigMap",
 		Namespace:   "default",
 		Name:        "demo",
-		DriftType:   gitops.DriftTypeModified,
+		DriftType:   upstreamgitops.DriftTypeModified,
 		Differences: []string{"data.foo: git=bar cluster=baz"},
 	}}
-	server.newDriftDetector = func(*rest.Config) (driftDetector, error) {
+	server.NewDriftDetector = func(*rest.Config) (DriftDetector, error) {
 		return &stubDriftDetector{drifts: wantDrifts}, nil
 	}
 
-	got, err := server.handleDetectDrift(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+	got, err := server.HandleDetectDrift(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 		"repo":     repo,
 		"path":     "manifests",
 		"clusters": []string{"alpha"},
 	}))
 	require.NoError(t, err)
 
-	result := got.(*GitOpsDriftResult)
+	result := got.(*DriftResult)
 	require.Len(t, result.Drifts, 1)
 	assert.Equal(t, wantDrifts[0], result.Drifts[0])
 	assert.Equal(t, 1, result.TotalDrifts)

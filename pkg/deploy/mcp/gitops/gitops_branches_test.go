@@ -1,4 +1,4 @@
-package mcp
+package gitops
 
 import (
 	"context"
@@ -16,12 +16,12 @@ import (
 func TestHandleSyncFromGitRejectsBlockedNamespace(t *testing.T) {
 	setGitOpsTempDir(t)
 	repo := createGitRepo(t, map[string]string{"manifests/app.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: demo\n"})
-	server := newHelmTestServer(t, map[string]string{})
+	server := newTestServer(t, map[string]string{})
 
 	cases := []string{"kube-system", "openshift-monitoring", "Invalid_NS"}
 	for _, ns := range cases {
 		t.Run(ns, func(t *testing.T) {
-			_, err := server.handleSyncFromGit(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+			_, err := server.HandleSyncFromGit(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 				"repo":      repo,
 				"path":      "manifests",
 				"namespace": ns,
@@ -38,9 +38,9 @@ func TestHandleSyncFromGitRejectsBlockedNamespace(t *testing.T) {
 // wraps that error as "failed to read manifests from git".
 func TestHandleSyncFromGitReportsCloneFailure(t *testing.T) {
 	setGitOpsTempDir(t)
-	server := newHelmTestServer(t, map[string]string{})
+	server := newTestServer(t, map[string]string{})
 
-	_, err := server.handleSyncFromGit(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+	_, err := server.HandleSyncFromGit(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 		"repo": "file:///nonexistent/quality-agent-mcp-not-a-repo",
 		"path": ".",
 	}))
@@ -53,9 +53,9 @@ func TestHandleSyncFromGitReportsCloneFailure(t *testing.T) {
 // on handleDetectDrift.
 func TestHandleDetectDriftReportsCloneFailure(t *testing.T) {
 	setGitOpsTempDir(t)
-	server := newHelmTestServer(t, map[string]string{})
+	server := newTestServer(t, map[string]string{})
 
-	_, err := server.handleDetectDrift(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+	_, err := server.HandleDetectDrift(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 		"repo": "file:///nonexistent/quality-agent-mcp-not-a-repo",
 		"path": ".",
 	}))

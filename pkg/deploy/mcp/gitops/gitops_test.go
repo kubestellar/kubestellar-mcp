@@ -1,22 +1,19 @@
-package mcp
+package gitops
 
 import (
 	"context"
 	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
+	upstreamgitops "github.com/kubestellar/kubestellar-mcp/pkg/gitops"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestHandleDetectDriftValidatesArguments(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{})
+	server := newTestServer(t, map[string]string{})
 
 	tests := []struct {
 		name    string
@@ -29,7 +26,7 @@ func TestHandleDetectDriftValidatesArguments(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := server.handleDetectDrift(context.Background(), tt.args)
+			_, err := server.HandleDetectDrift(context.Background(), tt.args)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tt.wantErr)
 		})
@@ -39,39 +36,39 @@ func TestHandleDetectDriftValidatesArguments(t *testing.T) {
 func TestHandleDetectDriftReturnsNoManifestsMessage(t *testing.T) {
 	setGitOpsTempDir(t)
 	repo := createGitRepo(t, map[string]string{"README.md": "# demo\n"})
-	server := newHelmTestServer(t, map[string]string{})
+	server := newTestServer(t, map[string]string{})
 
-	got, err := server.handleDetectDrift(context.Background(), mustMarshalJSON(t, map[string]interface{}{"repo": repo, "path": "."}))
+	got, err := server.HandleDetectDrift(context.Background(), mustMarshalJSON(t, map[string]interface{}{"repo": repo, "path": "."}))
 	require.NoError(t, err)
 
 	result := got.(map[string]interface{})
 	assert.Equal(t, "No manifests found in repository", result["message"])
-	assert.Equal(t, gitops.ManifestSource{Repo: repo, Path: "."}, result["source"])
+	assert.Equal(t, upstreamgitops.ManifestSource{Repo: repo, Path: "."}, result["source"])
 }
 
 func TestHandleDetectDriftReturnsFailureForMissingClusterConfig(t *testing.T) {
 	setGitOpsTempDir(t)
 	repo := createGitRepo(t, map[string]string{"manifests/app.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: demo\n"})
-	server := newHelmTestServer(t, map[string]string{})
+	server := newTestServer(t, map[string]string{})
 
-	got, err := server.handleDetectDrift(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+	got, err := server.HandleDetectDrift(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 		"repo":     repo,
 		"path":     "manifests",
 		"clusters": []string{"missing"},
 	}))
 	require.NoError(t, err)
 
-	result := got.(*GitOpsDriftResult)
+	result := got.(*DriftResult)
 	assert.Equal(t, 1, result.ClusterCount)
 	assert.Equal(t, 1, result.TotalDrifts)
 	require.Len(t, result.Drifts, 1)
 	assert.Equal(t, "missing", result.Drifts[0].Cluster)
-	assert.Equal(t, gitops.DriftTypeMissing, result.Drifts[0].DriftType)
+	assert.Equal(t, upstreamgitops.DriftTypeMissing, result.Drifts[0].DriftType)
 	assert.Contains(t, result.Drifts[0].Differences[0], "Failed to get config")
 }
 
 func TestHandleSyncFromGitValidatesArguments(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{})
+	server := newTestServer(t, map[string]string{})
 
 	tests := []struct {
 		name    string
@@ -84,7 +81,7 @@ func TestHandleSyncFromGitValidatesArguments(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := server.handleSyncFromGit(context.Background(), tt.args)
+			_, err := server.HandleSyncFromGit(context.Background(), tt.args)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tt.wantErr)
 		})
@@ -94,22 +91,22 @@ func TestHandleSyncFromGitValidatesArguments(t *testing.T) {
 func TestHandleSyncFromGitReturnsNoManifestsMessage(t *testing.T) {
 	setGitOpsTempDir(t)
 	repo := createGitRepo(t, map[string]string{"notes.txt": "no yaml here\n"})
-	server := newHelmTestServer(t, map[string]string{})
+	server := newTestServer(t, map[string]string{})
 
-	got, err := server.handleSyncFromGit(context.Background(), mustMarshalJSON(t, map[string]interface{}{"repo": repo, "path": "."}))
+	got, err := server.HandleSyncFromGit(context.Background(), mustMarshalJSON(t, map[string]interface{}{"repo": repo, "path": "."}))
 	require.NoError(t, err)
 
 	result := got.(map[string]interface{})
 	assert.Equal(t, "No manifests found in repository", result["message"])
-	assert.Equal(t, gitops.ManifestSource{Repo: repo, Path: "."}, result["source"])
+	assert.Equal(t, upstreamgitops.ManifestSource{Repo: repo, Path: "."}, result["source"])
 }
 
 func TestHandleSyncFromGitReturnsFailedSummaryForMissingClusterConfig(t *testing.T) {
 	setGitOpsTempDir(t)
 	repo := createGitRepo(t, map[string]string{"manifests/app.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: demo\n"})
-	server := newHelmTestServer(t, map[string]string{})
+	server := newTestServer(t, map[string]string{})
 
-	got, err := server.handleSyncFromGit(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+	got, err := server.HandleSyncFromGit(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 		"repo":      repo,
 		"path":      "manifests",
 		"clusters":  []string{"missing"},
@@ -119,22 +116,22 @@ func TestHandleSyncFromGitReturnsFailedSummaryForMissingClusterConfig(t *testing
 	}))
 	require.NoError(t, err)
 
-	result := got.(*GitOpsSyncResult)
+	result := got.(*SyncResult)
 	assert.True(t, result.DryRun)
 	require.Len(t, result.Summaries, 1)
 	assert.Equal(t, "missing", result.Summaries[0].Cluster)
 	assert.Equal(t, 1, result.Summaries[0].Failed)
 	require.Len(t, result.Summaries[0].Results, 1)
-	assert.Equal(t, gitops.SyncActionFailed, result.Summaries[0].Results[0].Action)
+	assert.Equal(t, upstreamgitops.SyncActionFailed, result.Summaries[0].Results[0].Action)
 	assert.Contains(t, result.Summaries[0].Results[0].Message, "Failed to get config")
 }
 
 func TestHandleReconcileDelegatesToSyncWithoutDryRun(t *testing.T) {
 	setGitOpsTempDir(t)
 	repo := createGitRepo(t, map[string]string{"manifests/app.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: demo\n"})
-	server := newHelmTestServer(t, map[string]string{})
+	server := newTestServer(t, map[string]string{})
 
-	got, err := server.handleReconcile(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+	got, err := server.HandleReconcile(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 		"repo":      repo,
 		"path":      "manifests",
 		"clusters":  []string{"missing"},
@@ -142,15 +139,15 @@ func TestHandleReconcileDelegatesToSyncWithoutDryRun(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	result := got.(*GitOpsSyncResult)
+	result := got.(*SyncResult)
 	assert.False(t, result.DryRun)
 	require.Len(t, result.Summaries, 1)
-	assert.Equal(t, gitops.SyncActionFailed, result.Summaries[0].Results[0].Action)
+	assert.Equal(t, upstreamgitops.SyncActionFailed, result.Summaries[0].Results[0].Action)
 }
 
 func TestRunGitOpsClusterTasksBoundsConcurrency(t *testing.T) {
-	clusters := make([]string, 0, gitOpsMaxConcurrentClusters+5)
-	for i := range gitOpsMaxConcurrentClusters + 5 {
+	clusters := make([]string, 0, maxConcurrentClusters+5)
+	for i := range maxConcurrentClusters + 5 {
 		clusters = append(clusters, fmt.Sprintf("cluster-%d", i))
 	}
 
@@ -162,7 +159,7 @@ func TestRunGitOpsClusterTasksBoundsConcurrency(t *testing.T) {
 
 	go func() {
 		defer close(done)
-		runGitOpsClusterTasks(clusters, func(cluster string) {
+		runClusterTasks(clusters, func(cluster string) {
 			current := running.Add(1)
 			defer running.Add(-1)
 			for {
@@ -176,7 +173,7 @@ func TestRunGitOpsClusterTasksBoundsConcurrency(t *testing.T) {
 		})
 	}()
 
-	for range gitOpsMaxConcurrentClusters {
+	for range maxConcurrentClusters {
 		select {
 		case <-started:
 		case <-time.After(2 * time.Second):
@@ -198,15 +195,15 @@ func TestRunGitOpsClusterTasksBoundsConcurrency(t *testing.T) {
 		t.Fatal("timed out waiting for gitops tasks to finish")
 	}
 
-	assert.LessOrEqual(t, maxRunning.Load(), int32(gitOpsMaxConcurrentClusters))
+	assert.LessOrEqual(t, maxRunning.Load(), int32(maxConcurrentClusters))
 }
 
 func TestHandlePreviewChangesDelegatesToSyncWithDryRun(t *testing.T) {
 	setGitOpsTempDir(t)
 	repo := createGitRepo(t, map[string]string{"manifests/app.yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: demo\n"})
-	server := newHelmTestServer(t, map[string]string{})
+	server := newTestServer(t, map[string]string{})
 
-	got, err := server.handlePreviewChanges(context.Background(), mustMarshalJSON(t, map[string]interface{}{
+	got, err := server.HandlePreviewChanges(context.Background(), mustMarshalJSON(t, map[string]interface{}{
 		"repo":      repo,
 		"path":      "manifests",
 		"clusters":  []string{"missing"},
@@ -214,43 +211,8 @@ func TestHandlePreviewChangesDelegatesToSyncWithDryRun(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	result := got.(*GitOpsSyncResult)
+	result := got.(*SyncResult)
 	assert.True(t, result.DryRun)
 	require.Len(t, result.Summaries, 1)
-	assert.Equal(t, gitops.SyncActionFailed, result.Summaries[0].Results[0].Action)
-}
-
-func setGitOpsTempDir(t *testing.T) {
-	t.Helper()
-	t.Setenv("TMPDIR", t.TempDir())
-}
-
-func createGitRepo(t *testing.T, files map[string]string) string {
-	t.Helper()
-	absDir := t.TempDir()
-
-	for name, content := range files {
-		path := filepath.Join(absDir, name)
-		require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
-		require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
-	}
-
-	runGit := func(args ...string) {
-		cmd := exec.Command("git", args...)
-		cmd.Dir = absDir
-		output, err := cmd.CombinedOutput()
-		require.NoErrorf(t, err, "git %v failed: %s", args, string(output))
-	}
-
-	runGit("init", "-b", "main")
-	runGit("config", "user.name", "Copilot Test")
-	runGit("config", "user.email", "copilot@example.com")
-	runGit("add", ".")
-	if len(files) == 0 {
-		runGit("commit", "--allow-empty", "-m", "test repo")
-	} else {
-		runGit("commit", "-m", "test repo")
-	}
-
-	return "file://" + absDir
+	assert.Equal(t, upstreamgitops.SyncActionFailed, result.Summaries[0].Results[0].Action)
 }
