@@ -1,4 +1,4 @@
-package mcp
+package helm
 
 import (
 	"encoding/json"
@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
 	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -103,6 +102,10 @@ esac
 	return logFile
 }
 
+// newHelmTestServer builds a *Server backed by a real
+// *multicluster.ClientManager (constructed from an in-memory kubeconfig
+// covering the given contexts), mirroring the pre-refactor
+// newHelmTestServer fixture in pkg/deploy/mcp.
 func newHelmTestServer(t *testing.T, contexts map[string]string) *Server {
 	t.Helper()
 
@@ -130,21 +133,7 @@ func newHelmTestServer(t *testing.T, contexts map[string]string) *Server {
 		t.Fatalf("NewClientManager() error = %v", err)
 	}
 
-	executor := multicluster.NewExecutor(manager)
-	selector := multicluster.NewSelector(executor)
-
-	return &Server{
-		manager:  manager,
-		executor: executor,
-		selector: selector,
-		newManifestReader: func() *gitops.ManifestReader {
-			return gitops.NewManifestReaderWithSchemes(map[string]bool{
-				"https": true,
-				"http":  true,
-				"file":  true,
-			})
-		},
-	}
+	return &Server{Access: manager}
 }
 
 func mustMarshalJSON(t *testing.T, v interface{}) json.RawMessage {

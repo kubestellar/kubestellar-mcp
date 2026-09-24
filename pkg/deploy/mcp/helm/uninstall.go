@@ -1,4 +1,4 @@
-package mcp
+package helm
 
 import (
 	"bytes"
@@ -10,11 +10,10 @@ import (
 	nsval "github.com/kubestellar/kubestellar-mcp/pkg/security/namespace"
 )
 
-func (s *Server) handleHelmRollback(ctx context.Context, args json.RawMessage) (interface{}, error) {
+func (s *Server) handleHelmUninstall(ctx context.Context, args json.RawMessage) (interface{}, error) {
 	var params struct {
 		ReleaseName string   `json:"release_name"`
 		Namespace   string   `json:"namespace"`
-		Revision    int      `json:"revision"`
 		DryRun      bool     `json:"dry_run"`
 		Clusters    []string `json:"clusters"`
 	}
@@ -51,7 +50,8 @@ func (s *Server) handleHelmRollback(ctx context.Context, args json.RawMessage) (
 	// Get target clusters
 	targetClusters := params.Clusters
 	if len(targetClusters) == 0 {
-		clusters, err := s.manager.DiscoverClusters()
+		// Find clusters where release exists
+		clusters, err := s.Access.DiscoverClusters()
 		if err != nil {
 			return nil, err
 		}
@@ -68,13 +68,13 @@ func (s *Server) handleHelmRollback(ctx context.Context, args json.RawMessage) (
 
 	var results []HelmResult
 	for _, cluster := range targetClusters {
-		result := s.helmRollback(ctx, cluster, params.ReleaseName, params.Namespace, params.Revision, params.DryRun)
+		result := s.helmUninstall(ctx, cluster, params.ReleaseName, params.Namespace, params.DryRun)
 		results = append(results, result)
 	}
 
 	successCount := 0
 	for _, r := range results {
-		if r.Status == "rolled-back" || r.Status == "would-rollback" {
+		if r.Status == "uninstalled" || r.Status == "would-uninstall" {
 			successCount++
 		}
 	}
@@ -88,19 +88,21 @@ func (s *Server) handleHelmRollback(ctx context.Context, args json.RawMessage) (
 	}, nil
 }
 
-// helmRollback runs helm rollback for a single cluster
-func (s *Server) helmRollback(ctx context.Context, cluster, releaseName, namespace string, revision int, dryRun bool) HelmResult {
-	cmdArgs := []string{"rollback", releaseName,
+// helmUninstall runs helm uninstall for a single cluster
+func (s *Server) helmUninstall(ctx context.Context, cluster, releaseName, namespace string, dryRun bool) HelmResult {
+	if dryRun {
+		return HelmResult{
+			Cluster:     cluster,
+			ReleaseName: releaseName,
+			Namespace:   namespace,
+			Status:      "would-uninstall",
+			Message:     fmt.Sprintf("Would uninstall release %s from namespace %s", releaseName, namespace),
+		}
+	}
+
+	cmdArgs := []string{"uninstall", releaseName,
 		"--namespace", namespace,
 		"--kube-context", cluster,
-	}
-
-	if revision > 0 {
-		cmdArgs = append(cmdArgs, fmt.Sprintf("%d", revision))
-	}
-
-	if dryRun {
-		cmdArgs = append(cmdArgs, "--dry-run")
 	}
 
 	cmd := exec.CommandContext(ctx, "helm", cmdArgs...)
@@ -109,16 +111,6 @@ func (s *Server) helmRollback(ctx context.Context, cluster, releaseName, namespa
 	cmd.Stderr = &stderr
 
 	err := cmd.Run()
-
-	if dryRun && err == nil {
-		return HelmResult{
-			Cluster:     cluster,
-			ReleaseName: releaseName,
-			Namespace:   namespace,
-			Status:      "would-rollback",
-			Message:     stdout.String(),
-		}
-	}
 
 	if err != nil {
 		return HelmResult{
@@ -134,9 +126,7 @@ func (s *Server) helmRollback(ctx context.Context, cluster, releaseName, namespa
 		Cluster:     cluster,
 		ReleaseName: releaseName,
 		Namespace:   namespace,
-		Status:      "rolled-back",
+		Status:      "uninstalled",
 		Message:     stdout.String(),
 	}
 }
-
-// helmToolDefs returns the tool definitions handled by this file.

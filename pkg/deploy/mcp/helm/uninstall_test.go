@@ -1,4 +1,4 @@
-package mcp
+package helm
 
 // Coverage-focused tests for handleHelmUninstall / helmUninstall.
 //
