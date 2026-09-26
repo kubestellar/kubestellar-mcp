@@ -51,6 +51,17 @@ shift
 echo "cmd=${cmd}" >> "${FAKE_HELM_LOG:-/dev/null}"
 echo "args=$@" >> "${FAKE_HELM_LOG:-/dev/null}"
 
+# kube_context prints the value following --kube-context. Kept as a function
+# because bash 3.2 (macOS /bin/bash) cannot parse a case statement inline
+# inside $(...).
+kube_context() {
+  local prev=""
+  for i in "$@"; do
+    case "$prev" in --kube-context) echo "$i" ;; esac
+    prev="$i"
+  done
+}
+
 # Extract cluster context and namespace from args
 prev=""
 for i in "$@"; do
@@ -67,7 +78,7 @@ case "$cmd" in
     ;;
   uninstall)
     RELEASE_NAME="$1"
-    CLUSTER=$(prev=""; for i in "$@"; do case "$prev" in --kube-context) echo "$i";; esac; prev="$i"; done)
+    CLUSTER=$(kube_context "$@")
     if echo "${FAKE_HELM_UNINSTALL_FAIL_CLUSTERS:-}" | grep -qw "$CLUSTER"; then
       echo "${FAKE_HELM_UNINSTALL_FAIL_MSG:-Error: uninstall failed for ${RELEASE_NAME}}" >&2
       exit 1
@@ -82,7 +93,7 @@ case "$cmd" in
     ;;
   status)
     # Check if release should exist
-    CLUSTER=$(prev=""; for i in "$@"; do case "$prev" in --kube-context) echo "$i";; esac; prev="$i"; done)
+    CLUSTER=$(kube_context "$@")
     if echo "${FAKE_HELM_STATUS_CLUSTERS:-}" | grep -qw "$CLUSTER"; then
       echo "STATUS: deployed"
     else
