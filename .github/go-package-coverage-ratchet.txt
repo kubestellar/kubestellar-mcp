@@ -20,7 +20,7 @@ pkg/deploy/mcp 95.5
 pkg/deploy/mcp/app 97.5
 pkg/deploy/mcp/deploy 93.0
 pkg/deploy/mcp/gitops 97.0
-pkg/deploy/mcp/helm 93.5
+pkg/deploy/mcp/helm 97.2
 pkg/deploy/mcp/kubectl 97.5
 pkg/deploy/mcp/kustomize 96.0
 pkg/deploy/mcp/labels 99.0
