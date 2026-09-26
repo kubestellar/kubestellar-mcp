@@ -3,24 +3,16 @@ package kubectl
 import (
 	"context"
 	"encoding/json"
-)
 
-// ToolDef pairs a tool's MCP schema with its dispatch handler. It mirrors
-// the shape of the root package's private toolDef type so the root adapter
-// can convert 1:1 without changing tools/list output.
-type ToolDef struct {
-	Name        string
-	Description string
-	InputSchema map[string]interface{}
-	Handler     func(ctx context.Context, args json.RawMessage) (interface{}, error)
-}
+	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/tooldef"
+)
 
 // Tools returns the kubectl-domain tool definitions, bound to the given
 // Deps. The order matches the pre-refactor kubectlToolDefs() in
 // pkg/deploy/mcp/tools_kubectl.go exactly, since tools/list order must stay
 // byte-identical (see registry.go).
-func (d Deps) Tools() []ToolDef {
-	return []ToolDef{
+func (d Deps) Tools() []tooldef.ToolDef {
+	return []tooldef.ToolDef{
 		{
 			Name:        "delete_resource",
 			Description: "Delete a Kubernetes resource from clusters. Supports all common resource types.",

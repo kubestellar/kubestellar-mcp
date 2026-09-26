@@ -3,24 +3,16 @@ package app
 import (
 	"context"
 	"encoding/json"
-)
 
-// ToolDef mirrors the shape of the root package's (unexported) toolDef so
-// the root adapter (pkg/deploy/mcp/app_adapter.go) can convert this slice
-// into its own toolDef type without any loss of information.
-type ToolDef struct {
-	Name        string
-	Description string
-	InputSchema map[string]interface{}
-	Handler     func(ctx context.Context, args json.RawMessage) (interface{}, error)
-}
+	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/tooldef"
+)
 
 // Tools returns the app-domain tool definitions, bound to the given
 // Executor. The order matches the pre-refactor appToolDefs() in
 // pkg/deploy/mcp/tools_app.go exactly, since tools/list order must stay
 // byte-identical (see registry.go).
-func Tools(executor Executor) []ToolDef {
-	return []ToolDef{
+func Tools(executor Executor) []tooldef.ToolDef {
+	return []tooldef.ToolDef{
 		{
 			Name:        "get_app_instances",
 			Description: "Find all instances of an app across all clusters. Returns where the app is running, replica counts, and health status.",

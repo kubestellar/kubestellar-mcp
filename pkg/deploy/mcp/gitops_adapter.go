@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/gitops"
+	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/tooldef"
 	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 	"k8s.io/client-go/rest"
 )
@@ -39,9 +40,9 @@ func (s *Server) gitopsServer() *gitops.Server {
 }
 
 // gitopsToolDefs adapts the pkg/deploy/mcp/gitops sub-package (detect_drift,
-// sync_from_git, reconcile, preview_changes) into the root Server's toolDef
-// shape. Order is preserved so tools/list output stays byte-identical (see
+// sync_from_git, reconcile, preview_changes) as handler-bound tooldef.ToolDefs.
+// Order is preserved so tools/list output stays byte-identical (see
 // registry.go).
-func (s *Server) gitopsToolDefs() []toolDef {
-	return adaptToolDefs(s.gitopsServer().Tools())
+func (s *Server) gitopsToolDefs() []tooldef.ToolDef {
+	return s.gitopsServer().Tools()
 }
