@@ -3,23 +3,35 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 )
 
-// TestHandleNamespaceValidationRemaining closes the last block of
-// server.ValidateNamespace call-sites in pkg/deploy/mcp/ that had no
-// direct rejection-branch coverage — extending the pattern from #525
-// (labels), #526 (helm), and #527 (app):
+// TestHandleNamespaceValidationRemaining verifies, through the root
+// registry's dispatch glue, that the namespace blocklist is enforced by the
+// domain sub-packages wired into Server.toolDefs():
 //
-//   - tools_kubectl.go: handleDeleteResource
-//   - tools_deploy.go:  handleScaleApp, handlePatchApp
-//   - tools_gitops.go:  handleSyncFromGit
+//   - kubectl: delete_resource
+//   - deploy:  scale_app, patch_app
+//   - gitops:  sync_from_git
 //
-// Every case asserts the shared "invalid namespace" wrapper so
-// refactors of the wrapping message still fail loud.
+// Every case asserts the shared "invalid namespace" wrapper so refactors of
+// the wrapping message still fail loud. Handlers are resolved by tool name
+// (findToolDef) rather than via *Server methods, since the root package no
+// longer re-exports domain handlers (#997).
 func TestHandleNamespaceValidationRemaining(t *testing.T) {
-	s := &Server{}
+	s := newHelmTestServer(t, map[string]string{"cluster-a": "https://cluster-a.example.com"})
+	call := func(tool string, args string) func() error {
+		return func() error {
+			def, ok := s.findToolDef(tool)
+			if !ok {
+				return fmt.Errorf("tool %q not registered", tool)
+			}
+			_, err := def.Handler(context.Background(), json.RawMessage(args))
+			return err
+		}
+	}
 
 	cases := []struct {
 		name string
@@ -30,52 +42,34 @@ func TestHandleNamespaceValidationRemaining(t *testing.T) {
 		// isSensitiveKind, so use a benign kind (configmap).
 		{
 			name: "delete blocked system namespace",
-			call: func() error {
-				_, err := s.handleDeleteResource(context.Background(), json.RawMessage(`{"kind":"configmap","name":"demo","namespace":"kube-system"}`))
-				return err
-			},
+			call: call("delete_resource", `{"kind":"configmap","name":"demo","namespace":"kube-system"}`),
 			want: "invalid namespace",
 		},
 		{
 			name: "delete openshift-prefixed namespace",
-			call: func() error {
-				_, err := s.handleDeleteResource(context.Background(), json.RawMessage(`{"kind":"configmap","name":"demo","namespace":"openshift-monitoring"}`))
-				return err
-			},
+			call: call("delete_resource", `{"kind":"configmap","name":"demo","namespace":"openshift-monitoring"}`),
 			want: "invalid namespace",
 		},
 		{
 			name: "delete invalid namespace format",
-			call: func() error {
-				_, err := s.handleDeleteResource(context.Background(), json.RawMessage(`{"kind":"configmap","name":"demo","namespace":"Invalid_NS"}`))
-				return err
-			},
+			call: call("delete_resource", `{"kind":"configmap","name":"demo","namespace":"Invalid_NS"}`),
 			want: "invalid namespace",
 		},
 		// kind: Namespace is cluster-scoped — the protected value is
 		// name, not the namespace field (#kubectl_delete system NS).
 		{
 			name: "delete Namespace kind with blocked name kube-system",
-			call: func() error {
-				_, err := s.handleDeleteResource(context.Background(), json.RawMessage(`{"kind":"Namespace","name":"kube-system"}`))
-				return err
-			},
+			call: call("delete_resource", `{"kind":"Namespace","name":"kube-system"}`),
 			want: "invalid namespace",
 		},
 		{
 			name: "delete ns kind with blocked name kube-public",
-			call: func() error {
-				_, err := s.handleDeleteResource(context.Background(), json.RawMessage(`{"kind":"ns","name":"kube-public"}`))
-				return err
-			},
+			call: call("delete_resource", `{"kind":"ns","name":"kube-public"}`),
 			want: "invalid namespace",
 		},
 		{
 			name: "delete namespaces kind with openshift-prefixed name",
-			call: func() error {
-				_, err := s.handleDeleteResource(context.Background(), json.RawMessage(`{"kind":"namespaces","name":"openshift-monitoring"}`))
-				return err
-			},
+			call: call("delete_resource", `{"kind":"namespaces","name":"openshift-monitoring"}`),
 			want: "invalid namespace",
 		},
 
@@ -83,36 +77,24 @@ func TestHandleNamespaceValidationRemaining(t *testing.T) {
 		// gate, so simple JSON is sufficient to trigger it.
 		{
 			name: "scale blocked system namespace",
-			call: func() error {
-				_, err := s.handleScaleApp(context.Background(), json.RawMessage(`{"app":"demo","namespace":"kube-public","replicas":3}`))
-				return err
-			},
+			call: call("scale_app", `{"app":"demo","namespace":"kube-public","replicas":3}`),
 			want: "invalid namespace",
 		},
 		{
 			name: "scale gatekeeper-system namespace",
-			call: func() error {
-				_, err := s.handleScaleApp(context.Background(), json.RawMessage(`{"app":"demo","namespace":"gatekeeper-system","replicas":1}`))
-				return err
-			},
+			call: call("scale_app", `{"app":"demo","namespace":"gatekeeper-system","replicas":1}`),
 			want: "invalid namespace",
 		},
 
 		// handlePatchApp — same pattern as handleScaleApp.
 		{
 			name: "patch blocked system namespace",
-			call: func() error {
-				_, err := s.handlePatchApp(context.Background(), json.RawMessage(`{"app":"demo","namespace":"kube-node-lease","patch":"{}"}`))
-				return err
-			},
+			call: call("patch_app", `{"app":"demo","namespace":"kube-node-lease","patch":"{}"}`),
 			want: "invalid namespace",
 		},
 		{
 			name: "patch openshift-prefixed namespace",
-			call: func() error {
-				_, err := s.handlePatchApp(context.Background(), json.RawMessage(`{"app":"demo","namespace":"openshift-logging","patch":"{}"}`))
-				return err
-			},
+			call: call("patch_app", `{"app":"demo","namespace":"openshift-logging","patch":"{}"}`),
 			want: "invalid namespace",
 		},
 
@@ -121,18 +103,12 @@ func TestHandleNamespaceValidationRemaining(t *testing.T) {
 		// reach the check.
 		{
 			name: "sync blocked system namespace override",
-			call: func() error {
-				_, err := s.handleSyncFromGit(context.Background(), json.RawMessage(`{"repo":"https://example.com/x.git","namespace":"kube-system"}`))
-				return err
-			},
+			call: call("sync_from_git", `{"repo":"https://example.com/x.git","namespace":"kube-system"}`),
 			want: "invalid namespace",
 		},
 		{
 			name: "sync invalid namespace format",
-			call: func() error {
-				_, err := s.handleSyncFromGit(context.Background(), json.RawMessage(`{"repo":"https://example.com/x.git","namespace":"Invalid_NS"}`))
-				return err
-			},
+			call: call("sync_from_git", `{"repo":"https://example.com/x.git","namespace":"Invalid_NS"}`),
 			want: "invalid namespace",
 		},
 	}

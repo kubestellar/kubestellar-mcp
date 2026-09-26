@@ -24,7 +24,7 @@ func TestToolFindPodIssues_NoPods(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolFindPodIssues(context.Background(), map[string]interface{}{})
+	result, isErr := toolFindPodIssues(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("toolFindPodIssues() returned error: %s", result)
 	}
@@ -60,7 +60,7 @@ func TestToolFindPodIssues_CrashLoopBackOff(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolFindPodIssues(context.Background(), map[string]interface{}{})
+	result, isErr := toolFindPodIssues(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("toolFindPodIssues() returned error: %s", result)
 	}
@@ -98,7 +98,7 @@ func TestToolFindPodIssues_ImagePullBackOff(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolFindPodIssues(context.Background(), map[string]interface{}{})
+	result, isErr := toolFindPodIssues(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("toolFindPodIssues() returned error: %s", result)
 	}
@@ -135,7 +135,7 @@ func TestToolFindPodIssues_OOMKilled(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolFindPodIssues(context.Background(), map[string]interface{}{})
+	result, isErr := toolFindPodIssues(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("toolFindPodIssues() returned error: %s", result)
 	}
@@ -169,7 +169,7 @@ func TestToolFindPodIssues_Unschedulable(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolFindPodIssues(context.Background(), map[string]interface{}{})
+	result, isErr := toolFindPodIssues(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("toolFindPodIssues() returned error: %s", result)
 	}
@@ -200,7 +200,7 @@ func TestToolFindPodIssues_IncludeCompleted(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolFindPodIssues(context.Background(), map[string]interface{}{
+	result, isErr := toolFindPodIssues(context.Background(), s.deps(), map[string]interface{}{
 		"include_completed": "true",
 	})
 	if isErr {
@@ -227,7 +227,7 @@ func TestToolFindDeploymentIssues_NoIssues(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolFindDeploymentIssues(context.Background(), map[string]interface{}{})
+	result, isErr := toolFindDeploymentIssues(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("toolFindDeploymentIssues() returned error: %s", result)
 	}
@@ -253,7 +253,7 @@ func TestToolFindDeploymentIssues_NotReady(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolFindDeploymentIssues(context.Background(), map[string]interface{}{})
+	result, isErr := toolFindDeploymentIssues(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("toolFindDeploymentIssues() returned error: %s", result)
 	}
@@ -288,7 +288,7 @@ func TestToolFindDeploymentIssues_ProgressingFalse(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolFindDeploymentIssues(context.Background(), map[string]interface{}{})
+	result, isErr := toolFindDeploymentIssues(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("toolFindDeploymentIssues() returned error: %s", result)
 	}
@@ -330,7 +330,7 @@ func TestToolCheckResourceLimits_NoIssues(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolCheckResourceLimits(context.Background(), map[string]interface{}{})
+	result, isErr := toolCheckResourceLimits(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("toolCheckResourceLimits() returned error: %s", result)
 	}
@@ -357,7 +357,7 @@ func TestToolCheckResourceLimits_MissingLimits(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolCheckResourceLimits(context.Background(), map[string]interface{}{})
+	result, isErr := toolCheckResourceLimits(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("toolCheckResourceLimits() returned error: %s", result)
 	}
@@ -398,7 +398,7 @@ func TestToolCheckSecurityIssues_NoIssues(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolCheckSecurityIssues(context.Background(), map[string]interface{}{})
+	result, isErr := toolCheckSecurityIssues(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("toolCheckSecurityIssues() returned error: %s", result)
 	}
@@ -429,7 +429,7 @@ func TestToolCheckSecurityIssues_Privileged(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolCheckSecurityIssues(context.Background(), map[string]interface{}{})
+	result, isErr := toolCheckSecurityIssues(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("toolCheckSecurityIssues() returned error: %s", result)
 	}
@@ -458,7 +458,7 @@ func TestToolCheckSecurityIssues_HostNetwork(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolCheckSecurityIssues(context.Background(), map[string]interface{}{})
+	result, isErr := toolCheckSecurityIssues(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("toolCheckSecurityIssues() returned error: %s", result)
 	}
@@ -499,7 +499,7 @@ func TestToolAnalyzeNamespace(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolAnalyzeNamespace(context.Background(), map[string]interface{}{
+	result, isErr := toolAnalyzeNamespace(context.Background(), s.deps(), map[string]interface{}{
 		"namespace": "demo-ns",
 	})
 	if isErr {
@@ -529,7 +529,7 @@ func TestToolAnalyzeNamespace_MissingNamespace(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolAnalyzeNamespace(context.Background(), map[string]interface{}{})
+	result, isErr := toolAnalyzeNamespace(context.Background(), s.deps(), map[string]interface{}{})
 	if !isErr {
 		t.Fatalf("toolAnalyzeNamespace() should return error when namespace is missing")
 	}
@@ -547,7 +547,7 @@ func TestToolGetWarningEvents_NoEvents(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolGetWarningEvents(context.Background(), map[string]interface{}{})
+	result, isErr := toolGetWarningEvents(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("toolGetWarningEvents() returned error: %s", result)
 	}
@@ -577,7 +577,7 @@ func TestToolGetWarningEvents_HasEvents(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolGetWarningEvents(context.Background(), map[string]interface{}{})
+	result, isErr := toolGetWarningEvents(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("toolGetWarningEvents() returned error: %s", result)
 	}
@@ -602,7 +602,7 @@ func TestToolFindPodIssues_ClientError(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolFindPodIssues(context.Background(), map[string]interface{}{})
+	result, isErr := toolFindPodIssues(context.Background(), s.deps(), map[string]interface{}{})
 	if !isErr {
 		t.Fatal("toolFindPodIssues() expected error when client fails")
 	}

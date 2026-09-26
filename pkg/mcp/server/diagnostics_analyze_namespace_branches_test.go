@@ -28,7 +28,7 @@ func TestToolAnalyzeNamespace_InvalidNamespaceArg(t *testing.T) {
 
 	// A namespace containing an invalid RFC 1123 character forces
 	// extractAndValidateNamespace to return an error.
-	result, isErr := s.toolAnalyzeNamespace(context.Background(), map[string]interface{}{
+	result, isErr := toolAnalyzeNamespace(context.Background(), s.deps(), map[string]interface{}{
 		"namespace": "Invalid_NS!",
 	})
 	if !isErr {
@@ -48,7 +48,7 @@ func TestToolAnalyzeNamespace_ClientFactoryError(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolAnalyzeNamespace(context.Background(), map[string]interface{}{
+	result, isErr := toolAnalyzeNamespace(context.Background(), s.deps(), map[string]interface{}{
 		"namespace": "demo-ns",
 	})
 	if !isErr {
@@ -69,7 +69,7 @@ func TestToolAnalyzeNamespace_NamespaceGetError(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolAnalyzeNamespace(context.Background(), map[string]interface{}{
+	result, isErr := toolAnalyzeNamespace(context.Background(), s.deps(), map[string]interface{}{
 		"namespace": "does-not-exist",
 	})
 	if !isErr {
@@ -189,7 +189,7 @@ func TestToolAnalyzeNamespace_FullDetails(t *testing.T) {
 		clientFactory: func(string) (kubernetes.Interface, error) { return client, nil },
 	}
 
-	result, isErr := s.toolAnalyzeNamespace(context.Background(), map[string]interface{}{
+	result, isErr := toolAnalyzeNamespace(context.Background(), s.deps(), map[string]interface{}{
 		"namespace": nsName,
 	})
 	if isErr {
@@ -237,7 +237,7 @@ func TestToolAnalyzeNamespace_MinimalPathsSuppressed(t *testing.T) {
 	s := &Server{
 		clientFactory: func(string) (kubernetes.Interface, error) { return client, nil },
 	}
-	result, isErr := s.toolAnalyzeNamespace(context.Background(), map[string]interface{}{
+	result, isErr := toolAnalyzeNamespace(context.Background(), s.deps(), map[string]interface{}{
 		"namespace": "quiet",
 	})
 	if isErr {
@@ -274,7 +274,7 @@ func TestToolAnalyzeNamespace_ClusterArgPropagated(t *testing.T) {
 			return client, nil
 		},
 	}
-	_, isErr := s.toolAnalyzeNamespace(context.Background(), map[string]interface{}{
+	_, isErr := toolAnalyzeNamespace(context.Background(), s.deps(), map[string]interface{}{
 		"cluster":   "edge-1",
 		"namespace": "ns",
 	})

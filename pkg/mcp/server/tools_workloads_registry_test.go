@@ -27,7 +27,7 @@ func TestWorkloadsToolRegistry_AllToolsRegistered(t *testing.T) {
 	}
 
 	registered := make(map[string]Tool)
-	for _, td := range toolRegistry {
+	for _, td := range toolRegistry.Defs() {
 		registered[td.Schema.Name] = td.Schema
 	}
 
@@ -41,7 +41,7 @@ func TestWorkloadsToolRegistry_AllToolsRegistered(t *testing.T) {
 func TestWorkloadsToolRegistry_ToolCount(t *testing.T) {
 	expectedCount := 15
 	workloadTools := 0
-	for _, td := range toolRegistry {
+	for _, td := range toolRegistry.Defs() {
 		switch td.Schema.Name {
 		case "get_pods", "get_deployments", "get_services", "get_nodes",
 			"get_events", "describe_pod", "get_pod_logs", "find_pod_issues",
@@ -63,7 +63,7 @@ func TestWorkloadsToolRegistry_RequiredFields(t *testing.T) {
 	}
 
 	registered := make(map[string]Tool)
-	for _, td := range toolRegistry {
+	for _, td := range toolRegistry.Defs() {
 		registered[td.Schema.Name] = td.Schema
 	}
 
@@ -77,7 +77,7 @@ func TestWorkloadsToolRegistry_RequiredFields(t *testing.T) {
 
 func TestWorkloadsToolRegistry_IntegerProperties(t *testing.T) {
 	registered := make(map[string]Tool)
-	for _, td := range toolRegistry {
+	for _, td := range toolRegistry.Defs() {
 		registered[td.Schema.Name] = td.Schema
 	}
 

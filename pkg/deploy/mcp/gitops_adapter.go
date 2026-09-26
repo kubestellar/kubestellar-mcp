@@ -1,9 +1,6 @@
 package mcp
 
 import (
-	"context"
-	"encoding/json"
-
 	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/gitops"
 	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 	"k8s.io/client-go/rest"
@@ -26,7 +23,8 @@ func (a *serverGitOpsAccess) GetConfig(clusterName string) (*rest.Config, error)
 // Compile-time interface compliance check.
 var _ gitops.ClusterAccess = (*serverGitOpsAccess)(nil)
 
-// gitopsServer builds a gitops.Server wired to s's manager and factories.
+// gitopsServer builds a gitops.Server wired to s's manager and the shared
+// manifest reader/syncer/drift-detector factories.
 func (s *Server) gitopsServer() *gitops.Server {
 	return &gitops.Server{
 		Access:            &serverGitOpsAccess{s: s},
@@ -40,27 +38,10 @@ func (s *Server) gitopsServer() *gitops.Server {
 	}
 }
 
-// gitopsToolDefs returns the tool definitions handled by the gitops
-// sub-package, converted into the root package's toolDef shape. Order
-// matches the pre-refactor gitopsToolDefs exactly.
+// gitopsToolDefs adapts the pkg/deploy/mcp/gitops sub-package (detect_drift,
+// sync_from_git, reconcile, preview_changes) into the root Server's toolDef
+// shape. Order is preserved so tools/list output stays byte-identical (see
+// registry.go).
 func (s *Server) gitopsToolDefs() []toolDef {
-	gs := s.gitopsServer()
-	subDefs := gs.Tools()
-	defs := make([]toolDef, 0, len(subDefs))
-	for _, d := range subDefs {
-		defs = append(defs, toolDef{
-			Name:        d.Name,
-			Description: d.Description,
-			InputSchema: d.InputSchema,
-			Handler:     d.Handler,
-		})
-	}
-	return defs
-}
-
-// handleSyncFromGit is a thin re-export retained because
-// tools_namespace_validation_rest_test.go (not part of the gitops slice)
-// still calls it directly on *Server.
-func (s *Server) handleSyncFromGit(ctx context.Context, args json.RawMessage) (interface{}, error) {
-	return s.gitopsServer().HandleSyncFromGit(ctx, args)
+	return adaptToolDefs(s.gitopsServer().Tools())
 }

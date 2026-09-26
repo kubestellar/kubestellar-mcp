@@ -36,7 +36,7 @@ func TestToolGetWarningEvents_InvalidNamespace(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolGetWarningEvents(context.Background(), map[string]interface{}{
+	result, isErr := toolGetWarningEvents(context.Background(), s.deps(), map[string]interface{}{
 		"namespace": "Invalid_NS!",
 	})
 	if !isErr {
@@ -55,7 +55,7 @@ func TestToolGetWarningEvents_ClientFactoryError(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolGetWarningEvents(context.Background(), map[string]interface{}{})
+	result, isErr := toolGetWarningEvents(context.Background(), s.deps(), map[string]interface{}{})
 	if !isErr {
 		t.Fatalf("expected isErr=true for client factory failure, got %q", result)
 	}
@@ -74,7 +74,7 @@ func TestToolGetWarningEvents_ListError(t *testing.T) {
 		clientFactory: func(string) (kubernetes.Interface, error) { return client, nil },
 	}
 
-	result, isErr := s.toolGetWarningEvents(context.Background(), map[string]interface{}{})
+	result, isErr := toolGetWarningEvents(context.Background(), s.deps(), map[string]interface{}{})
 	if !isErr {
 		t.Fatalf("expected isErr=true for events.List failure, got %q", result)
 	}
@@ -110,7 +110,7 @@ func TestToolGetWarningEvents_NamespaceScopedList(t *testing.T) {
 		clientFactory: func(string) (kubernetes.Interface, error) { return client, nil },
 	}
 
-	result, isErr := s.toolGetWarningEvents(context.Background(), map[string]interface{}{
+	result, isErr := toolGetWarningEvents(context.Background(), s.deps(), map[string]interface{}{
 		"namespace": "app-a",
 	})
 	if isErr {
@@ -150,7 +150,7 @@ func TestToolGetWarningEvents_InvolvedObjectFilter(t *testing.T) {
 		clientFactory: func(string) (kubernetes.Interface, error) { return client, nil },
 	}
 
-	result, isErr := s.toolGetWarningEvents(context.Background(), map[string]interface{}{
+	result, isErr := toolGetWarningEvents(context.Background(), s.deps(), map[string]interface{}{
 		"involved_object": "target-pod",
 	})
 	if isErr {
@@ -185,7 +185,7 @@ func TestToolGetWarningEvents_ZeroTimestampShowsUnknownAge(t *testing.T) {
 		clientFactory: func(string) (kubernetes.Interface, error) { return client, nil },
 	}
 
-	result, isErr := s.toolGetWarningEvents(context.Background(), map[string]interface{}{})
+	result, isErr := toolGetWarningEvents(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("unexpected error: %s", result)
 	}
@@ -217,7 +217,7 @@ func TestToolGetWarningEvents_LimitFromArgs(t *testing.T) {
 		clientFactory: func(string) (kubernetes.Interface, error) { return client, nil },
 	}
 
-	_, isErr := s.toolGetWarningEvents(context.Background(), map[string]interface{}{
+	_, isErr := toolGetWarningEvents(context.Background(), s.deps(), map[string]interface{}{
 		"limit": float64(7),
 	})
 	if isErr {

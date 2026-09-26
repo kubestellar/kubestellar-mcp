@@ -14,6 +14,7 @@ This changelog focuses on stable operator-facing releases. Nightly prereleases r
 
 ### Changed
 - Switched API discovery from static GVR maps to dynamic discovery and synced CI workflows from `kubestellar/infra`.
+- Introduced the `pkg/mcp/server/handlers` leaf package (`Deps`, `ToolHandler`, `Registry`); ops tool handlers now receive `*handlers.Deps` instead of `*server.Server`, unblocking per-domain sub-packages (#1002).
 
 ### Fixed
 - Fixed apply-method handling, resource kind handling, path traversal checks, and the `tempDir` leak.

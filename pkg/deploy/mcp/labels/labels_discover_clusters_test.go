@@ -10,7 +10,10 @@ import (
 )
 
 func TestHandleAddLabelsDiscoversAllClustersWhenNoTargetSpecified(t *testing.T) {
-	deps := &fakeDeps{clusterNames: []string{"alpha", "beta"}}
+	deps := newRealDeps(t, map[string]string{
+		"alpha": "https://alpha.example.com",
+		"beta":  "https://beta.example.com",
+	})
 	got, err := HandleAddLabels(context.Background(), deps, mustMarshalJSON(t, map[string]interface{}{"kind": "deployment", "name": "demo", "labels": map[string]string{"env": "prod"}, "dry_run": true}))
 	require.NoError(t, err)
 
@@ -24,7 +27,10 @@ func TestHandleAddLabelsDiscoversAllClustersWhenNoTargetSpecified(t *testing.T) 
 }
 
 func TestHandleRemoveLabelsDiscoversAllClustersWhenNoTargetSpecified(t *testing.T) {
-	deps := &fakeDeps{clusterNames: []string{"alpha", "beta"}}
+	deps := newRealDeps(t, map[string]string{
+		"alpha": "https://alpha.example.com",
+		"beta":  "https://beta.example.com",
+	})
 	got, err := HandleRemoveLabels(context.Background(), deps, mustMarshalJSON(t, map[string]interface{}{"kind": "deployment", "name": "demo", "labels": []string{"env"}, "dry_run": true}))
 	require.NoError(t, err)
 

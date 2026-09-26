@@ -57,7 +57,7 @@ func TestDetectClusterTypeOpenShift(t *testing.T) {
 	cv.SetGroupVersionKind(clusterVersionGVR.GroupVersion().WithKind("ClusterVersion"))
 
 	server := newDetectServer(t, []corev1.Node{makeNode("node1", nil, nil, "")}, cv)
-	result, isErr := server.toolDetectClusterType(context.Background(), map[string]interface{}{})
+	result, isErr := toolDetectClusterType(context.Background(), server.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("unexpected error: %s", result)
 	}
@@ -73,7 +73,7 @@ func TestDetectClusterTypeEKS(t *testing.T) {
 		"aws:///us-east-1a/i-1234567890",
 	)
 	server := newDetectServer(t, []corev1.Node{node})
-	result, isErr := server.toolDetectClusterType(context.Background(), map[string]interface{}{})
+	result, isErr := toolDetectClusterType(context.Background(), server.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("unexpected error: %s", result)
 	}
@@ -89,7 +89,7 @@ func TestDetectClusterTypeGKE(t *testing.T) {
 		"gce:///projects/my-project/zones/us-central1-a/instances/gke-node-1",
 	)
 	server := newDetectServer(t, []corev1.Node{node})
-	result, isErr := server.toolDetectClusterType(context.Background(), map[string]interface{}{})
+	result, isErr := toolDetectClusterType(context.Background(), server.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("unexpected error: %s", result)
 	}
@@ -102,7 +102,7 @@ func TestDetectClusterTypeGKENoLabel(t *testing.T) {
 	// GKE with gce provider but no specific GKE label
 	node := makeNode("node1", nil, nil, "gce:///projects/my-project/zones/us-central1-a/instances/node-1")
 	server := newDetectServer(t, []corev1.Node{node})
-	result, isErr := server.toolDetectClusterType(context.Background(), map[string]interface{}{})
+	result, isErr := toolDetectClusterType(context.Background(), server.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("unexpected error: %s", result)
 	}
@@ -118,7 +118,7 @@ func TestDetectClusterTypeAKS(t *testing.T) {
 		"azure:///subscriptions/sub-1/resourceGroups/rg-1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss/virtualMachines/0",
 	)
 	server := newDetectServer(t, []corev1.Node{node})
-	result, isErr := server.toolDetectClusterType(context.Background(), map[string]interface{}{})
+	result, isErr := toolDetectClusterType(context.Background(), server.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("unexpected error: %s", result)
 	}
@@ -134,7 +134,7 @@ func TestDetectClusterTypeKind(t *testing.T) {
 		"",
 	)
 	server := newDetectServer(t, []corev1.Node{node})
-	result, isErr := server.toolDetectClusterType(context.Background(), map[string]interface{}{})
+	result, isErr := toolDetectClusterType(context.Background(), server.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("unexpected error: %s", result)
 	}
@@ -150,7 +150,7 @@ func TestDetectClusterTypeMinikube(t *testing.T) {
 		"",
 	)
 	server := newDetectServer(t, []corev1.Node{node})
-	result, isErr := server.toolDetectClusterType(context.Background(), map[string]interface{}{})
+	result, isErr := toolDetectClusterType(context.Background(), server.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("unexpected error: %s", result)
 	}
@@ -166,7 +166,7 @@ func TestDetectClusterTypeKubeadm(t *testing.T) {
 		"",
 	)
 	server := newDetectServer(t, []corev1.Node{node})
-	result, isErr := server.toolDetectClusterType(context.Background(), map[string]interface{}{})
+	result, isErr := toolDetectClusterType(context.Background(), server.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("unexpected error: %s", result)
 	}
@@ -178,7 +178,7 @@ func TestDetectClusterTypeKubeadm(t *testing.T) {
 func TestDetectClusterTypeUnknown(t *testing.T) {
 	node := makeNode("node1", nil, nil, "")
 	server := newDetectServer(t, []corev1.Node{node})
-	result, isErr := server.toolDetectClusterType(context.Background(), map[string]interface{}{})
+	result, isErr := toolDetectClusterType(context.Background(), server.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("unexpected error: %s", result)
 	}
@@ -189,7 +189,7 @@ func TestDetectClusterTypeUnknown(t *testing.T) {
 
 func TestDetectClusterTypeNoNodes(t *testing.T) {
 	server := newDetectServer(t, []corev1.Node{})
-	result, isErr := server.toolDetectClusterType(context.Background(), map[string]interface{}{})
+	result, isErr := toolDetectClusterType(context.Background(), server.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("unexpected error: %s", result)
 	}
@@ -207,7 +207,7 @@ func TestDetectClusterTypeClientError(t *testing.T) {
 			return nil, fmt.Errorf("connection refused")
 		},
 	}
-	result, isErr := server.toolDetectClusterType(context.Background(), map[string]interface{}{})
+	result, isErr := toolDetectClusterType(context.Background(), server.deps(), map[string]interface{}{})
 	if !isErr {
 		t.Fatalf("expected error result, got success: %s", result)
 	}

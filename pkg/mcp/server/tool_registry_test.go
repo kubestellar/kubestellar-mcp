@@ -32,14 +32,14 @@ func TestRegisteredTools_AllHaveDescription(t *testing.T) {
 }
 
 func TestRegisteredTools_AllHaveHandler(t *testing.T) {
-	for _, td := range toolRegistry {
+	for _, td := range toolRegistry.Defs() {
 		assert.NotNil(t, td.Handler, "tool %q has nil handler", td.Schema.Name)
 	}
 }
 
 func TestRegisteredTools_NoDuplicateNames(t *testing.T) {
 	seen := make(map[string]int)
-	for _, td := range toolRegistry {
+	for _, td := range toolRegistry.Defs() {
 		seen[td.Schema.Name]++
 	}
 	for name, count := range seen {
@@ -55,12 +55,12 @@ func TestFindToolHandler_ReturnsHandlerForKnownTool(t *testing.T) {
 
 func TestRegisteredTools_CountMatchesRegistry(t *testing.T) {
 	tools := registeredTools()
-	assert.Equal(t, len(toolRegistry), len(tools),
+	assert.Equal(t, len(toolRegistry.Defs()), len(tools),
 		"registeredTools() length should match toolRegistry length")
 }
 
 func TestRegisteredTools_InputSchemaHasObjectType(t *testing.T) {
-	for _, td := range toolRegistry {
+	for _, td := range toolRegistry.Defs() {
 		assert.Equal(t, "object", td.Schema.InputSchema.Type,
 			"tool %q InputSchema.Type should be 'object'", td.Schema.Name)
 	}

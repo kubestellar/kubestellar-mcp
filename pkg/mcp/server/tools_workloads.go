@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/server/handlers"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (s *Server) toolGetPods(ctx context.Context, args map[string]interface{}) (string, bool) {
+func toolGetPods(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
 	namespace, err := extractAndValidateNamespace(args)
 	if err != nil {
@@ -18,7 +19,7 @@ func (s *Server) toolGetPods(ctx context.Context, args map[string]interface{}) (
 	}
 	labelSelector, _ := args["label_selector"].(string)
 
-	client, err := s.getClientForCluster(cluster)
+	client, err := d.GetClientForCluster(cluster)
 	if err != nil {
 		return fmt.Sprintf("Failed to create client: %v", err), true
 	}
@@ -71,14 +72,14 @@ func (s *Server) toolGetPods(ctx context.Context, args map[string]interface{}) (
 	return sb.String(), false
 }
 
-func (s *Server) toolGetDeployments(ctx context.Context, args map[string]interface{}) (string, bool) {
+func toolGetDeployments(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
 	namespace, err := extractAndValidateNamespace(args)
 	if err != nil {
 		return fmt.Sprintf("error: %v", err), true
 	}
 
-	client, err := s.getClientForCluster(cluster)
+	client, err := d.GetClientForCluster(cluster)
 	if err != nil {
 		return fmt.Sprintf("Failed to create client: %v", err), true
 	}
@@ -98,14 +99,14 @@ func (s *Server) toolGetDeployments(ctx context.Context, args map[string]interfa
 	return string(data), false
 }
 
-func (s *Server) toolGetServices(ctx context.Context, args map[string]interface{}) (string, bool) {
+func toolGetServices(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
 	namespace, err := extractAndValidateNamespace(args)
 	if err != nil {
 		return fmt.Sprintf("error: %v", err), true
 	}
 
-	client, err := s.getClientForCluster(cluster)
+	client, err := d.GetClientForCluster(cluster)
 	if err != nil {
 		return fmt.Sprintf("Failed to create client: %v", err), true
 	}
@@ -151,10 +152,10 @@ func formatPorts(ports []corev1.ServicePort) string {
 	return strings.Join(parts, ",")
 }
 
-func (s *Server) toolGetNodes(ctx context.Context, args map[string]interface{}) (string, bool) {
+func toolGetNodes(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
 
-	client, err := s.getClientForCluster(cluster)
+	client, err := d.GetClientForCluster(cluster)
 	if err != nil {
 		return fmt.Sprintf("Failed to create client: %v", err), true
 	}
@@ -204,7 +205,7 @@ func (s *Server) toolGetNodes(ctx context.Context, args map[string]interface{}) 
 	return sb.String(), false
 }
 
-func (s *Server) toolGetEvents(ctx context.Context, args map[string]interface{}) (string, bool) {
+func toolGetEvents(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
 	namespace, err := extractAndValidateNamespace(args)
 	if err != nil {
@@ -215,7 +216,7 @@ func (s *Server) toolGetEvents(ctx context.Context, args map[string]interface{})
 		limit = int64(v)
 	}
 
-	client, err := s.getClientForCluster(cluster)
+	client, err := d.GetClientForCluster(cluster)
 	if err != nil {
 		return fmt.Sprintf("Failed to create client: %v", err), true
 	}
@@ -253,7 +254,7 @@ func (s *Server) toolGetEvents(ctx context.Context, args map[string]interface{})
 	return sb.String(), false
 }
 
-func (s *Server) toolDescribePod(ctx context.Context, args map[string]interface{}) (string, bool) {
+func toolDescribePod(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
 	namespace, err := extractAndValidateNamespace(args)
 	if err != nil {
@@ -268,7 +269,7 @@ func (s *Server) toolDescribePod(ctx context.Context, args map[string]interface{
 		namespace = "default"
 	}
 
-	client, err := s.getClientForCluster(cluster)
+	client, err := d.GetClientForCluster(cluster)
 	if err != nil {
 		return fmt.Sprintf("Failed to create client: %v", err), true
 	}
@@ -311,7 +312,7 @@ func (s *Server) toolDescribePod(ctx context.Context, args map[string]interface{
 	return sb.String(), false
 }
 
-func (s *Server) toolGetPodLogs(ctx context.Context, args map[string]interface{}) (string, bool) {
+func toolGetPodLogs(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
 	namespace, err := extractAndValidateNamespace(args)
 	if err != nil {
@@ -331,7 +332,7 @@ func (s *Server) toolGetPodLogs(ctx context.Context, args map[string]interface{}
 		namespace = "default"
 	}
 
-	client, err := s.getClientForCluster(cluster)
+	client, err := d.GetClientForCluster(cluster)
 	if err != nil {
 		return fmt.Sprintf("Failed to create client: %v", err), true
 	}
@@ -353,4 +354,3 @@ func (s *Server) toolGetPodLogs(ctx context.Context, args map[string]interface{}
 }
 
 // RBAC Tools
-

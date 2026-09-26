@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/server/handlers"
 	"k8s.io/client-go/rest"
 )
 
@@ -33,8 +34,8 @@ func TestToolDetectDrift_ReadFromGitError(t *testing.T) {
 		restConfigFactory: func(_ string) (*rest.Config, error) {
 			return &rest.Config{Host: "https://cluster.example"}, nil
 		},
-		manifestReaderFactory: func() manifestReader { return reader },
-		driftDetectorFactory: func(_ *rest.Config) (driftDetector, error) {
+		manifestReaderFactory: func() handlers.ManifestReader { return reader },
+		driftDetectorFactory: func(_ *rest.Config) (handlers.DriftDetector, error) {
 			t.Fatal("driftDetectorFactory must not be called when ReadFromGit fails")
 			return nil, nil
 		},
@@ -72,8 +73,8 @@ func TestToolDetectDrift_DetectorFactoryError(t *testing.T) {
 		restConfigFactory: func(_ string) (*rest.Config, error) {
 			return &rest.Config{Host: "https://cluster.example"}, nil
 		},
-		manifestReaderFactory: func() manifestReader { return reader },
-		driftDetectorFactory: func(_ *rest.Config) (driftDetector, error) {
+		manifestReaderFactory: func() handlers.ManifestReader { return reader },
+		driftDetectorFactory: func(_ *rest.Config) (handlers.DriftDetector, error) {
 			return nil, errors.New("rest mapper unavailable")
 		},
 	}
@@ -111,8 +112,8 @@ func TestToolDetectDrift_DetectDriftError(t *testing.T) {
 		restConfigFactory: func(_ string) (*rest.Config, error) {
 			return &rest.Config{Host: "https://cluster.example"}, nil
 		},
-		manifestReaderFactory: func() manifestReader { return reader },
-		driftDetectorFactory:  func(_ *rest.Config) (driftDetector, error) { return detector, nil },
+		manifestReaderFactory: func() handlers.ManifestReader { return reader },
+		driftDetectorFactory:  func(_ *rest.Config) (handlers.DriftDetector, error) { return detector, nil },
 	}
 
 	result, rpcErr := callTool(t, server, "detect_drift", map[string]interface{}{
@@ -167,8 +168,8 @@ func TestToolDetectDrift_DriftPresent_MarkdownAndJSON(t *testing.T) {
 		restConfigFactory: func(_ string) (*rest.Config, error) {
 			return &rest.Config{Host: "https://cluster.example"}, nil
 		},
-		manifestReaderFactory: func() manifestReader { return reader },
-		driftDetectorFactory:  func(_ *rest.Config) (driftDetector, error) { return detector, nil },
+		manifestReaderFactory: func() handlers.ManifestReader { return reader },
+		driftDetectorFactory:  func(_ *rest.Config) (handlers.DriftDetector, error) { return detector, nil },
 	}
 
 	result, rpcErr := callTool(t, server, "detect_drift", map[string]interface{}{
@@ -279,40 +280,12 @@ func TestToolDetectDrift_DriftPresent_MarkdownAndJSON(t *testing.T) {
 	}
 }
 
-func TestServer_NewFactories_FallbackWhenUnset(t *testing.T) {
-	// When no manifestReaderFactory is set, newManifestReader returns
-	// a real gitops.NewManifestReader() (non-nil). Same for
-	// newDriftDetector without a factory — it delegates to
-	// gitops.NewDriftDetector which requires a valid rest.Config; we
-	// pass a syntactically valid Host and only require the factory
-	// path itself is exercised (either non-nil detector OR non-nil
-	// error, both prove the fallback branch ran).
-	s := &Server{}
-
-	r := s.newManifestReader()
-	if r == nil {
-		t.Fatal("newManifestReader fallback returned nil")
-	}
-	// Cleanup must be safe to call on the real reader.
-	r.Cleanup()
-
-	// newDriftDetector with a real config: we accept either outcome
-	// (success or error) — both prove the non-factory branch ran.
-	// A minimal in-cluster-like rest.Config with just Host is enough
-	// for kubernetes.NewForConfig to construct clients without
-	// contacting the API server.
-	det, err := s.newDriftDetector(&rest.Config{Host: "https://api.example.local"})
-	if err == nil && det == nil {
-		t.Fatal("newDriftDetector fallback returned (nil, nil)")
-	}
-}
-
-// Compile-time assertion: the fakes still satisfy the package-private
-// interfaces used by tools_drift.go. If either interface changes shape,
-// this line will fail to compile and flag the drift tests for review.
+// Compile-time assertion: the fakes still satisfy the handlers interfaces
+// used by tools_drift.go. If either interface changes shape, this line will
+// fail to compile and flag the drift tests for review.
 var (
-	_ manifestReader = (*fakeManifestReader)(nil)
-	_ driftDetector  = (*fakeDriftDetector)(nil)
+	_ handlers.ManifestReader = (*fakeManifestReader)(nil)
+	_ handlers.DriftDetector  = (*fakeDriftDetector)(nil)
 )
 
 var _ context.Context = context.TODO() // keep context import used

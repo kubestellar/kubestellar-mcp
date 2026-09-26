@@ -14,7 +14,7 @@ func TestClusterToolRegistry_AllToolsRegistered(t *testing.T) {
 	}
 
 	registered := make(map[string]Tool)
-	for _, td := range toolRegistry {
+	for _, td := range toolRegistry.Defs() {
 		registered[td.Schema.Name] = td.Schema
 	}
 
@@ -28,7 +28,7 @@ func TestClusterToolRegistry_AllToolsRegistered(t *testing.T) {
 func TestClusterToolRegistry_ToolCount(t *testing.T) {
 	expectedCount := 2
 	clusterTools := 0
-	for _, td := range toolRegistry {
+	for _, td := range toolRegistry.Defs() {
 		switch td.Schema.Name {
 		case "list_clusters", "get_cluster_health":
 			clusterTools++
@@ -39,7 +39,7 @@ func TestClusterToolRegistry_ToolCount(t *testing.T) {
 
 func TestClusterToolRegistry_EnumFields(t *testing.T) {
 	registered := make(map[string]Tool)
-	for _, td := range toolRegistry {
+	for _, td := range toolRegistry.Defs() {
 		registered[td.Schema.Name] = td.Schema
 	}
 
