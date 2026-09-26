@@ -9,9 +9,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+
+	"github.com/kubestellar/kubestellar-mcp/pkg/metrics"
 )
 
 func TestExecutorExecuteSingleCluster(t *testing.T) {
@@ -32,6 +35,36 @@ func TestExecutorExecuteSingleCluster(t *testing.T) {
 	}
 	if len(results) != 1 || results[0].Cluster != "alpha" || results[0].Result != "ok" || results[0].Error != "" {
 		t.Fatalf("unexpected results: %#v", results)
+	}
+}
+
+// TestExecutorExecuteAllRecordsZeroActiveClustersOnEmptyDiscovery guards
+// against the executeAll fan-out path silently dropping the
+// mcpserver_active_clusters update it is meant to record on every discovery
+// outcome, including zero. It seeds the gauge with a non-zero prior value
+// (as a real prior successful multi-cluster call would leave it) and
+// asserts it reads 0 after an empty-discovery Execute("") call, so a
+// genuine all-clusters-lost event is observable rather than the gauge
+// staying stuck at its last non-zero value.
+func TestExecutorExecuteAllRecordsZeroActiveClustersOnEmptyDiscovery(t *testing.T) {
+	metrics.SetActiveClusters(3)
+
+	manager := &ClientManager{clients: map[string]*kubernetes.Clientset{}}
+	executor := NewExecutor(manager)
+
+	results, err := executor.Execute(context.Background(), "", func(ctx context.Context, client *kubernetes.Clientset, clusterName string) (interface{}, error) {
+		t.Fatal("fn should not run when discovery finds no clusters")
+		return nil, nil
+	})
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+	if len(results) != 0 {
+		t.Fatalf("results = %#v, want empty", results)
+	}
+
+	if got := testutil.ToFloat64(metrics.ActiveClusters); got != 0 {
+		t.Errorf("mcpserver_active_clusters = %v, want 0 after empty discovery", got)
 	}
 }
 
