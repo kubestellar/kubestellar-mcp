@@ -6,12 +6,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/server/handlers"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-func (s *Server) toolInstallOwnershipPolicy(ctx context.Context, args map[string]interface{}) (string, bool) {
+func toolInstallOwnershipPolicy(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
 
 	// Parse parameters
@@ -32,7 +33,7 @@ func (s *Server) toolInstallOwnershipPolicy(ctx context.Context, args map[string
 	}
 
 	// Add openshift namespaces if on OpenShift
-	client, err := s.getClientForCluster(cluster)
+	client, err := d.GetClientForCluster(cluster)
 	if err != nil {
 		return fmt.Sprintf("Failed to create client: %v", err), true
 	}
@@ -62,7 +63,7 @@ func (s *Server) toolInstallOwnershipPolicy(ctx context.Context, args map[string
 		mode = v
 	}
 
-	dynClient, err := s.getDynamicClientForCluster(cluster)
+	dynClient, err := d.GetDynamicClientForCluster(cluster)
 	if err != nil {
 		return fmt.Sprintf("Failed to create dynamic client: %v", err), true
 	}
@@ -250,7 +251,7 @@ violation[{"msg": msg, "details": {"missing_labels": missing}}] {
 	return sb.String(), false
 }
 
-func (s *Server) toolSetOwnershipPolicyMode(ctx context.Context, args map[string]interface{}) (string, bool) {
+func toolSetOwnershipPolicyMode(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
 	mode, _ := args["mode"].(string)
 
@@ -262,7 +263,7 @@ func (s *Server) toolSetOwnershipPolicyMode(ctx context.Context, args map[string
 		return "mode must be one of: dryrun, warn, enforce", true
 	}
 
-	dynClient, err := s.getDynamicClientForCluster(cluster)
+	dynClient, err := d.GetDynamicClientForCluster(cluster)
 	if err != nil {
 		return fmt.Sprintf("Failed to create client: %v", err), true
 	}
@@ -317,10 +318,10 @@ func (s *Server) toolSetOwnershipPolicyMode(ctx context.Context, args map[string
 	return sb.String(), false
 }
 
-func (s *Server) toolUninstallOwnershipPolicy(ctx context.Context, args map[string]interface{}) (string, bool) {
+func toolUninstallOwnershipPolicy(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
 
-	dynClient, err := s.getDynamicClientForCluster(cluster)
+	dynClient, err := d.GetDynamicClientForCluster(cluster)
 	if err != nil {
 		return fmt.Sprintf("Failed to create client: %v", err), true
 	}

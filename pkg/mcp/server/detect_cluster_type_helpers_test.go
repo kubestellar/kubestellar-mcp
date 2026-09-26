@@ -5,6 +5,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/server/handlers"
 	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/tools/upgrades"
 )
 
@@ -16,8 +17,8 @@ var clusterVersionGVR = schema.GroupVersionResource{
 	Resource: "clusterversions",
 }
 
-// toolDetectClusterType bridges the old server method API (used by tests)
-// to the new upgrades.DetectClusterType function via serverClusterAccess.
-func (s *Server) toolDetectClusterType(ctx context.Context, args map[string]interface{}) (string, bool) {
-	return upgrades.DetectClusterType(ctx, &serverClusterAccess{s: s}, args)
+// toolDetectClusterType bridges the server-package test API to the
+// upgrades.DetectClusterType function; *handlers.Deps is its ClusterAccess.
+func toolDetectClusterType(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
+	return upgrades.DetectClusterType(ctx, d, args)
 }

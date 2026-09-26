@@ -7,34 +7,10 @@ import (
 	"strings"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
-	"k8s.io/client-go/rest"
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/server/handlers"
 )
 
-type manifestReader interface {
-	ReadFromGit(ctx context.Context, source gitops.ManifestSource) ([]gitops.Manifest, error)
-	Cleanup()
-}
-
-type driftDetector interface {
-	IsManifestClusterScoped(manifest gitops.Manifest) bool
-	DetectDrift(ctx context.Context, manifests []gitops.Manifest, clusterName string) ([]gitops.DriftResult, error)
-}
-
-func (s *Server) newManifestReader() manifestReader {
-	if s.manifestReaderFactory != nil {
-		return s.manifestReaderFactory()
-	}
-	return gitops.NewManifestReader()
-}
-
-func (s *Server) newDriftDetector(config *rest.Config) (driftDetector, error) {
-	if s.driftDetectorFactory != nil {
-		return s.driftDetectorFactory(config)
-	}
-	return gitops.NewDriftDetector(config)
-}
-
-func (s *Server) toolDetectDrift(ctx context.Context, args map[string]interface{}) (string, bool) {
+func toolDetectDrift(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	repoURL, _ := args["repo_url"].(string)
 	path, _ := args["path"].(string)
 	branch, _ := args["branch"].(string)
@@ -46,7 +22,7 @@ func (s *Server) toolDetectDrift(ctx context.Context, args map[string]interface{
 	}
 
 	// Get REST config for the cluster
-	restConfig, err := s.getRestConfigForCluster(cluster)
+	restConfig, err := d.GetRESTConfigForCluster(cluster)
 	if err != nil {
 		return fmt.Sprintf("Failed to create client config: %v", err), true
 	}
@@ -58,7 +34,7 @@ func (s *Server) toolDetectDrift(ctx context.Context, args map[string]interface{
 	}
 
 	// Read manifests from git
-	reader := s.newManifestReader()
+	reader := d.NewManifestReader()
 	defer reader.Cleanup()
 
 	source := gitops.ManifestSource{
@@ -77,7 +53,7 @@ func (s *Server) toolDetectDrift(ctx context.Context, args map[string]interface{
 	}
 
 	// Create drift detector
-	detector, err := s.newDriftDetector(restConfig)
+	detector, err := d.NewDriftDetector(restConfig)
 	if err != nil {
 		return fmt.Sprintf("Failed to create drift detector: %v", err), true
 	}

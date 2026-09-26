@@ -37,7 +37,7 @@ func TestToolCheckResourceLimits_InvalidNamespaceArg(t *testing.T) {
 			return k8sfake.NewSimpleClientset(), nil
 		},
 	}
-	result, isErr := s.toolCheckResourceLimits(context.Background(), map[string]interface{}{
+	result, isErr := toolCheckResourceLimits(context.Background(), s.deps(), map[string]interface{}{
 		"namespace": "Invalid_NS!",
 	})
 	if !isErr {
@@ -56,7 +56,7 @@ func TestToolCheckResourceLimits_ClientFactoryError(t *testing.T) {
 			return nil, errors.New("kubeconfig missing")
 		},
 	}
-	result, isErr := s.toolCheckResourceLimits(context.Background(), map[string]interface{}{})
+	result, isErr := toolCheckResourceLimits(context.Background(), s.deps(), map[string]interface{}{})
 	if !isErr {
 		t.Fatalf("expected error when clientFactory fails, got: %s", result)
 	}
@@ -83,7 +83,7 @@ func TestToolCheckResourceLimits_NamespacedListError(t *testing.T) {
 	s := &Server{
 		clientFactory: func(string) (kubernetes.Interface, error) { return client, nil },
 	}
-	result, isErr := s.toolCheckResourceLimits(context.Background(), map[string]interface{}{
+	result, isErr := toolCheckResourceLimits(context.Background(), s.deps(), map[string]interface{}{
 		"namespace": "target-ns",
 	})
 	if !isErr {
@@ -131,7 +131,7 @@ func TestToolCheckResourceLimits_TerminalPodsSkipped(t *testing.T) {
 	s := &Server{
 		clientFactory: func(string) (kubernetes.Interface, error) { return client, nil },
 	}
-	result, isErr := s.toolCheckResourceLimits(context.Background(), map[string]interface{}{})
+	result, isErr := toolCheckResourceLimits(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("unexpected error: %s", result)
 	}
@@ -176,7 +176,7 @@ func TestToolCheckResourceLimits_PartialLimits(t *testing.T) {
 	s := &Server{
 		clientFactory: func(string) (kubernetes.Interface, error) { return client, nil },
 	}
-	result, isErr := s.toolCheckResourceLimits(context.Background(), map[string]interface{}{})
+	result, isErr := toolCheckResourceLimits(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("unexpected error: %s", result)
 	}
@@ -205,7 +205,7 @@ func TestToolCheckResourceLimits_ClusterArgPropagated(t *testing.T) {
 			return client, nil
 		},
 	}
-	_, isErr := s.toolCheckResourceLimits(context.Background(), map[string]interface{}{
+	_, isErr := toolCheckResourceLimits(context.Background(), s.deps(), map[string]interface{}{
 		"cluster": "edge-42",
 	})
 	if isErr {

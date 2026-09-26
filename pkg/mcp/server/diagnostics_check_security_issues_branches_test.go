@@ -30,7 +30,7 @@ func TestToolCheckSecurityIssues_InvalidNamespaceArg(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolCheckSecurityIssues(context.Background(), map[string]interface{}{
+	result, isErr := toolCheckSecurityIssues(context.Background(), s.deps(), map[string]interface{}{
 		"namespace": "Invalid_NS!",
 	})
 	if !isErr {
@@ -50,7 +50,7 @@ func TestToolCheckSecurityIssues_ClientFactoryError(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolCheckSecurityIssues(context.Background(), map[string]interface{}{})
+	result, isErr := toolCheckSecurityIssues(context.Background(), s.deps(), map[string]interface{}{})
 	if !isErr {
 		t.Fatalf("expected error when clientFactory fails, got: %s", result)
 	}
@@ -74,7 +74,7 @@ func TestToolCheckSecurityIssues_ListPodsError(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolCheckSecurityIssues(context.Background(), map[string]interface{}{})
+	result, isErr := toolCheckSecurityIssues(context.Background(), s.deps(), map[string]interface{}{})
 	if !isErr {
 		t.Fatalf("expected error when list pods fails, got: %s", result)
 	}
@@ -104,7 +104,7 @@ func TestToolCheckSecurityIssues_NamespaceScoped(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolCheckSecurityIssues(context.Background(), map[string]interface{}{
+	result, isErr := toolCheckSecurityIssues(context.Background(), s.deps(), map[string]interface{}{
 		"namespace": "apps",
 	})
 	if isErr {
@@ -161,7 +161,7 @@ func TestToolCheckSecurityIssues_SkipsKubeSystemAndTerminalPods(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolCheckSecurityIssues(context.Background(), map[string]interface{}{})
+	result, isErr := toolCheckSecurityIssues(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("unexpected error: %s", result)
 	}
@@ -200,7 +200,7 @@ func TestToolCheckSecurityIssues_HostPIDAndHostIPC(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolCheckSecurityIssues(context.Background(), map[string]interface{}{})
+	result, isErr := toolCheckSecurityIssues(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("unexpected error: %s", result)
 	}
@@ -288,7 +288,7 @@ func TestToolCheckSecurityIssues_ContainerSecurityContextBranches(t *testing.T) 
 		},
 	}
 
-	result, isErr := s.toolCheckSecurityIssues(context.Background(), map[string]interface{}{})
+	result, isErr := toolCheckSecurityIssues(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("unexpected error: %s", result)
 	}
@@ -336,7 +336,7 @@ func TestToolCheckSecurityIssues_DockerSocketMount(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolCheckSecurityIssues(context.Background(), map[string]interface{}{})
+	result, isErr := toolCheckSecurityIssues(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("unexpected error: %s", result)
 	}
@@ -348,5 +348,5 @@ func TestToolCheckSecurityIssues_DockerSocketMount(t *testing.T) {
 }
 
 // Small pointer helpers to keep the SecurityContext literals readable.
-func boolPtr(b bool) *bool     { return &b }
+func boolPtr(b bool) *bool    { return &b }
 func int64Ptr(i int64) *int64 { return &i }

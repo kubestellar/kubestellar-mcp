@@ -28,7 +28,7 @@ func TestToolCanI_InvalidNamespaceArg(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolCanI(context.Background(), map[string]interface{}{
+	result, isErr := toolCanI(context.Background(), s.deps(), map[string]interface{}{
 		"verb":      "get",
 		"resource":  "pods",
 		"namespace": "Invalid_NS!",
@@ -50,7 +50,7 @@ func TestToolCanI_ClientFactoryError(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolCanI(context.Background(), map[string]interface{}{
+	result, isErr := toolCanI(context.Background(), s.deps(), map[string]interface{}{
 		"verb":     "get",
 		"resource": "pods",
 	})
@@ -78,7 +78,7 @@ func TestToolCanI_SARCreateError(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolCanI(context.Background(), map[string]interface{}{
+	result, isErr := toolCanI(context.Background(), s.deps(), map[string]interface{}{
 		"verb":     "get",
 		"resource": "pods",
 	})
@@ -107,7 +107,7 @@ func TestToolCanI_AllowedTruePath(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolCanI(context.Background(), map[string]interface{}{
+	result, isErr := toolCanI(context.Background(), s.deps(), map[string]interface{}{
 		"verb":     "list",
 		"resource": "configmaps",
 	})
@@ -139,7 +139,7 @@ func TestToolCanI_DeniedWithReason(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolCanI(context.Background(), map[string]interface{}{
+	result, isErr := toolCanI(context.Background(), s.deps(), map[string]interface{}{
 		"verb":     "delete",
 		"resource": "secrets",
 	})
@@ -169,7 +169,7 @@ func TestToolCanI_SubresourceAndNameFormatting(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolCanI(context.Background(), map[string]interface{}{
+	result, isErr := toolCanI(context.Background(), s.deps(), map[string]interface{}{
 		"verb":        "get",
 		"resource":    "pods",
 		"subresource": "log",

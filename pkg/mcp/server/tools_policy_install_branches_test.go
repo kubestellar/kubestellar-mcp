@@ -113,8 +113,8 @@ func TestToolInstallOwnershipPolicy_ConstraintTemplateCreateError(t *testing.T) 
 		return true, nil, errors.New("webhook rejected")
 	})
 	server := &Server{
-		discoverer: stubDiscoverer{},
-		clientFactory: func(string) (kubernetes.Interface, error) { return fakeK8s, nil },
+		discoverer:           stubDiscoverer{},
+		clientFactory:        func(string) (kubernetes.Interface, error) { return fakeK8s, nil },
 		dynamicClientFactory: func(string) (dynamic.Interface, error) { return fakeDyn, nil },
 	}
 	result, rpcErr := callTool(t, server, "install_ownership_policy", map[string]interface{}{
@@ -142,8 +142,8 @@ func TestToolInstallOwnershipPolicy_ConstraintCreateError(t *testing.T) {
 		return true, nil, errors.New("constraint create rejected")
 	})
 	server := &Server{
-		discoverer: stubDiscoverer{},
-		clientFactory: func(string) (kubernetes.Interface, error) { return fakeK8s, nil },
+		discoverer:           stubDiscoverer{},
+		clientFactory:        func(string) (kubernetes.Interface, error) { return fakeK8s, nil },
 		dynamicClientFactory: func(string) (dynamic.Interface, error) { return fakeDyn, nil },
 	}
 	result, rpcErr := callTool(t, server, "install_ownership_policy", map[string]interface{}{
@@ -199,8 +199,8 @@ func TestToolInstallOwnershipPolicy_ConstraintAlreadyExists(t *testing.T) {
 		return true, existing, nil
 	})
 	server := &Server{
-		discoverer: stubDiscoverer{},
-		clientFactory: func(string) (kubernetes.Interface, error) { return fakeK8s, nil },
+		discoverer:           stubDiscoverer{},
+		clientFactory:        func(string) (kubernetes.Interface, error) { return fakeK8s, nil },
 		dynamicClientFactory: func(string) (dynamic.Interface, error) { return fakeDyn, nil },
 	}
 	result, rpcErr := callTool(t, server, "install_ownership_policy", map[string]interface{}{
