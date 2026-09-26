@@ -4,34 +4,21 @@ import (
 	"context"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes"
 
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/server/handlers"
 	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/tools/upgrades"
 )
 
-// serverClusterAccess adapts *Server to the upgrades.ClusterAccess interface.
-type serverClusterAccess struct {
-	s *Server
-}
-
-func (a *serverClusterAccess) GetClientForCluster(name string) (kubernetes.Interface, error) {
-	return a.s.getClientForCluster(name)
-}
-
-func (a *serverClusterAccess) GetDynamicClientForCluster(name string) (dynamic.Interface, error) {
-	return a.s.getDynamicClientForCluster(name)
-}
-
-// Compile-time interface compliance check.
-var _ upgrades.ClusterAccess = (*serverClusterAccess)(nil)
+// *handlers.Deps satisfies upgrades.ClusterAccess directly, so no adapter
+// is needed between the server and the upgrades sub-package.
+var _ upgrades.ClusterAccess = (*handlers.Deps)(nil)
 
 func init() {
 	for _, td := range upgrades.Tools() {
 		td := td // capture loop variable
 		RegisterTool(td.Schema,
-			func(ctx context.Context, s *Server, args map[string]interface{}) (string, bool) {
-				return td.Handler(ctx, &serverClusterAccess{s: s}, args)
+			func(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
+				return td.Handler(ctx, d, args)
 			},
 		)
 	}
@@ -54,6 +41,6 @@ const (
 type HelmRelease = upgrades.HelmRelease
 
 // parseHelmSecret delegates to the upgrades package. Retained for test compatibility.
-func (s *Server) parseHelmSecret(secret *corev1.Secret) *HelmRelease {
+func parseHelmSecret(secret *corev1.Secret) *HelmRelease {
 	return upgrades.ParseHelmSecret(secret)
 }

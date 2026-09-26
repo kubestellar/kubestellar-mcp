@@ -25,6 +25,7 @@ pkg/deploy/mcp/kubectl 97.5
 pkg/deploy/mcp/kustomize 96.0
 pkg/deploy/mcp/labels 99.0
 pkg/mcp/server 96.4
+pkg/mcp/server/handlers 99.0
 pkg/mcp/tools/upgrades 97.0
 
 # --- Tier 1: Core packages ---

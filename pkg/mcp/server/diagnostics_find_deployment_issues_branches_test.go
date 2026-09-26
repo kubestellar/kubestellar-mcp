@@ -46,7 +46,7 @@ func TestToolFindDeploymentIssues_AvailableFalse(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolFindDeploymentIssues(context.Background(), map[string]interface{}{})
+	result, isErr := toolFindDeploymentIssues(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("toolFindDeploymentIssues() returned error: %s", result)
 	}
@@ -80,7 +80,7 @@ func TestToolFindDeploymentIssues_ReplicaFailure(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolFindDeploymentIssues(context.Background(), map[string]interface{}{})
+	result, isErr := toolFindDeploymentIssues(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("toolFindDeploymentIssues() returned error: %s", result)
 	}
@@ -141,7 +141,7 @@ func TestToolFindDeploymentIssues_ReplicaSetError(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolFindDeploymentIssues(context.Background(), map[string]interface{}{})
+	result, isErr := toolFindDeploymentIssues(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("toolFindDeploymentIssues() returned error: %s", result)
 	}
@@ -178,7 +178,7 @@ func TestToolFindDeploymentIssues_AllNamespaces(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolFindDeploymentIssues(context.Background(), map[string]interface{}{})
+	result, isErr := toolFindDeploymentIssues(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("toolFindDeploymentIssues() returned error: %s", result)
 	}
@@ -204,7 +204,7 @@ func TestToolFindDeploymentIssues_ListError(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolFindDeploymentIssues(context.Background(), map[string]interface{}{})
+	result, isErr := toolFindDeploymentIssues(context.Background(), s.deps(), map[string]interface{}{})
 	if !isErr {
 		t.Fatalf("toolFindDeploymentIssues() expected isErr=true on list error, got isErr=false, result=%q", result)
 	}
@@ -222,7 +222,7 @@ func TestToolFindDeploymentIssues_ClientFactoryError(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolFindDeploymentIssues(context.Background(), map[string]interface{}{
+	result, isErr := toolFindDeploymentIssues(context.Background(), s.deps(), map[string]interface{}{
 		"cluster": "nope",
 	})
 	if !isErr {

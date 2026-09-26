@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/server/handlers"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (s *Server) toolFindResourceOwners(ctx context.Context, args map[string]interface{}) (string, bool) {
+func toolFindResourceOwners(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
 	namespace, err := extractAndValidateNamespace(args)
 	if err != nil {
@@ -24,7 +25,7 @@ func (s *Server) toolFindResourceOwners(ctx context.Context, args map[string]int
 		resourceType = "all"
 	}
 
-	client, err := s.getClientForCluster(cluster)
+	client, err := d.GetClientForCluster(cluster)
 	if err != nil {
 		return fmt.Sprintf("Failed to create client: %v", err), true
 	}

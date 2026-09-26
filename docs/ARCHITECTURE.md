@@ -131,7 +131,7 @@ When Claude Code invokes `tools/call`:
 
 Examples:
 
-- ops handlers commonly call `getClientForCluster()` or `cluster.Discoverer`
+- ops handlers receive a `*handlers.Deps` (`pkg/mcp/server/handlers`) and call `deps.GetClientForCluster()` or `deps.Discoverer`
 - deploy handlers commonly use `multicluster.ClientManager`, `Executor`, and `Selector`
 - GitOps handlers call into `pkg/gitops`
 
@@ -171,7 +171,7 @@ Keep handlers grouped by domain.
 
 Expose the tool to MCP clients by adding it to the tool catalog in the relevant server file:
 
-- `pkg/mcp/server/server.go` → `handleToolsList`
+- `pkg/mcp/server/tools_<domain>_registry.go` → `RegisterTool(schema, handler)` in `init()` (listed by `handleToolsList`)
 - `pkg/deploy/mcp/server.go` → `handleListTools`
 
 At this stage define:
@@ -183,9 +183,10 @@ At this stage define:
 
 ### Step 3: wire the dispatcher
 
-Add a new `case` in the tool dispatch switch:
+For `kubestellar-ops`, registration in Step 2 already wires dispatch: `handleToolsCall` looks the tool up in the `handlers.Registry` by name.
 
-- `pkg/mcp/server/server.go` → `handleToolsCall`
+For `kubestellar-deploy`, add a new `case` in the tool dispatch switch:
+
 - `pkg/deploy/mcp/server.go` → `handleToolCall`
 
 This is what connects the public MCP tool name to your Go handler.
@@ -196,9 +197,8 @@ Implementation conventions differ slightly by binary:
 
 #### `kubestellar-ops`
 
-- implement a method on `*Server`
-- accept `context.Context` when the tool performs Kubernetes I/O
-- use `getClientForCluster`, `discoverer`, or shared helpers
+- implement a plain function with the `handlers.ToolHandler` signature: `func(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool)`; handlers never receive `*Server`
+- use `d.GetClientForCluster`, `d.GetDynamicClientForCluster`, `d.GetRESTConfigForCluster`, `d.Discoverer`, or shared helpers
 - return a readable text summary and whether the call should be marked as an error
 
 #### `kubestellar-deploy`

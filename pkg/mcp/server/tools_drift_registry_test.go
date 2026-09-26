@@ -13,7 +13,7 @@ func TestDriftToolRegistry_AllToolsRegistered(t *testing.T) {
 	}
 
 	registered := make(map[string]Tool)
-	for _, td := range toolRegistry {
+	for _, td := range toolRegistry.Defs() {
 		registered[td.Schema.Name] = td.Schema
 	}
 
@@ -27,7 +27,7 @@ func TestDriftToolRegistry_AllToolsRegistered(t *testing.T) {
 func TestDriftToolRegistry_ToolCount(t *testing.T) {
 	expectedCount := 1
 	driftTools := 0
-	for _, td := range toolRegistry {
+	for _, td := range toolRegistry.Defs() {
 		if td.Schema.Name == "detect_drift" {
 			driftTools++
 		}
@@ -41,7 +41,7 @@ func TestDriftToolRegistry_RequiredFields(t *testing.T) {
 	}
 
 	registered := make(map[string]Tool)
-	for _, td := range toolRegistry {
+	for _, td := range toolRegistry.Defs() {
 		registered[td.Schema.Name] = td.Schema
 	}
 
@@ -55,7 +55,7 @@ func TestDriftToolRegistry_RequiredFields(t *testing.T) {
 
 func TestDriftToolRegistry_StringProperties(t *testing.T) {
 	registered := make(map[string]Tool)
-	for _, td := range toolRegistry {
+	for _, td := range toolRegistry.Defs() {
 		registered[td.Schema.Name] = td.Schema
 	}
 

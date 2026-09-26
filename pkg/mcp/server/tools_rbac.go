@@ -5,19 +5,20 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/server/handlers"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (s *Server) toolGetRoles(ctx context.Context, args map[string]interface{}) (string, bool) {
+func toolGetRoles(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
 	namespace, err := extractAndValidateNamespace(args)
 	if err != nil {
 		return fmt.Sprintf("error: %v", err), true
 	}
 
-	client, err := s.getClientForCluster(cluster)
+	client, err := d.GetClientForCluster(cluster)
 	if err != nil {
 		return fmt.Sprintf("Failed to create client: %v", err), true
 	}
@@ -50,11 +51,11 @@ func (s *Server) toolGetRoles(ctx context.Context, args map[string]interface{}) 
 	return sb.String(), false
 }
 
-func (s *Server) toolGetClusterRoles(ctx context.Context, args map[string]interface{}) (string, bool) {
+func toolGetClusterRoles(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
 	includeSystem := args["include_system"] == "true"
 
-	client, err := s.getClientForCluster(cluster)
+	client, err := d.GetClientForCluster(cluster)
 	if err != nil {
 		return fmt.Sprintf("Failed to create client: %v", err), true
 	}
@@ -88,14 +89,14 @@ func (s *Server) toolGetClusterRoles(ctx context.Context, args map[string]interf
 	return header + sb.String(), false
 }
 
-func (s *Server) toolGetRoleBindings(ctx context.Context, args map[string]interface{}) (string, bool) {
+func toolGetRoleBindings(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
 	namespace, err := extractAndValidateNamespace(args)
 	if err != nil {
 		return fmt.Sprintf("error: %v", err), true
 	}
 
-	client, err := s.getClientForCluster(cluster)
+	client, err := d.GetClientForCluster(cluster)
 	if err != nil {
 		return fmt.Sprintf("Failed to create client: %v", err), true
 	}
@@ -130,11 +131,11 @@ func (s *Server) toolGetRoleBindings(ctx context.Context, args map[string]interf
 	return sb.String(), false
 }
 
-func (s *Server) toolGetClusterRoleBindings(ctx context.Context, args map[string]interface{}) (string, bool) {
+func toolGetClusterRoleBindings(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
 	includeSystem := args["include_system"] == "true"
 
-	client, err := s.getClientForCluster(cluster)
+	client, err := d.GetClientForCluster(cluster)
 	if err != nil {
 		return fmt.Sprintf("Failed to create client: %v", err), true
 	}
@@ -184,7 +185,7 @@ func formatSubjects(subjects []rbacv1.Subject) string {
 	return strings.Join(parts, ", ")
 }
 
-func (s *Server) toolCanI(ctx context.Context, args map[string]interface{}) (string, bool) {
+func toolCanI(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
 	verb, _ := args["verb"].(string)
 	resource, _ := args["resource"].(string)
@@ -199,7 +200,7 @@ func (s *Server) toolCanI(ctx context.Context, args map[string]interface{}) (str
 		return "verb and resource are required", true
 	}
 
-	client, err := s.getClientForCluster(cluster)
+	client, err := d.GetClientForCluster(cluster)
 	if err != nil {
 		return fmt.Sprintf("Failed to create client: %v", err), true
 	}
@@ -246,7 +247,7 @@ func (s *Server) toolCanI(ctx context.Context, args map[string]interface{}) (str
 	return sb.String(), false
 }
 
-func (s *Server) toolAnalyzeSubjectPermissions(ctx context.Context, args map[string]interface{}) (string, bool) {
+func toolAnalyzeSubjectPermissions(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
 	subjectKind, _ := args["subject_kind"].(string)
 	subjectName, _ := args["subject_name"].(string)
@@ -259,7 +260,7 @@ func (s *Server) toolAnalyzeSubjectPermissions(ctx context.Context, args map[str
 		return "subject_kind and subject_name are required", true
 	}
 
-	client, err := s.getClientForCluster(cluster)
+	client, err := d.GetClientForCluster(cluster)
 	if err != nil {
 		return fmt.Sprintf("Failed to create client: %v", err), true
 	}
@@ -343,7 +344,7 @@ func subjectMatches(subjects []rbacv1.Subject, kind, name, namespace string) boo
 	return false
 }
 
-func (s *Server) toolDescribeRole(ctx context.Context, args map[string]interface{}) (string, bool) {
+func toolDescribeRole(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
 	name, _ := args["name"].(string)
 	namespace, err := extractAndValidateNamespace(args)
@@ -355,7 +356,7 @@ func (s *Server) toolDescribeRole(ctx context.Context, args map[string]interface
 		return "name is required", true
 	}
 
-	client, err := s.getClientForCluster(cluster)
+	client, err := d.GetClientForCluster(cluster)
 	if err != nil {
 		return fmt.Sprintf("Failed to create client: %v", err), true
 	}

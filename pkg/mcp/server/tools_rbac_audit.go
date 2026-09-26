@@ -6,11 +6,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/server/handlers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-func (s *Server) toolAuditKubeconfig(ctx context.Context, args map[string]interface{}) (string, bool) {
+func toolAuditKubeconfig(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	timeoutSeconds := 5
 	if v, ok := args["timeout_seconds"].(float64); ok {
 		timeoutSeconds = int(v)
@@ -18,8 +19,8 @@ func (s *Server) toolAuditKubeconfig(ctx context.Context, args map[string]interf
 
 	// Load kubeconfig
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	if s.kubeconfig != "" {
-		loadingRules.ExplicitPath = s.kubeconfig
+	if d.Kubeconfig != "" {
+		loadingRules.ExplicitPath = d.Kubeconfig
 	}
 
 	config, err := loadingRules.Load()

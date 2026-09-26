@@ -21,6 +21,7 @@ import (
 	"github.com/kubestellar/kubestellar-mcp/internal/version"
 	"github.com/kubestellar/kubestellar-mcp/pkg/cluster"
 	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/protocol"
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/server/handlers"
 	"github.com/kubestellar/kubestellar-mcp/pkg/metrics"
 )
 
@@ -55,28 +56,40 @@ type (
 	ContentBlock     = protocol.ContentBlock
 )
 
-type discoverer interface {
-	DiscoverClusters(source string) ([]cluster.ClusterInfo, error)
-	CheckHealthByContext(contextName string) (*cluster.HealthInfo, error)
-}
-
-// Server implements an MCP server over stdio
+// Server implements an MCP server over stdio. It owns the protocol boundary
+// (reader/writer/mutex) plus the injectable factories that are handed to tool
+// handlers as a *handlers.Deps; handlers never see *Server itself.
 type Server struct {
 	kubeconfig    string
-	discoverer    discoverer
+	discoverer    handlers.Discoverer
 	clientFactory func(clusterName string) (kubernetes.Interface, error)
 	// restConfigFactory is an injectable factory for REST configs.
-	// When nil, getRestConfigForCluster falls back to loading kubeconfig.
+	// When nil, Deps.GetRESTConfigForCluster falls back to loading kubeconfig.
 	restConfigFactory func(clusterName string) (*rest.Config, error)
 	// dynamicClientFactory is an injectable factory for dynamic clients.
-	// When nil, getDynamicClientForCluster falls back to building a real
-	// client from kubeconfig. Tests set this to inject a fake.
+	// When nil, Deps.GetDynamicClientForCluster falls back to building a
+	// real client from kubeconfig. Tests set this to inject a fake.
 	dynamicClientFactory  func(clusterName string) (dynamic.Interface, error)
-	manifestReaderFactory func() manifestReader
-	driftDetectorFactory  func(config *rest.Config) (driftDetector, error)
+	manifestReaderFactory func() handlers.ManifestReader
+	driftDetectorFactory  func(config *rest.Config) (handlers.DriftDetector, error)
 	reader                *bufio.Reader
 	writer                io.Writer
 	mu                    sync.Mutex
+}
+
+// deps projects the server's injectable dependencies into the *handlers.Deps
+// that tool handlers receive. It is built per call so that factories set on
+// the Server after construction (as tests do) are always observed.
+func (s *Server) deps() *handlers.Deps {
+	return &handlers.Deps{
+		Kubeconfig:            s.kubeconfig,
+		Discoverer:            s.discoverer,
+		ClientFactory:         s.clientFactory,
+		DynamicClientFactory:  s.dynamicClientFactory,
+		RESTConfigFactory:     s.restConfigFactory,
+		ManifestReaderFactory: s.manifestReaderFactory,
+		DriftDetectorFactory:  s.driftDetectorFactory,
+	}
 }
 
 // NewServer creates a new MCP server
@@ -182,7 +195,7 @@ func (s *Server) handleToolsCall(ctx context.Context, req *Request) {
 	}
 
 	start := time.Now()
-	result, isError := handler(ctx, s, params.Arguments)
+	result, isError := handler(ctx, s.deps(), params.Arguments)
 	duration := time.Since(start)
 	metrics.RecordToolCall(params.Name, cluster, duration, isError, errKindFromContext(ctx))
 

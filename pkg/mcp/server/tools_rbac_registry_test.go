@@ -19,7 +19,7 @@ func TestRBACToolRegistry_AllToolsRegistered(t *testing.T) {
 	}
 
 	registered := make(map[string]Tool)
-	for _, td := range toolRegistry {
+	for _, td := range toolRegistry.Defs() {
 		registered[td.Schema.Name] = td.Schema
 	}
 
@@ -33,7 +33,7 @@ func TestRBACToolRegistry_AllToolsRegistered(t *testing.T) {
 func TestRBACToolRegistry_ToolCount(t *testing.T) {
 	expectedCount := 7
 	rbacTools := 0
-	for _, td := range toolRegistry {
+	for _, td := range toolRegistry.Defs() {
 		switch td.Schema.Name {
 		case "get_roles", "get_cluster_roles", "get_role_bindings",
 			"get_cluster_role_bindings", "can_i", "analyze_subject_permissions",
@@ -52,7 +52,7 @@ func TestRBACToolRegistry_RequiredFields(t *testing.T) {
 	}
 
 	registered := make(map[string]Tool)
-	for _, td := range toolRegistry {
+	for _, td := range toolRegistry.Defs() {
 		registered[td.Schema.Name] = td.Schema
 	}
 
@@ -66,7 +66,7 @@ func TestRBACToolRegistry_RequiredFields(t *testing.T) {
 
 func TestRBACToolRegistry_EnumFields(t *testing.T) {
 	registered := make(map[string]Tool)
-	for _, td := range toolRegistry {
+	for _, td := range toolRegistry.Defs() {
 		registered[td.Schema.Name] = td.Schema
 	}
 

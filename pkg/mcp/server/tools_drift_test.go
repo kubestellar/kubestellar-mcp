@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/server/handlers"
 	"k8s.io/client-go/rest"
 )
 
@@ -74,10 +75,10 @@ func TestToolDetectDrift(t *testing.T) {
 			restConfigFactory: func(clusterName string) (*rest.Config, error) {
 				return &rest.Config{Host: "https://cluster.example"}, nil
 			},
-			manifestReaderFactory: func() manifestReader {
+			manifestReaderFactory: func() handlers.ManifestReader {
 				return reader
 			},
-			driftDetectorFactory: func(config *rest.Config) (driftDetector, error) {
+			driftDetectorFactory: func(config *rest.Config) (handlers.DriftDetector, error) {
 				detectorCreated = true
 				return &fakeDriftDetector{}, nil
 			},
@@ -138,10 +139,10 @@ func TestToolDetectDrift(t *testing.T) {
 				}
 				return &rest.Config{Host: "https://cluster.example"}, nil
 			},
-			manifestReaderFactory: func() manifestReader {
+			manifestReaderFactory: func() handlers.ManifestReader {
 				return reader
 			},
-			driftDetectorFactory: func(config *rest.Config) (driftDetector, error) {
+			driftDetectorFactory: func(config *rest.Config) (handlers.DriftDetector, error) {
 				if config.Host != "https://cluster.example" {
 					t.Fatalf("driftDetectorFactory host = %q", config.Host)
 				}

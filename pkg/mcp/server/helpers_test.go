@@ -78,7 +78,6 @@ func TestParseHelmSecret(t *testing.T) {
 		},
 	}
 
-	s := &Server{}
 	for _, tc := range []struct {
 		name   string
 		secret *corev1.Secret
@@ -87,7 +86,7 @@ func TestParseHelmSecret(t *testing.T) {
 		{name: "raw gzipped", secret: newHelmSecret(t, release, false)},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			parsed := s.parseHelmSecret(tc.secret)
+			parsed := parseHelmSecret(tc.secret)
 			if parsed == nil {
 				t.Fatal("parseHelmSecret() returned nil")
 			}
@@ -97,7 +96,7 @@ func TestParseHelmSecret(t *testing.T) {
 		})
 	}
 
-	if got := s.parseHelmSecret(&corev1.Secret{Type: corev1.SecretTypeOpaque}); got != nil {
+	if got := parseHelmSecret(&corev1.Secret{Type: corev1.SecretTypeOpaque}); got != nil {
 		t.Fatalf("parseHelmSecret() for non-helm secret = %#v, want nil", got)
 	}
 }

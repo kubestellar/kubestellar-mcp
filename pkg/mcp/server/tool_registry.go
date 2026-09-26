@@ -1,42 +1,32 @@
 package server
 
-import "context"
+import "github.com/kubestellar/kubestellar-mcp/pkg/mcp/server/handlers"
 
-// ToolHandler is a function that executes a tool and returns (result, isError).
-type ToolHandler func(ctx context.Context, s *Server, args map[string]interface{}) (string, bool)
+// ToolHandler and ToolDef are the handler types shared with domain packages.
+// They are aliases so registry files in this package keep compiling unchanged
+// while domain code migrates to importing handlers directly.
+type (
+	ToolHandler = handlers.ToolHandler
+	ToolDef     = handlers.ToolDef
+)
 
-// ToolDef co-locates a tool's schema with its handler implementation.
-type ToolDef struct {
-	Schema  Tool
-	Handler ToolHandler
-}
+// toolRegistry holds all registered tool definitions. Domain files register
+// into it via init() or explicit registration functions.
+var toolRegistry = handlers.NewRegistry()
 
-// toolRegistry holds all registered tool definitions. Domain files append to
-// this slice via init() or explicit registration functions.
-var toolRegistry []ToolDef
-
-// RegisterTool adds a tool definition to the global registry. Called from
-// domain-specific files (tools_cluster.go, tools_workloads.go, etc.) during
-// package initialization.
+// RegisterTool adds a tool definition to the package registry. Called from
+// domain-specific files (tools_cluster_registry.go, tools_workloads_registry.go,
+// etc.) during package initialization.
 func RegisterTool(schema Tool, handler ToolHandler) {
-	toolRegistry = append(toolRegistry, ToolDef{Schema: schema, Handler: handler})
+	toolRegistry.Register(schema, handler)
 }
 
 // registeredTools returns all registered tool schemas.
 func registeredTools() []Tool {
-	tools := make([]Tool, len(toolRegistry))
-	for i, td := range toolRegistry {
-		tools[i] = td.Schema
-	}
-	return tools
+	return toolRegistry.Tools()
 }
 
 // findToolHandler looks up a handler by tool name. Returns nil if not found.
 func findToolHandler(name string) ToolHandler {
-	for _, td := range toolRegistry {
-		if td.Schema.Name == name {
-			return td.Handler
-		}
-	}
-	return nil
+	return toolRegistry.Find(name)
 }
