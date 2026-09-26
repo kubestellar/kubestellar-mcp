@@ -111,6 +111,7 @@ brews:
       bin.install "kubestellar-ops"
     test: |
       system bin/"kubestellar-ops", "version"
+      system bin/"kubestellar-ops", "--help"
 
   - name: kubestellar-deploy
     ids:
@@ -127,3 +128,4 @@ brews:
       bin.install "kubestellar-deploy"
     test: |
       system bin/"kubestellar-deploy", "version"
+      system bin/"kubestellar-deploy", "--help"
