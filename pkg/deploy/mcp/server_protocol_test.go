@@ -453,7 +453,7 @@ func TestHandleInitializeResponseStructure(t *testing.T) {
 	assert.True(t, hasTools, "capabilities must include tools")
 }
 
-// marshalRequest is a test helper that marshals an protocol.Request to a JSON string.
+// marshalRequest is a test helper that marshals a protocol.Request to a JSON string.
 func marshalRequest(t *testing.T, req protocol.Request) string {
 	t.Helper()
 	data, err := json.Marshal(req)
