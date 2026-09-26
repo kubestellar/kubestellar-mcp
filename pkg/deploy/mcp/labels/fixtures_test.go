@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -13,6 +14,8 @@ import (
 	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 func mustMarshalJSON(t *testing.T, v interface{}) json.RawMessage {
@@ -112,6 +115,92 @@ func (d *fakeDeps) IsSensitiveKind(kind string) bool {
 }
 
 func (d *fakeDeps) SensitiveKindError(kind string) error {
+	return fmt.Errorf("%q resources are blocked via MCP kubectl tools to prevent privilege escalation; use kubectl directly for this sensitive operation", kind)
+}
+
+type realDeps struct {
+	manager  *multicluster.ClientManager
+	executor *multicluster.Executor
+}
+
+func newRealDeps(t *testing.T, contexts map[string]string) Deps {
+	t.Helper()
+
+	config := clientcmdapi.NewConfig()
+	firstContext := ""
+	for name, serverURL := range contexts {
+		if firstContext == "" {
+			firstContext = name
+		}
+		config.Contexts[name] = &clientcmdapi.Context{Cluster: name, AuthInfo: name}
+		config.Clusters[name] = &clientcmdapi.Cluster{Server: serverURL}
+		config.AuthInfos[name] = &clientcmdapi.AuthInfo{}
+	}
+	config.CurrentContext = firstContext
+
+	kubeconfig := filepath.Join(t.TempDir(), "config")
+	if err := clientcmd.WriteToFile(*config, kubeconfig); err != nil {
+		t.Fatalf("clientcmd.WriteToFile: %v", err)
+	}
+
+	manager, err := multicluster.NewClientManager(kubeconfig)
+	if err != nil {
+		t.Fatalf("multicluster.NewClientManager: %v", err)
+	}
+
+	return &realDeps{
+		manager:  manager,
+		executor: multicluster.NewExecutor(manager),
+	}
+}
+
+func (d *realDeps) DiscoverClusterNames() ([]string, error) {
+	clusters, err := d.manager.DiscoverClusters()
+	if err != nil {
+		return nil, err
+	}
+	names := make([]string, 0, len(clusters))
+	for _, c := range clusters {
+		names = append(names, c.Name)
+	}
+	return names, nil
+}
+
+func (d *realDeps) ExecuteOnSelected(ctx context.Context, clusterNames []string, fn multicluster.ExecuteFunc) ([]multicluster.ClusterResult, error) {
+	return d.executor.ExecuteOnSelected(ctx, clusterNames, fn)
+}
+
+var sensitiveKinds = map[string]bool{
+	"clusterrole":                     true,
+	"clusterroles":                    true,
+	"clusterrolebinding":              true,
+	"clusterrolebindings":             true,
+	"role":                            true,
+	"roles":                           true,
+	"rolebinding":                     true,
+	"rolebindings":                    true,
+	"secret":                          true,
+	"secrets":                         true,
+	"serviceaccount":                  true,
+	"serviceaccounts":                 true,
+	"sa":                              true,
+	"mutatingwebhookconfiguration":    true,
+	"mutatingwebhookconfigurations":   true,
+	"validatingwebhookconfiguration":  true,
+	"validatingwebhookconfigurations": true,
+	"certificatesigningrequest":       true,
+	"certificatesigningrequests":      true,
+	"csr":                             true,
+	"podsecuritypolicy":               true,
+	"podsecuritypolicies":             true,
+	"psp":                             true,
+}
+
+func (d *realDeps) IsSensitiveKind(kind string) bool {
+	return sensitiveKinds[strings.ToLower(kind)]
+}
+
+func (d *realDeps) SensitiveKindError(kind string) error {
 	return fmt.Errorf("%q resources are blocked via MCP kubectl tools to prevent privilege escalation; use kubectl directly for this sensitive operation", kind)
 }
 

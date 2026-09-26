@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/protocol"
 	"io"
 	"os"
 	"strings"
@@ -21,7 +22,7 @@ import (
 func TestRunProcessesMultipleRequestsAndHandlesEOF(t *testing.T) {
 	server := newHelmTestServer(t, map[string]string{})
 
-	requests := []MCPRequest{
+	requests := []protocol.Request{
 		{JSONRPC: "2.0", ID: 1, Method: "initialize"},
 		{JSONRPC: "2.0", ID: 2, Method: "tools/list"},
 		{JSONRPC: "2.0", ID: 3, Method: "unknown_method"},
@@ -71,18 +72,18 @@ func TestRunProcessesMultipleRequestsAndHandlesEOF(t *testing.T) {
 	require.Len(t, lines, 3, "expected 3 responses for 3 requests")
 
 	// Verify initialize response
-	var resp1 MCPResponse
+	var resp1 protocol.Response
 	require.NoError(t, json.Unmarshal([]byte(lines[0]), &resp1))
 	assert.Equal(t, "2.0", resp1.JSONRPC)
 	assert.Nil(t, resp1.Error)
 
 	// Verify tools/list response
-	var resp2 MCPResponse
+	var resp2 protocol.Response
 	require.NoError(t, json.Unmarshal([]byte(lines[1]), &resp2))
 	assert.Nil(t, resp2.Error)
 
 	// Verify unknown method returns error
-	var resp3 MCPResponse
+	var resp3 protocol.Response
 	require.NoError(t, json.Unmarshal([]byte(lines[2]), &resp3))
 	require.NotNil(t, resp3.Error)
 	assert.Equal(t, -32601, resp3.Error.Code)
@@ -94,7 +95,7 @@ func TestRunSkipsEmptyLines(t *testing.T) {
 	server := newHelmTestServer(t, map[string]string{})
 
 	// Input with empty lines interspersed
-	input := "\n\n" + marshalRequest(t, MCPRequest{JSONRPC: "2.0", ID: 1, Method: "initialize"}) + "\n\n\n"
+	input := "\n\n" + marshalRequest(t, protocol.Request{JSONRPC: "2.0", ID: 1, Method: "initialize"}) + "\n\n\n"
 
 	origStdin := os.Stdin
 	origStdout := os.Stdout
@@ -132,7 +133,7 @@ func TestRunSkipsEmptyLines(t *testing.T) {
 func TestRunHandlesMalformedJSON(t *testing.T) {
 	server := newHelmTestServer(t, map[string]string{})
 
-	input := "{not valid json}\n" + marshalRequest(t, MCPRequest{JSONRPC: "2.0", ID: 99, Method: "initialize"}) + "\n"
+	input := "{not valid json}\n" + marshalRequest(t, protocol.Request{JSONRPC: "2.0", ID: 99, Method: "initialize"}) + "\n"
 
 	origStdin := os.Stdin
 	origStdout := os.Stdout
@@ -165,14 +166,14 @@ func TestRunHandlesMalformedJSON(t *testing.T) {
 	require.Len(t, lines, 2, "malformed JSON + valid request = 2 responses")
 
 	// First response should be a parse error
-	var parseErr MCPResponse
+	var parseErr protocol.Response
 	require.NoError(t, json.Unmarshal([]byte(lines[0]), &parseErr))
 	require.NotNil(t, parseErr.Error)
 	assert.Equal(t, -32700, parseErr.Error.Code)
 	assert.Contains(t, parseErr.Error.Message, "Parse error")
 
 	// Second response should be a valid initialize response
-	var initResp MCPResponse
+	var initResp protocol.Response
 	require.NoError(t, json.Unmarshal([]byte(lines[1]), &initResp))
 	assert.Nil(t, initResp.Error)
 }
@@ -189,7 +190,7 @@ func TestSendResponseWritesNewlineDelimitedJSON(t *testing.T) {
 	require.NoError(t, err)
 	os.Stdout = w
 
-	resp := &MCPResponse{
+	resp := &protocol.Response{
 		JSONRPC: "2.0",
 		ID:      42,
 		Result:  map[string]interface{}{"hello": "world"},
@@ -206,7 +207,7 @@ func TestSendResponseWritesNewlineDelimitedJSON(t *testing.T) {
 	assert.False(t, strings.Contains(trimmed, "\n"), "should be a single line")
 
 	// Must be valid JSON
-	var decoded MCPResponse
+	var decoded protocol.Response
 	require.NoError(t, json.Unmarshal(output, &decoded))
 	assert.Equal(t, "2.0", decoded.JSONRPC)
 	assert.Equal(t, float64(42), decoded.ID)
@@ -230,7 +231,7 @@ func TestSendErrorWritesErrorResponse(t *testing.T) {
 	output, err := io.ReadAll(r)
 	require.NoError(t, err)
 
-	var decoded MCPResponse
+	var decoded protocol.Response
 	require.NoError(t, json.Unmarshal(output, &decoded))
 	assert.Equal(t, "2.0", decoded.JSONRPC)
 	assert.Equal(t, float64(7), decoded.ID)
@@ -257,7 +258,7 @@ func TestSendErrorWithNilID(t *testing.T) {
 	output, err := io.ReadAll(r)
 	require.NoError(t, err)
 
-	var decoded MCPResponse
+	var decoded protocol.Response
 	require.NoError(t, json.Unmarshal(output, &decoded))
 	assert.Nil(t, decoded.ID)
 	require.NotNil(t, decoded.Error)
@@ -269,7 +270,7 @@ func TestSendErrorWithNilID(t *testing.T) {
 func TestHandleRequestWithNullID(t *testing.T) {
 	server := newHelmTestServer(t, map[string]string{})
 
-	resp := server.handleRequest(&MCPRequest{JSONRPC: "2.0", ID: nil, Method: "initialize"})
+	resp := server.handleRequest(&protocol.Request{JSONRPC: "2.0", ID: nil, Method: "initialize"})
 	require.NotNil(t, resp)
 	assert.Nil(t, resp.ID)
 	assert.Nil(t, resp.Error)
@@ -280,7 +281,7 @@ func TestHandleRequestWithNullID(t *testing.T) {
 func TestHandleRequestWithStringID(t *testing.T) {
 	server := newHelmTestServer(t, map[string]string{})
 
-	resp := server.handleRequest(&MCPRequest{JSONRPC: "2.0", ID: "abc-123", Method: "initialize"})
+	resp := server.handleRequest(&protocol.Request{JSONRPC: "2.0", ID: "abc-123", Method: "initialize"})
 	require.NotNil(t, resp)
 	assert.Equal(t, "abc-123", resp.ID)
 	assert.Nil(t, resp.Error)
@@ -291,7 +292,7 @@ func TestHandleRequestWithStringID(t *testing.T) {
 func TestHandleRequestNotificationsInitializedReturnsNil(t *testing.T) {
 	server := newHelmTestServer(t, map[string]string{})
 
-	resp := server.handleRequest(&MCPRequest{JSONRPC: "2.0", ID: 1, Method: "notifications/initialized"})
+	resp := server.handleRequest(&protocol.Request{JSONRPC: "2.0", ID: 1, Method: "notifications/initialized"})
 	assert.Nil(t, resp, "notifications/initialized should return nil (no response)")
 }
 
@@ -300,7 +301,7 @@ func TestHandleRequestNotificationsInitializedReturnsNil(t *testing.T) {
 func TestHandleRequestInitializedReturnsNil(t *testing.T) {
 	server := newHelmTestServer(t, map[string]string{})
 
-	resp := server.handleRequest(&MCPRequest{JSONRPC: "2.0", ID: 1, Method: "initialized"})
+	resp := server.handleRequest(&protocol.Request{JSONRPC: "2.0", ID: 1, Method: "initialized"})
 	assert.Nil(t, resp, "initialized should return nil (no response)")
 }
 
@@ -312,7 +313,7 @@ func TestHandleToolCallSuccessPathFormatsResultAsContent(t *testing.T) {
 	dir := createTestKustomization(t, "kustomization.yaml")
 	t.Setenv("FAKE_KUSTOMIZE_BUILD_STDOUT", "kind: ConfigMap\nmetadata:\n  name: test\n")
 
-	resp := server.handleToolCall(context.Background(), &MCPRequest{
+	resp := server.handleToolCall(context.Background(), &protocol.Request{
 		JSONRPC: "2.0",
 		ID:      10,
 		Params: mustMarshalJSON(t, map[string]interface{}{
@@ -343,7 +344,7 @@ func TestHandleToolCallSuccessPathFormatsResultAsContent(t *testing.T) {
 func TestHandleToolCallWithNullParams(t *testing.T) {
 	server := newHelmTestServer(t, map[string]string{})
 
-	resp := server.handleToolCall(context.Background(), &MCPRequest{
+	resp := server.handleToolCall(context.Background(), &protocol.Request{
 		JSONRPC: "2.0",
 		ID:      5,
 		Params:  nil,
@@ -358,7 +359,7 @@ func TestHandleToolCallWithNullParams(t *testing.T) {
 func TestHandleToolCallWithEmptyParams(t *testing.T) {
 	server := newHelmTestServer(t, map[string]string{})
 
-	resp := server.handleToolCall(context.Background(), &MCPRequest{
+	resp := server.handleToolCall(context.Background(), &protocol.Request{
 		JSONRPC: "2.0",
 		ID:      6,
 		Params:  mustMarshalJSON(t, map[string]interface{}{}),
@@ -377,7 +378,7 @@ func TestRunLargeMessageWithinBufferLimit(t *testing.T) {
 
 	// Create a request with a large params field (under 1MB)
 	largeValue := strings.Repeat("x", 500000)
-	req := MCPRequest{
+	req := protocol.Request{
 		JSONRPC: "2.0",
 		ID:      1,
 		Method:  "tools/call",
@@ -423,7 +424,7 @@ func TestRunLargeMessageWithinBufferLimit(t *testing.T) {
 	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
 	require.Len(t, lines, 1)
 
-	var resp MCPResponse
+	var resp protocol.Response
 	require.NoError(t, json.Unmarshal([]byte(lines[0]), &resp))
 	// Should get an "Unknown tool" error for "missing_tool"
 	require.NotNil(t, resp.Error)
@@ -435,7 +436,7 @@ func TestRunLargeMessageWithinBufferLimit(t *testing.T) {
 func TestHandleInitializeResponseStructure(t *testing.T) {
 	server := newHelmTestServer(t, map[string]string{})
 
-	resp := server.handleRequest(&MCPRequest{JSONRPC: "2.0", ID: 1, Method: "initialize"})
+	resp := server.handleRequest(&protocol.Request{JSONRPC: "2.0", ID: 1, Method: "initialize"})
 	require.NotNil(t, resp)
 	assert.Equal(t, "2.0", resp.JSONRPC)
 	assert.Nil(t, resp.Error)
@@ -452,8 +453,8 @@ func TestHandleInitializeResponseStructure(t *testing.T) {
 	assert.True(t, hasTools, "capabilities must include tools")
 }
 
-// marshalRequest is a test helper that marshals an MCPRequest to a JSON string.
-func marshalRequest(t *testing.T, req MCPRequest) string {
+// marshalRequest is a test helper that marshals an protocol.Request to a JSON string.
+func marshalRequest(t *testing.T, req protocol.Request) string {
 	t.Helper()
 	data, err := json.Marshal(req)
 	require.NoError(t, err)
@@ -466,7 +467,7 @@ func TestHandleToolCallErrorPathFormatsAsContent(t *testing.T) {
 	server := newHelmTestServer(t, map[string]string{})
 
 	// Call deploy_app with invalid arguments to trigger a handler error
-	resp := server.handleToolCall(context.Background(), &MCPRequest{
+	resp := server.handleToolCall(context.Background(), &protocol.Request{
 		JSONRPC: "2.0",
 		ID:      20,
 		Params: mustMarshalJSON(t, map[string]interface{}{
@@ -504,7 +505,7 @@ func TestHandleRequestPreservesNumericID(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			resp := server.handleRequest(&MCPRequest{JSONRPC: "2.0", ID: tc.id, Method: "initialize"})
+			resp := server.handleRequest(&protocol.Request{JSONRPC: "2.0", ID: tc.id, Method: "initialize"})
 			require.NotNil(t, resp)
 			assert.Equal(t, tc.id, resp.ID)
 		})
@@ -524,7 +525,7 @@ func TestSendResponseMultipleCallsProduceSeparateLines(t *testing.T) {
 	os.Stdout = w
 
 	for i := 1; i <= 3; i++ {
-		server.sendResponse(&MCPResponse{
+		server.sendResponse(&protocol.Response{
 			JSONRPC: "2.0",
 			ID:      i,
 			Result:  fmt.Sprintf("result-%d", i),
@@ -539,7 +540,7 @@ func TestSendResponseMultipleCallsProduceSeparateLines(t *testing.T) {
 	assert.Len(t, lines, 3, "3 sendResponse calls should produce 3 lines")
 
 	for i, line := range lines {
-		var resp MCPResponse
+		var resp protocol.Response
 		require.NoError(t, json.Unmarshal([]byte(line), &resp), "line %d should be valid JSON", i)
 	}
 }

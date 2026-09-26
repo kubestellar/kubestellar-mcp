@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/protocol"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -56,7 +57,7 @@ func TestHandleToolCallDispatchArmsFormatErrorContent(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			server := newHelmTestServer(t, map[string]string{})
 
-			resp := server.handleToolCall(context.Background(), &MCPRequest{
+			resp := server.handleToolCall(context.Background(), &protocol.Request{
 				JSONRPC: "2.0",
 				ID:      1,
 				Params: mustMarshalJSON(t, map[string]interface{}{
@@ -94,7 +95,7 @@ func TestHandleToolCallDispatchArmsFormatErrorContent(t *testing.T) {
 func TestHandleToolCallDispatchArmsHandleMalformedArgs(t *testing.T) {
 	server := newHelmTestServer(t, map[string]string{})
 
-	resp := server.handleToolCall(context.Background(), &MCPRequest{
+	resp := server.handleToolCall(context.Background(), &protocol.Request{
 		JSONRPC: "2.0",
 		ID:      1,
 		Params: mustMarshalJSON(t, map[string]interface{}{

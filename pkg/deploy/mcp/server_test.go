@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/protocol"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,7 +13,7 @@ import (
 func TestHandleRequestLifecycleAndUnknownMethod(t *testing.T) {
 	server := newHelmTestServer(t, map[string]string{})
 
-	initResp := server.handleRequest(&MCPRequest{JSONRPC: "2.0", ID: 1, Method: "initialize"})
+	initResp := server.handleRequest(&protocol.Request{JSONRPC: "2.0", ID: 1, Method: "initialize"})
 	require.NotNil(t, initResp)
 	assert.Nil(t, initResp.Error)
 	result := initResp.Result.(map[string]interface{})
@@ -20,9 +21,9 @@ func TestHandleRequestLifecycleAndUnknownMethod(t *testing.T) {
 	assert.Equal(t, ServerName, serverInfo["name"])
 	assert.Equal(t, ServerVersion, serverInfo["version"])
 
-	assert.Nil(t, server.handleRequest(&MCPRequest{JSONRPC: "2.0", ID: 2, Method: "notifications/initialized"}))
+	assert.Nil(t, server.handleRequest(&protocol.Request{JSONRPC: "2.0", ID: 2, Method: "notifications/initialized"}))
 
-	unknownResp := server.handleRequest(&MCPRequest{JSONRPC: "2.0", ID: 3, Method: "unknown"})
+	unknownResp := server.handleRequest(&protocol.Request{JSONRPC: "2.0", ID: 3, Method: "unknown"})
 	require.NotNil(t, unknownResp)
 	require.NotNil(t, unknownResp.Error)
 	assert.Equal(t, -32601, unknownResp.Error.Code)
@@ -30,7 +31,7 @@ func TestHandleRequestLifecycleAndUnknownMethod(t *testing.T) {
 
 func TestHandleListToolsIncludesDeploymentGitOpsAndKustomizeTools(t *testing.T) {
 	server := newHelmTestServer(t, map[string]string{})
-	resp := server.handleListTools(&MCPRequest{JSONRPC: "2.0", ID: 1})
+	resp := server.handleListTools(&protocol.Request{JSONRPC: "2.0", ID: 1})
 	require.NotNil(t, resp)
 
 	payload := resp.Result.(map[string]interface{})
@@ -48,11 +49,11 @@ func TestHandleListToolsIncludesDeploymentGitOpsAndKustomizeTools(t *testing.T) 
 func TestHandleToolCallReturnsErrorResponsesForInvalidParamsAndUnknownTool(t *testing.T) {
 	server := newHelmTestServer(t, map[string]string{})
 
-	invalid := server.handleToolCall(context.Background(), &MCPRequest{JSONRPC: "2.0", ID: 1, Params: []byte(`{invalid`)})
+	invalid := server.handleToolCall(context.Background(), &protocol.Request{JSONRPC: "2.0", ID: 1, Params: []byte(`{invalid`)})
 	require.NotNil(t, invalid.Error)
 	assert.Equal(t, -32602, invalid.Error.Code)
 
-	unknown := server.handleToolCall(context.Background(), &MCPRequest{JSONRPC: "2.0", ID: 2, Params: mustMarshalJSON(t, map[string]interface{}{"name": "missing_tool", "arguments": map[string]interface{}{}})})
+	unknown := server.handleToolCall(context.Background(), &protocol.Request{JSONRPC: "2.0", ID: 2, Params: mustMarshalJSON(t, map[string]interface{}{"name": "missing_tool", "arguments": map[string]interface{}{}})})
 	require.NotNil(t, unknown.Error)
 	assert.Equal(t, -32601, unknown.Error.Code)
 	assert.Contains(t, unknown.Error.Message, "Unknown tool")
@@ -61,7 +62,7 @@ func TestHandleToolCallReturnsErrorResponsesForInvalidParamsAndUnknownTool(t *te
 func TestHandleToolCallFormatsHandlerErrorsAsContent(t *testing.T) {
 	server := newHelmTestServer(t, map[string]string{})
 
-	resp := server.handleToolCall(context.Background(), &MCPRequest{JSONRPC: "2.0", ID: 1, Params: mustMarshalJSON(t, map[string]interface{}{
+	resp := server.handleToolCall(context.Background(), &protocol.Request{JSONRPC: "2.0", ID: 1, Params: mustMarshalJSON(t, map[string]interface{}{
 		"name":      "kustomize_build",
 		"arguments": map[string]interface{}{},
 	})})
@@ -80,7 +81,7 @@ func TestHandleToolCallDispatchesKustomizeBuild(t *testing.T) {
 	dir := createTestKustomization(t, "kustomization.yaml")
 	t.Setenv("FAKE_KUSTOMIZE_BUILD_STDOUT", "kind: ConfigMap\nmetadata:\n  name: demo\n")
 
-	resp := server.handleToolCall(context.Background(), &MCPRequest{JSONRPC: "2.0", ID: 1, Params: mustMarshalJSON(t, map[string]interface{}{
+	resp := server.handleToolCall(context.Background(), &protocol.Request{JSONRPC: "2.0", ID: 1, Params: mustMarshalJSON(t, map[string]interface{}{
 		"name":      "kustomize_build",
 		"arguments": map[string]interface{}{"path": dir},
 	})})
