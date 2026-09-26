@@ -37,11 +37,14 @@ jobs:
           cache: true
 
       - name: Run ${{ matrix.target }}
+        env:
+          FUZZTIME: ${{ github.event.inputs.fuzztime || '5m' }}
+          TARGET: ${{ matrix.target }}
+          PACKAGE: ${{ matrix.package }}
         run: |
-          FUZZTIME="${{ github.event.inputs.fuzztime || '5m' }}"
-          echo "Fuzzing ${{ matrix.target }} in ${{ matrix.package }} for ${FUZZTIME}"
+          echo "Fuzzing ${TARGET} in ${PACKAGE} for ${FUZZTIME}"
           # -run=^$ skips normal tests; -fuzz picks a single target.
-          go test -run='^$' -fuzz='^${{ matrix.target }}$' -fuzztime="${FUZZTIME}" ${{ matrix.package }}
+          go test -run='^$' -fuzz="^${TARGET}\$" -fuzztime="${FUZZTIME}" "${PACKAGE}"
 
       - name: Upload crashers
         if: failure()
