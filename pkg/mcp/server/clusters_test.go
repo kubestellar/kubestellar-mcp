@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -47,7 +48,7 @@ func (m *mockDiscoverer) CheckHealthByContext(contextName string) (*cluster.Heal
 func TestToolListClusters_Empty(t *testing.T) {
 	s := &Server{discoverer: &mockDiscoverer{clusters: nil}}
 
-	result, isErr := s.toolListClusters(map[string]interface{}{})
+	result, isErr := toolListClusters(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("unexpected error: %s", result)
 	}
@@ -59,7 +60,7 @@ func TestToolListClusters_Empty(t *testing.T) {
 func TestToolListClusters_DiscoveryError(t *testing.T) {
 	s := &Server{discoverer: &mockDiscoverer{err: errors.New("kubeconfig not found")}}
 
-	result, isErr := s.toolListClusters(map[string]interface{}{})
+	result, isErr := toolListClusters(context.Background(), s.deps(), map[string]interface{}{})
 	if !isErr {
 		t.Fatal("expected isErr=true for discovery failure")
 	}
@@ -76,7 +77,7 @@ func TestToolListClusters_MultipleClusters(t *testing.T) {
 		},
 	}}
 
-	result, isErr := s.toolListClusters(map[string]interface{}{})
+	result, isErr := toolListClusters(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("unexpected error: %s", result)
 	}
@@ -103,7 +104,7 @@ func TestToolListClusters_SourceFilter(t *testing.T) {
 		},
 	}}
 
-	result, isErr := s.toolListClusters(map[string]interface{}{"source": "kubestellar"})
+	result, isErr := toolListClusters(context.Background(), s.deps(), map[string]interface{}{"source": "kubestellar"})
 	if isErr {
 		t.Fatalf("unexpected error: %s", result)
 	}
@@ -126,7 +127,7 @@ func TestToolGetClusterHealth_CurrentCluster(t *testing.T) {
 		},
 	}}
 
-	result, isErr := s.toolGetClusterHealth(map[string]interface{}{})
+	result, isErr := toolGetClusterHealth(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("unexpected error: %s", result)
 	}
@@ -153,7 +154,7 @@ func TestToolGetClusterHealth_ByName(t *testing.T) {
 		},
 	}}
 
-	result, isErr := s.toolGetClusterHealth(map[string]interface{}{"cluster": "staging"})
+	result, isErr := toolGetClusterHealth(context.Background(), s.deps(), map[string]interface{}{"cluster": "staging"})
 	if isErr {
 		t.Fatalf("unexpected error: %s", result)
 	}
@@ -176,7 +177,7 @@ func TestToolGetClusterHealth_ClusterNotFound(t *testing.T) {
 		},
 	}}
 
-	result, isErr := s.toolGetClusterHealth(map[string]interface{}{"cluster": "nonexistent"})
+	result, isErr := toolGetClusterHealth(context.Background(), s.deps(), map[string]interface{}{"cluster": "nonexistent"})
 	if !isErr {
 		t.Fatal("expected isErr=true for missing cluster")
 	}
@@ -192,7 +193,7 @@ func TestToolGetClusterHealth_NoCurrentContext(t *testing.T) {
 		},
 	}}
 
-	result, isErr := s.toolGetClusterHealth(map[string]interface{}{})
+	result, isErr := toolGetClusterHealth(context.Background(), s.deps(), map[string]interface{}{})
 	if !isErr {
 		t.Fatal("expected isErr=true when no current context")
 	}
@@ -204,7 +205,7 @@ func TestToolGetClusterHealth_NoCurrentContext(t *testing.T) {
 func TestToolGetClusterHealth_DiscoveryError(t *testing.T) {
 	s := &Server{discoverer: &mockDiscoverer{err: errors.New("connection refused")}}
 
-	result, isErr := s.toolGetClusterHealth(map[string]interface{}{})
+	result, isErr := toolGetClusterHealth(context.Background(), s.deps(), map[string]interface{}{})
 	if !isErr {
 		t.Fatal("expected isErr=true for discovery error")
 	}
@@ -226,7 +227,7 @@ func TestToolGetClusterHealth_ByContext(t *testing.T) {
 	}}
 
 	// toolGetClusterHealth matches by Name OR Context
-	result, isErr := s.toolGetClusterHealth(map[string]interface{}{"cluster": "prod-ctx"})
+	result, isErr := toolGetClusterHealth(context.Background(), s.deps(), map[string]interface{}{"cluster": "prod-ctx"})
 	if isErr {
 		t.Fatalf("unexpected error: %s", result)
 	}

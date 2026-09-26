@@ -1,20 +1,20 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/server/handlers"
 )
 
-func (s *Server) toolListClusters(args map[string]interface{}) (string, bool) {
+func toolListClusters(_ context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	source := "all"
 	if v, ok := args["source"].(string); ok {
 		source = v
 	}
 
-	clusters, err := s.discoverer.DiscoverClusters(source)
+	clusters, err := d.Discoverer.DiscoverClusters(source)
 	if err != nil {
 		return fmt.Sprintf("Failed to discover clusters: %v", err), true
 	}
@@ -43,10 +43,10 @@ func (s *Server) toolListClusters(args map[string]interface{}) (string, bool) {
 	return sb.String(), false
 }
 
-func (s *Server) toolGetClusterHealth(args map[string]interface{}) (string, bool) {
+func toolGetClusterHealth(_ context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	clusterName, _ := args["cluster"].(string)
 
-	clusters, err := s.discoverer.DiscoverClusters("all")
+	clusters, err := d.Discoverer.DiscoverClusters("all")
 	if err != nil {
 		return fmt.Sprintf("Failed to discover clusters: %v", err), true
 	}
@@ -87,7 +87,7 @@ func (s *Server) toolGetClusterHealth(args map[string]interface{}) (string, bool
 	}
 
 	// Check health
-	health, err := s.discoverer.CheckHealthByContext(targetCluster.Context)
+	health, err := d.Discoverer.CheckHealthByContext(targetCluster.Context)
 	if err != nil {
 		return fmt.Sprintf("Failed to check health: %v", err), true
 	}
@@ -103,28 +103,3 @@ func (s *Server) toolGetClusterHealth(args map[string]interface{}) (string, bool
 
 	return sb.String(), false
 }
-
-func (s *Server) getClientForCluster(clusterName string) (kubernetes.Interface, error) {
-	if s.clientFactory != nil {
-		return s.clientFactory(clusterName)
-	}
-
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	if s.kubeconfig != "" {
-		loadingRules.ExplicitPath = s.kubeconfig
-	}
-
-	configOverrides := &clientcmd.ConfigOverrides{}
-	if clusterName != "" {
-		configOverrides.CurrentContext = clusterName
-	}
-
-	config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		loadingRules, configOverrides).ClientConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	return kubernetes.NewForConfig(config)
-}
-

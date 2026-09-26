@@ -25,7 +25,7 @@ import (
 func newPolicyStatusTestServer(t *testing.T, template *unstructured.Unstructured, constraint *unstructured.Unstructured) *Server {
 	t.Helper()
 	gvrToListKind := map[schema.GroupVersionResource]string{
-		{Group: "templates.gatekeeper.sh", Version: "v1", Resource: "constrainttemplates"}: "ConstraintTemplateList",
+		{Group: "templates.gatekeeper.sh", Version: "v1", Resource: "constrainttemplates"}:      "ConstraintTemplateList",
 		{Group: "constraints.gatekeeper.sh", Version: "v1beta1", Resource: "k8srequiredlabels"}: "K8sRequiredLabelsList",
 	}
 	fakeDyn := dynfake.NewSimpleDynamicClientWithCustomListKinds(dynamicScheme, gvrToListKind)

@@ -5,15 +5,16 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/server/handlers"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-func (s *Server) toolGetOwnershipPolicyStatus(ctx context.Context, args map[string]interface{}) (string, bool) {
+func toolGetOwnershipPolicyStatus(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
 
-	dynClient, err := s.getDynamicClientForCluster(cluster)
+	dynClient, err := d.GetDynamicClientForCluster(cluster)
 	if err != nil {
 		return fmt.Sprintf("Failed to create client: %v", err), true
 	}
@@ -89,7 +90,7 @@ func (s *Server) toolGetOwnershipPolicyStatus(ctx context.Context, args map[stri
 	return sb.String(), false
 }
 
-func (s *Server) toolListOwnershipViolations(ctx context.Context, args map[string]interface{}) (string, bool) {
+func toolListOwnershipViolations(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
 	namespaceFilter, err := extractAndValidateNamespace(args)
 	if err != nil {
@@ -100,7 +101,7 @@ func (s *Server) toolListOwnershipViolations(ctx context.Context, args map[strin
 		limit = int64(v)
 	}
 
-	dynClient, err := s.getDynamicClientForCluster(cluster)
+	dynClient, err := d.GetDynamicClientForCluster(cluster)
 	if err != nil {
 		return fmt.Sprintf("Failed to create client: %v", err), true
 	}

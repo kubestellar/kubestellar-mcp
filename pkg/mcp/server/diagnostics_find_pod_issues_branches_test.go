@@ -37,7 +37,7 @@ func TestToolFindPodIssues_InvalidNamespace(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolFindPodIssues(context.Background(), map[string]interface{}{
+	result, isErr := toolFindPodIssues(context.Background(), s.deps(), map[string]interface{}{
 		"namespace": "INVALID_UPPERCASE_NS",
 	})
 	if !isErr {
@@ -58,7 +58,7 @@ func TestToolFindPodIssues_ClientFactoryError(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolFindPodIssues(context.Background(), map[string]interface{}{})
+	result, isErr := toolFindPodIssues(context.Background(), s.deps(), map[string]interface{}{})
 	if !isErr {
 		t.Fatalf("toolFindPodIssues() expected error for client factory failure, got: %s", result)
 	}
@@ -100,7 +100,7 @@ func TestToolFindPodIssues_NamespaceScopedList(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolFindPodIssues(context.Background(), map[string]interface{}{
+	result, isErr := toolFindPodIssues(context.Background(), s.deps(), map[string]interface{}{
 		"namespace": "app-a",
 	})
 	if isErr {
@@ -146,7 +146,7 @@ func TestToolFindPodIssues_SkipsCompletedByDefault(t *testing.T) {
 
 	// No include_completed arg — both terminal pods must be skipped and
 	// the function must report the no-issues path.
-	result, isErr := s.toolFindPodIssues(context.Background(), map[string]interface{}{})
+	result, isErr := toolFindPodIssues(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("toolFindPodIssues() returned error: %s", result)
 	}
@@ -187,7 +187,7 @@ func TestToolFindPodIssues_LongWaitingMessageTruncated(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolFindPodIssues(context.Background(), map[string]interface{}{})
+	result, isErr := toolFindPodIssues(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("toolFindPodIssues() returned error: %s", result)
 	}
@@ -225,7 +225,7 @@ func TestToolFindPodIssues_ContainerRunningNotReady(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolFindPodIssues(context.Background(), map[string]interface{}{})
+	result, isErr := toolFindPodIssues(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("toolFindPodIssues() returned error: %s", result)
 	}
@@ -264,7 +264,7 @@ func TestToolFindPodIssues_InitContainerWaiting(t *testing.T) {
 		},
 	}
 
-	result, isErr := s.toolFindPodIssues(context.Background(), map[string]interface{}{})
+	result, isErr := toolFindPodIssues(context.Background(), s.deps(), map[string]interface{}{})
 	if isErr {
 		t.Fatalf("toolFindPodIssues() returned error: %s", result)
 	}

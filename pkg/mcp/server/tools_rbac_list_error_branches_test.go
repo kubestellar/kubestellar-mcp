@@ -84,7 +84,7 @@ func TestToolGetRoleBindingsListError(t *testing.T) {
 	})
 
 	s := &Server{
-		discoverer: stubDiscoverer{},
+		discoverer:    stubDiscoverer{},
 		clientFactory: func(string) (kubernetes.Interface, error) { return client, nil },
 	}
 
@@ -132,7 +132,7 @@ func TestToolGetClusterRoleBindingsListError(t *testing.T) {
 	})
 
 	s := &Server{
-		discoverer: stubDiscoverer{},
+		discoverer:    stubDiscoverer{},
 		clientFactory: func(string) (kubernetes.Interface, error) { return client, nil },
 	}
 
@@ -178,7 +178,7 @@ func TestToolGetClusterRolesListError(t *testing.T) {
 	})
 
 	s := &Server{
-		discoverer: stubDiscoverer{},
+		discoverer:    stubDiscoverer{},
 		clientFactory: func(string) (kubernetes.Interface, error) { return client, nil },
 	}
 

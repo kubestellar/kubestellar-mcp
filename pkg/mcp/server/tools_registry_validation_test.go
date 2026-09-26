@@ -32,7 +32,7 @@ var expectedToolsByRegistry = map[string][]string{
 
 func TestRegistryTools_AllExpectedToolsRegistered(t *testing.T) {
 	registered := make(map[string]bool)
-	for _, td := range toolRegistry {
+	for _, td := range toolRegistry.Defs() {
 		registered[td.Schema.Name] = true
 	}
 
@@ -45,7 +45,7 @@ func TestRegistryTools_AllExpectedToolsRegistered(t *testing.T) {
 }
 
 func TestRegistryTools_RequiredFieldsAreInProperties(t *testing.T) {
-	for _, td := range toolRegistry {
+	for _, td := range toolRegistry.Defs() {
 		schema := td.Schema.InputSchema
 		for _, req := range schema.Required {
 			_, exists := schema.Properties[req]
@@ -57,7 +57,7 @@ func TestRegistryTools_RequiredFieldsAreInProperties(t *testing.T) {
 }
 
 func TestRegistryTools_EnumFieldsAreNonEmpty(t *testing.T) {
-	for _, td := range toolRegistry {
+	for _, td := range toolRegistry.Defs() {
 		for propName, prop := range td.Schema.InputSchema.Properties {
 			if prop.Enum != nil {
 				assert.NotEmpty(t, prop.Enum,
@@ -82,7 +82,7 @@ func TestRegistryTools_PropertyTypesAreValid(t *testing.T) {
 		"array":   true,
 		"object":  true,
 	}
-	for _, td := range toolRegistry {
+	for _, td := range toolRegistry.Defs() {
 		for propName, prop := range td.Schema.InputSchema.Properties {
 			if prop.Type != "" {
 				assert.True(t, validTypes[prop.Type],
@@ -94,7 +94,7 @@ func TestRegistryTools_PropertyTypesAreValid(t *testing.T) {
 }
 
 func TestRegistryTools_HandlersResolveByName(t *testing.T) {
-	for _, td := range toolRegistry {
+	for _, td := range toolRegistry.Defs() {
 		handler := findToolHandler(td.Schema.Name)
 		require.NotNil(t, handler,
 			"findToolHandler(%q) should return a non-nil handler", td.Schema.Name)
@@ -102,7 +102,7 @@ func TestRegistryTools_HandlersResolveByName(t *testing.T) {
 }
 
 func TestRegistryTools_DescriptionsAreSubstantive(t *testing.T) {
-	for _, td := range toolRegistry {
+	for _, td := range toolRegistry.Defs() {
 		desc := td.Schema.Description
 		assert.Greater(t, len(desc), 10,
 			"tool %q description is too short (%d chars): %q",
@@ -111,7 +111,7 @@ func TestRegistryTools_DescriptionsAreSubstantive(t *testing.T) {
 }
 
 func TestRegistryTools_NoDuplicateEnumValues(t *testing.T) {
-	for _, td := range toolRegistry {
+	for _, td := range toolRegistry.Defs() {
 		for propName, prop := range td.Schema.InputSchema.Properties {
 			if prop.Enum == nil {
 				continue

@@ -238,46 +238,42 @@ func TestToolGetUpgradePrerequisites_NotReadyNode(t *testing.T) {
 // --- parseHelmSecret ---
 
 func TestParseHelmSecret_WrongType(t *testing.T) {
-	s := &Server{}
 	secret := &corev1.Secret{
 		Type: "Opaque",
 		Data: map[string][]byte{"release": []byte("something")},
 	}
-	result := s.parseHelmSecret(secret)
+	result := parseHelmSecret(secret)
 	if result != nil {
 		t.Fatalf("expected nil for non-helm secret, got: %+v", result)
 	}
 }
 
 func TestParseHelmSecret_MissingReleaseKey(t *testing.T) {
-	s := &Server{}
 	secret := &corev1.Secret{
 		Type: "helm.sh/release.v1",
 		Data: map[string][]byte{"other": []byte("data")},
 	}
-	result := s.parseHelmSecret(secret)
+	result := parseHelmSecret(secret)
 	if result != nil {
 		t.Fatalf("expected nil for missing release key, got: %+v", result)
 	}
 }
 
 func TestParseHelmSecret_InvalidGzip(t *testing.T) {
-	s := &Server{}
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Name: "sh.helm.release.v1.test.v1", Namespace: "default"},
 		Type:       "helm.sh/release.v1",
 		Data:       map[string][]byte{"release": []byte("not-valid-gzip-or-base64")},
 	}
-	result := s.parseHelmSecret(secret)
+	result := parseHelmSecret(secret)
 	if result != nil {
 		t.Fatalf("expected nil for invalid gzip data, got: %+v", result)
 	}
 }
 
 func TestParseHelmSecret_ValidRelease(t *testing.T) {
-	s := &Server{}
 	secret := makeHelmReleaseSecret("test-release", "kube-system", "test-chart", "3.0.0", "1.5.0", "deployed", 2)
-	result := s.parseHelmSecret(secret)
+	result := parseHelmSecret(secret)
 	if result == nil {
 		t.Fatal("expected non-nil result for valid helm secret")
 	}

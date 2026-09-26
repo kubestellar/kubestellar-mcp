@@ -18,7 +18,7 @@ func TestPolicyToolRegistry_AllToolsRegistered(t *testing.T) {
 	}
 
 	registered := make(map[string]Tool)
-	for _, td := range toolRegistry {
+	for _, td := range toolRegistry.Defs() {
 		registered[td.Schema.Name] = td.Schema
 	}
 
@@ -32,7 +32,7 @@ func TestPolicyToolRegistry_AllToolsRegistered(t *testing.T) {
 func TestPolicyToolRegistry_ToolCount(t *testing.T) {
 	expectedCount := 6
 	policyTools := 0
-	for _, td := range toolRegistry {
+	for _, td := range toolRegistry.Defs() {
 		switch td.Schema.Name {
 		case "check_gatekeeper", "get_ownership_policy_status",
 			"list_ownership_violations", "install_ownership_policy",
@@ -49,7 +49,7 @@ func TestPolicyToolRegistry_RequiredFields(t *testing.T) {
 	}
 
 	registered := make(map[string]Tool)
-	for _, td := range toolRegistry {
+	for _, td := range toolRegistry.Defs() {
 		registered[td.Schema.Name] = td.Schema
 	}
 
@@ -63,7 +63,7 @@ func TestPolicyToolRegistry_RequiredFields(t *testing.T) {
 
 func TestPolicyToolRegistry_EnumFields(t *testing.T) {
 	registered := make(map[string]Tool)
-	for _, td := range toolRegistry {
+	for _, td := range toolRegistry.Defs() {
 		registered[td.Schema.Name] = td.Schema
 	}
 

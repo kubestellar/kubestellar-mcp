@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/server/handlers"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (s *Server) toolFindPodIssues(ctx context.Context, args map[string]interface{}) (string, bool) {
+func toolFindPodIssues(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
 	namespace, err := extractAndValidateNamespace(args)
 	if err != nil {
@@ -17,7 +18,7 @@ func (s *Server) toolFindPodIssues(ctx context.Context, args map[string]interfac
 	}
 	includeCompleted := args["include_completed"] == "true"
 
-	client, err := s.getClientForCluster(cluster)
+	client, err := d.GetClientForCluster(cluster)
 	if err != nil {
 		return fmt.Sprintf("Failed to create client: %v", err), true
 	}
