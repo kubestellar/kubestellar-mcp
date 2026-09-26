@@ -103,13 +103,6 @@ func (s *Server) getDriftDetector(config *rest.Config) (driftDetector, error) {
 	return gitops.NewDriftDetector(config)
 }
 
-// Type aliases from shared protocol package.
-type (
-	MCPRequest  = protocol.Request
-	MCPResponse = protocol.Response
-	MCPError    = protocol.Error
-)
-
 // RunMCPServer starts the MCP server on stdin/stdout
 func RunMCPServer() error {
 	server, err := NewServer()
@@ -132,7 +125,7 @@ func (s *Server) Run() error {
 			continue
 		}
 
-		var req MCPRequest
+		var req protocol.Request
 		if err := json.Unmarshal([]byte(line), &req); err != nil {
 			s.sendError(nil, -32700, "Parse error")
 			continue
@@ -148,7 +141,7 @@ func (s *Server) Run() error {
 }
 
 // handleRequest processes an MCP request and returns a response
-func (s *Server) handleRequest(req *MCPRequest) *MCPResponse {
+func (s *Server) handleRequest(req *protocol.Request) *protocol.Response {
 	ctx := context.Background()
 
 	switch req.Method {
@@ -162,17 +155,17 @@ func (s *Server) handleRequest(req *MCPRequest) *MCPResponse {
 		// No response needed for MCP lifecycle notification
 		return nil
 	default:
-		return &MCPResponse{
+		return &protocol.Response{
 			JSONRPC: "2.0",
 			ID:      req.ID,
-			Error:   &MCPError{Code: -32601, Message: "Method not found"},
+			Error:   &protocol.Error{Code: -32601, Message: "Method not found"},
 		}
 	}
 }
 
 // handleInitialize handles the initialize request
-func (s *Server) handleInitialize(req *MCPRequest) *MCPResponse {
-	return &MCPResponse{
+func (s *Server) handleInitialize(req *protocol.Request) *protocol.Response {
+	return &protocol.Response{
 		JSONRPC: "2.0",
 		ID:      req.ID,
 		Result: map[string]interface{}{
@@ -192,7 +185,7 @@ func (s *Server) handleInitialize(req *MCPRequest) *MCPResponse {
 // contributed by the tools_*.go file that also implements its handler (see
 // registry.go); this loop just projects those definitions into the MCP
 // tools/list response shape, preserving registration order.
-func (s *Server) handleListTools(req *MCPRequest) *MCPResponse {
+func (s *Server) handleListTools(req *protocol.Request) *protocol.Response {
 	defs := s.toolDefs()
 	tools := make([]map[string]interface{}, 0, len(defs))
 	for _, d := range defs {
@@ -203,7 +196,7 @@ func (s *Server) handleListTools(req *MCPRequest) *MCPResponse {
 		})
 	}
 
-	return &MCPResponse{
+	return &protocol.Response{
 		JSONRPC: "2.0",
 		ID:      req.ID,
 		Result: map[string]interface{}{
@@ -213,16 +206,16 @@ func (s *Server) handleListTools(req *MCPRequest) *MCPResponse {
 }
 
 // handleToolCall dispatches tool calls to handlers
-func (s *Server) handleToolCall(ctx context.Context, req *MCPRequest) *MCPResponse {
+func (s *Server) handleToolCall(ctx context.Context, req *protocol.Request) *protocol.Response {
 	var params struct {
 		Name      string          `json:"name"`
 		Arguments json.RawMessage `json:"arguments"`
 	}
 	if err := json.Unmarshal(req.Params, &params); err != nil {
-		return &MCPResponse{
+		return &protocol.Response{
 			JSONRPC: "2.0",
 			ID:      req.ID,
-			Error:   &MCPError{Code: -32602, Message: "Invalid params"},
+			Error:   &protocol.Error{Code: -32602, Message: "Invalid params"},
 		}
 	}
 
@@ -260,10 +253,10 @@ func (s *Server) handleToolCall(ctx context.Context, req *MCPRequest) *MCPRespon
 	def, ok := s.findToolDef(params.Name)
 	if !ok {
 		span.SetStatus(codes.Error, "unknown tool")
-		return &MCPResponse{
+		return &protocol.Response{
 			JSONRPC: "2.0",
 			ID:      req.ID,
-			Error:   &MCPError{Code: -32601, Message: fmt.Sprintf("Unknown tool: %s", params.Name)},
+			Error:   &protocol.Error{Code: -32601, Message: fmt.Sprintf("Unknown tool: %s", params.Name)},
 		}
 	}
 	result, err = def.Handler(ctx, params.Arguments)
@@ -289,7 +282,7 @@ func (s *Server) handleToolCall(ctx context.Context, req *MCPRequest) *MCPRespon
 	}
 
 	if err != nil {
-		return &MCPResponse{
+		return &protocol.Response{
 			JSONRPC: "2.0",
 			ID:      req.ID,
 			Result: map[string]interface{}{
@@ -306,7 +299,7 @@ func (s *Server) handleToolCall(ctx context.Context, req *MCPRequest) *MCPRespon
 
 	// Format result as MCP content
 	resultJSON, _ := json.MarshalIndent(result, "", "  ")
-	return &MCPResponse{
+	return &protocol.Response{
 		JSONRPC: "2.0",
 		ID:      req.ID,
 		Result: map[string]interface{}{
@@ -321,17 +314,17 @@ func (s *Server) handleToolCall(ctx context.Context, req *MCPRequest) *MCPRespon
 }
 
 // sendResponse writes a response to stdout
-func (s *Server) sendResponse(resp *MCPResponse) {
+func (s *Server) sendResponse(resp *protocol.Response) {
 	data, _ := json.Marshal(resp)
 	fmt.Println(string(data))
 }
 
 // sendError sends an error response
 func (s *Server) sendError(id interface{}, code int, message string) {
-	resp := &MCPResponse{
+	resp := &protocol.Response{
 		JSONRPC: "2.0",
 		ID:      id,
-		Error:   &MCPError{Code: code, Message: message},
+		Error:   &protocol.Error{Code: code, Message: message},
 	}
 	s.sendResponse(resp)
 }

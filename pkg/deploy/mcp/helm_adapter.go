@@ -5,16 +5,6 @@ import (
 	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 )
 
-// This file adapts the pkg/deploy/mcp/helm sub-package (the "helm" domain:
-// helm_install, helm_uninstall, helm_list, helm_rollback) into the root
-// Server, per epic #983 (decompose pkg/deploy/mcp into per-domain
-// sub-packages). It replaces the former tools_helm.go, tools_helm_install.go,
-// tools_helm_list.go, tools_helm_rollback.go, tools_helm_uninstall.go, and
-// tools_helm_validate.go, whose logic was moved verbatim into
-// pkg/deploy/mcp/helm. Behavior, including tools/list registration order
-// (registry.go:19-24), is unchanged. This is the last of the seven domains
-// tracked by epic #983; only root-scaffolding cleanup remains (#997).
-
 // serverHelmAccess adapts *Server's multicluster manager to the
 // helm.ClusterAccess interface expected by the extracted sub-package.
 type serverHelmAccess struct {
@@ -33,20 +23,10 @@ func (s *Server) helmServer() *helm.Server {
 	return &helm.Server{Access: &serverHelmAccess{s: s}}
 }
 
-// helmToolDefs returns the tool definitions handled by the helm sub-package,
-// converted into the root package's toolDef shape. Order matches the
-// pre-refactor helmToolDefs exactly.
+// helmToolDefs adapts the pkg/deploy/mcp/helm sub-package (helm_install,
+// helm_uninstall, helm_list, helm_rollback) into the root Server's toolDef
+// shape. Order is preserved so tools/list output stays byte-identical (see
+// registry.go).
 func (s *Server) helmToolDefs() []toolDef {
-	hs := s.helmServer()
-	subDefs := hs.Tools()
-	defs := make([]toolDef, 0, len(subDefs))
-	for _, d := range subDefs {
-		defs = append(defs, toolDef{
-			Name:        d.Name,
-			Description: d.Description,
-			InputSchema: d.InputSchema,
-			Handler:     d.Handler,
-		})
-	}
-	return defs
+	return adaptToolDefs(s.helmServer().Tools())
 }
