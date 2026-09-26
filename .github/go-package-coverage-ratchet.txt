@@ -56,3 +56,4 @@ internal/version/versioncmd 100.0
 # package that never appears in the coverprofile. See kubestellar-mcp#872.
 internal/version -
 pkg/mcp/protocol -
+pkg/deploy/mcp/tooldef -

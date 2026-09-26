@@ -7,6 +7,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/labels"
+	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/tooldef"
 	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 )
 
@@ -43,26 +44,12 @@ func (d *serverLabelsDeps) SensitiveKindError(kind string) error {
 // Compile-time interface compliance check.
 var _ labels.Deps = (*serverLabelsDeps)(nil)
 
-// labelToolDefs adapts labels.Tools() into this package's toolDef, binding
-// each handler to this *Server via serverLabelsDeps. Order is preserved
-// from the pre-refactor tools_labels.go so tools/list output stays
-// byte-identical (see registry.go:19-24).
-func (s *Server) labelToolDefs() []toolDef {
-	deps := &serverLabelsDeps{s: s}
-	labelTools := labels.Tools()
-	defs := make([]toolDef, 0, len(labelTools))
-	for _, td := range labelTools {
-		td := td // capture loop variable
-		defs = append(defs, toolDef{
-			Name:        td.Name,
-			Description: td.Description,
-			InputSchema: td.InputSchema,
-			Handler: func(ctx context.Context, args json.RawMessage) (interface{}, error) {
-				return td.Handler(ctx, deps, args)
-			},
-		})
-	}
-	return defs
+// labelToolDefs returns the tool definitions handled by the labels
+// sub-package, bound to this *Server via serverLabelsDeps. Order is
+// preserved from the pre-refactor tools_labels.go so tools/list output
+// stays byte-identical (see registry.go).
+func (s *Server) labelToolDefs() []tooldef.ToolDef {
+	return labels.Tools(&serverLabelsDeps{s: s})
 }
 
 // LabelResult is re-exported from the labels sub-package so existing

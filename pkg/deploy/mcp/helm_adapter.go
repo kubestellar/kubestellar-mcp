@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/helm"
+	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/tooldef"
 	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 )
 
@@ -33,20 +34,8 @@ func (s *Server) helmServer() *helm.Server {
 	return &helm.Server{Access: &serverHelmAccess{s: s}}
 }
 
-// helmToolDefs returns the tool definitions handled by the helm sub-package,
-// converted into the root package's toolDef shape. Order matches the
-// pre-refactor helmToolDefs exactly.
-func (s *Server) helmToolDefs() []toolDef {
-	hs := s.helmServer()
-	subDefs := hs.Tools()
-	defs := make([]toolDef, 0, len(subDefs))
-	for _, d := range subDefs {
-		defs = append(defs, toolDef{
-			Name:        d.Name,
-			Description: d.Description,
-			InputSchema: d.InputSchema,
-			Handler:     d.Handler,
-		})
-	}
-	return defs
+// helmToolDefs returns the tool definitions handled by the helm sub-package.
+// Order matches the pre-refactor helmToolDefs exactly.
+func (s *Server) helmToolDefs() []tooldef.ToolDef {
+	return s.helmServer().Tools()
 }

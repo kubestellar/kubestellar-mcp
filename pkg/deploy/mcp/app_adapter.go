@@ -8,6 +8,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/app"
+	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/tooldef"
 )
 
 // This file adapts the pkg/deploy/mcp/app sub-package (the "app" domain:
@@ -31,19 +32,10 @@ type AppStatus = app.AppStatus
 // LogEntry is re-exported from the app sub-package.
 type LogEntry = app.LogEntry
 
-// appToolDefs returns the tool definitions handled by the app sub-package.
-func (s *Server) appToolDefs() []toolDef {
-	appDefs := app.Tools(s.executor)
-	defs := make([]toolDef, 0, len(appDefs))
-	for _, d := range appDefs {
-		defs = append(defs, toolDef{
-			Name:        d.Name,
-			Description: d.Description,
-			InputSchema: d.InputSchema,
-			Handler:     d.Handler,
-		})
-	}
-	return defs
+// appToolDefs returns the tool definitions handled by the app sub-package,
+// bound to this server's executor.
+func (s *Server) appToolDefs() []tooldef.ToolDef {
+	return app.Tools(s.executor)
 }
 
 // handleGetAppInstances delegates to app.GetAppInstances. Retained on

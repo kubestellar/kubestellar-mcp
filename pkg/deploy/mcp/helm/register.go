@@ -1,26 +1,12 @@
 package helm
 
-import (
-	"context"
-	"encoding/json"
-)
-
-// ToolDef pairs a tool's MCP schema (name, description, inputSchema) with the
-// handler that executes it, bound to a *Server. Mirrors the shape of the
-// root package's unexported toolDef so the adapter in helm_adapter.go can
-// convert []ToolDef into []toolDef field-for-field.
-type ToolDef struct {
-	Name        string
-	Description string
-	InputSchema map[string]interface{}
-	Handler     func(ctx context.Context, args json.RawMessage) (interface{}, error)
-}
+import "github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/tooldef"
 
 // Tools returns the tool definitions for the helm domain, bound to s, in the
 // same order they were registered in the pre-refactor tools_helm.go so
 // tools/list output stays byte-identical (see registry.go:19-24).
-func (s *Server) Tools() []ToolDef {
-	return []ToolDef{
+func (s *Server) Tools() []tooldef.ToolDef {
+	return []tooldef.ToolDef{
 		{
 			Name:        "helm_install",
 			Description: "Install or upgrade a Helm chart to clusters. Supports values overrides and targeting specific clusters.",

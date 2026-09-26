@@ -1,25 +1,11 @@
 package gitops
 
-import (
-	"context"
-	"encoding/json"
-)
-
-// ToolDef pairs a tool's MCP schema (name, description, inputSchema) with the
-// handler that executes it, bound to a *Server. Mirrors the shape of the
-// root package's unexported toolDef so the adapter in gitops_adapter.go can
-// convert []ToolDef into []toolDef field-for-field.
-type ToolDef struct {
-	Name        string
-	Description string
-	InputSchema map[string]interface{}
-	Handler     func(ctx context.Context, args json.RawMessage) (interface{}, error)
-}
+import "github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/tooldef"
 
 // Tools returns the gitops tool definitions bound to s, in the same order as
 // the pre-refactor gitopsToolDefs so tools/list output stays byte-identical.
-func (s *Server) Tools() []ToolDef {
-	return []ToolDef{
+func (s *Server) Tools() []tooldef.ToolDef {
+	return []tooldef.ToolDef{
 		{
 			Name:        "detect_drift",
 			Description: "Detect drift between git manifests and cluster state. Shows which resources differ between git and what's deployed.",

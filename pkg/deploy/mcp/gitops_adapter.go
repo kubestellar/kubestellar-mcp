@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/gitops"
+	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/tooldef"
 	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 	"k8s.io/client-go/rest"
 )
@@ -41,21 +42,9 @@ func (s *Server) gitopsServer() *gitops.Server {
 }
 
 // gitopsToolDefs returns the tool definitions handled by the gitops
-// sub-package, converted into the root package's toolDef shape. Order
-// matches the pre-refactor gitopsToolDefs exactly.
-func (s *Server) gitopsToolDefs() []toolDef {
-	gs := s.gitopsServer()
-	subDefs := gs.Tools()
-	defs := make([]toolDef, 0, len(subDefs))
-	for _, d := range subDefs {
-		defs = append(defs, toolDef{
-			Name:        d.Name,
-			Description: d.Description,
-			InputSchema: d.InputSchema,
-			Handler:     d.Handler,
-		})
-	}
-	return defs
+// sub-package. Order matches the pre-refactor gitopsToolDefs exactly.
+func (s *Server) gitopsToolDefs() []tooldef.ToolDef {
+	return s.gitopsServer().Tools()
 }
 
 // handleSyncFromGit is a thin re-export retained because

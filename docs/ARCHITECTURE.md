@@ -47,8 +47,10 @@ The `main` packages stay intentionally thin and delegate almost immediately into
 
 - `pkg/deploy/cmd/`: Cobra root command for `kubestellar-deploy`
 - `pkg/deploy/mcp/`: the `kubestellar-deploy` MCP server and its handlers
-  - `server.go` owns the MCP loop, tool catalog, and dispatch
-  - `tools_app.go`, `tools_deploy.go`, `tools_gitops.go`, `tools_helm.go`, `tools_kubectl.go`, `tools_kustomize.go`, and `tools_labels.go` group handlers by domain
+  - `server.go` owns the MCP loop, tool catalog, and dispatch; `registry.go` concatenates each domain's tool definitions in the fixed `tools/list` order
+  - `tooldef/` is a leaf package holding the single `ToolDef` type (schema + handler) shared by the root package and every domain sub-package
+  - `app/`, `deploy/`, `gitops/`, `helm/`, `kubectl/`, `kustomize/`, and `labels/` group handlers by domain; each exposes a `Tools(...)` function that binds its dependencies at construction and returns `[]tooldef.ToolDef`
+  - `*_adapter.go` files in the root package are pure wiring that bind each sub-package to the `*Server`
 - `pkg/multicluster/`: kubeconfig-backed client management, cluster selection, and parallel execution across clusters
 
 ### `commands/`
