@@ -5,6 +5,8 @@ import (
 	"sync"
 
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/kubestellar/kubestellar-mcp/pkg/metrics"
 )
 
 // ClusterResult represents the result of an operation on a single cluster
@@ -76,6 +78,11 @@ func (e *Executor) executeAll(ctx context.Context, fn ExecuteFunc) ([]ClusterRes
 	if err != nil {
 		return nil, err
 	}
+
+	// Record every discovery outcome, including zero, so
+	// mcpserver_active_clusters reflects a genuine all-clusters-lost event
+	// instead of only ever being set on a non-empty result.
+	metrics.SetActiveClusters(len(clusters))
 
 	clusterNames := make([]string, 0, len(clusters))
 	for _, cluster := range clusters {
