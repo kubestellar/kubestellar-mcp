@@ -31,6 +31,9 @@ func TestScaleAppInCluster_UpdatesReplicasAndReturnsOld(t *testing.T) {
 	if updated["demo-web"] == nil {
 		t.Fatal("scale did not record PUT to demo-web")
 	}
+	if updated["demo-web"].Annotations["put-body-len"] == "" || updated["demo-web"].Annotations["put-body-len"] == "0" {
+		t.Fatalf("server did not receive PUT body: %+v", updated["demo-web"].Annotations)
+	}
 }
 
 func TestScaleAppInCluster_NilSpecReplicasDefaultsToOne(t *testing.T) {
@@ -94,6 +97,9 @@ func TestPatchAppInCluster_PatchesFirstMatch(t *testing.T) {
 	}
 	if updated["demo-web"] == nil {
 		t.Fatalf("patch body was not received by server: %+v", updated)
+	}
+	if updated["demo-web"].Annotations["patch"] == "" {
+		t.Fatalf("patch body was not received by server: %+v", updated["demo-web"])
 	}
 }
 

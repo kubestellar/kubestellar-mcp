@@ -13,14 +13,9 @@ import (
 
 // newHelmTestServer builds a *Server backed by a real
 // *multicluster.ClientManager (constructed from an in-memory kubeconfig
-// covering the given contexts). Despite the name (inherited from the
-// pre-refactor tools_helm_fixtures_test.go, before the pkg/deploy/mcp/helm
-// extraction in epic #983), this fixture is used broadly across the root
-// package's tests (server_test.go, server_protocol_test.go,
-// handle_tool_call_dispatch_test.go, tools_deploy_*_test.go,
-// tools_kubectl_*_test.go, tools_labels_discover_clusters_test.go,
-// tools_scale_uncovered_test.go), not just the helm-domain tests (which now
-// have their own equivalent fixture in pkg/deploy/mcp/helm/fixtures_test.go).
+// covering the given contexts). The name is inherited from the pre-#983
+// helm fixtures; it is now the shared fixture for the root package's
+// protocol, dispatch, and adapter-wiring tests.
 func newHelmTestServer(t *testing.T, contexts map[string]string) *Server {
 	t.Helper()
 
@@ -65,11 +60,7 @@ func newHelmTestServer(t *testing.T, contexts map[string]string) *Server {
 	}
 }
 
-// mustMarshalJSON is used broadly by the root package's tests to build tool
-// call arguments. Retained here after the pkg/deploy/mcp/helm extraction
-// (epic #983) since non-helm tests (tools_deploy_*_test.go,
-// tools_kubectl_*_test.go, tools_labels_discover_clusters_test.go,
-// tools_scale_uncovered_test.go) depend on it too.
+// mustMarshalJSON builds tool call arguments for the root package's tests.
 func mustMarshalJSON(t *testing.T, v interface{}) json.RawMessage {
 	t.Helper()
 	data, err := json.Marshal(v)

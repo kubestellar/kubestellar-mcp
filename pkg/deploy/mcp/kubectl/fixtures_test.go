@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -15,6 +16,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 func mustMarshalJSON(t *testing.T, v interface{}) json.RawMessage {
@@ -53,6 +56,45 @@ func newFakeDeps() *fakeDeps {
 		isNamespaceKind:       testIsNamespaceKind,
 		yamlToJSON:            testYAMLToJSON,
 		unstructuredFromYAML:  testUnstructuredFromYAML,
+	}
+}
+
+func newRealDeps(t *testing.T, contexts map[string]string) Deps {
+	t.Helper()
+
+	config := clientcmdapi.NewConfig()
+	firstContext := ""
+	for name, serverURL := range contexts {
+		if firstContext == "" {
+			firstContext = name
+		}
+		config.Contexts[name] = &clientcmdapi.Context{Cluster: name, AuthInfo: name}
+		config.Clusters[name] = &clientcmdapi.Cluster{Server: serverURL}
+		config.AuthInfos[name] = &clientcmdapi.AuthInfo{}
+	}
+	config.CurrentContext = firstContext
+
+	kubeconfig := filepath.Join(t.TempDir(), "config")
+	if err := clientcmd.WriteToFile(*config, kubeconfig); err != nil {
+		t.Fatalf("WriteToFile() error = %v", err)
+	}
+
+	manager, err := multicluster.NewClientManager(kubeconfig)
+	if err != nil {
+		t.Fatalf("NewClientManager() error = %v", err)
+	}
+	executor := multicluster.NewExecutor(manager)
+
+	return Deps{
+		DiscoverClusters:      manager.DiscoverClusters,
+		ExecuteOnSelected:     executor.ExecuteOnSelected,
+		GetConfig:             manager.GetConfig,
+		IsSensitiveKind:       testIsSensitiveKind,
+		SensitiveKindError:    testSensitiveKindError,
+		ManifestSensitiveKind: testManifestSensitiveKind,
+		IsNamespaceKind:       testIsNamespaceKind,
+		YAMLToJSON:            testYAMLToJSON,
+		UnstructuredFromYAML:  testUnstructuredFromYAML,
 	}
 }
 
