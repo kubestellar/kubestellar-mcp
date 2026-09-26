@@ -150,16 +150,16 @@ func TestLabelOperationsBlockSensitiveKinds(t *testing.T) {
 }
 
 func TestTools(t *testing.T) {
-	defs := Tools()
+	deps := &fakeDeps{clusterNames: []string{"alpha"}}
+	defs := Tools(deps)
 	require.Len(t, defs, 2)
 	assert.Equal(t, []string{"add_labels", "remove_labels"}, []string{defs[0].Name, defs[1].Name})
 
-	deps := &fakeDeps{clusterNames: []string{"alpha"}}
-	addRes, err := defs[0].Handler(context.Background(), deps, mustMarshalJSON(t, map[string]interface{}{"kind": "deployment", "name": "demo", "labels": map[string]string{"env": "prod"}, "dry_run": true}))
+	addRes, err := defs[0].Handler(context.Background(), mustMarshalJSON(t, map[string]interface{}{"kind": "deployment", "name": "demo", "labels": map[string]string{"env": "prod"}, "dry_run": true}))
 	require.NoError(t, err)
 	assert.Equal(t, 1, int(decodeLabelsResp(t, addRes)["successCount"].(float64)))
 
-	removeRes, err := defs[1].Handler(context.Background(), deps, mustMarshalJSON(t, map[string]interface{}{"kind": "deployment", "name": "demo", "labels": []string{"env"}, "dry_run": true}))
+	removeRes, err := defs[1].Handler(context.Background(), mustMarshalJSON(t, map[string]interface{}{"kind": "deployment", "name": "demo", "labels": []string{"env"}, "dry_run": true}))
 	require.NoError(t, err)
 	assert.Equal(t, 1, int(decodeLabelsResp(t, removeRes)["successCount"].(float64)))
 }

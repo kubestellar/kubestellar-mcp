@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/tooldef"
 	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 )
 
@@ -27,17 +28,6 @@ type Deps struct {
 	DiscoverClusters func() ([]multicluster.ClusterInfo, error)
 	ValidateClusters func(clusters []string) error
 	ValidateManifest func(manifest string) error
-}
-
-// ToolDef pairs a tool's MCP schema (name, description, inputSchema) with its
-// dispatch handler. It mirrors the shape of the root package's private
-// toolDef type so the root adapter can convert 1:1 without changing
-// tools/list output.
-type ToolDef struct {
-	Name        string
-	Description string
-	InputSchema map[string]interface{}
-	Handler     func(ctx context.Context, args json.RawMessage) (interface{}, error)
 }
 
 // KustomizeResult represents the result of a kustomize operation
@@ -384,12 +374,12 @@ func (d Deps) deleteKustomize(ctx context.Context, cluster, path, manifest strin
 	return result
 }
 
-// Tools returns all kustomize tool definitions in registration order. The
-// caller (the root package's kustomizeToolDefs adapter) is responsible for
-// converting these into its own toolDef shape and preserving the existing
-// tools/list position.
-func (d Deps) Tools() []ToolDef {
-	return []ToolDef{
+// Tools returns all kustomize tool definitions in registration order, with
+// each handler already bound to d. The root package's kustomizeToolDefs
+// adapter appends this slice as-is, so the order here is the order the tools
+// appear in tools/list.
+func (d Deps) Tools() []tooldef.ToolDef {
+	return []tooldef.ToolDef{
 		{
 			Name:        "kustomize_build",
 			Description: "Build kustomize output from a directory containing kustomization.yaml. Returns the rendered manifests.",

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 
+	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/tooldef"
 	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
 	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 	"k8s.io/client-go/kubernetes"
@@ -40,23 +41,12 @@ type Deps struct {
 	ValidateManifestDocs      func(manifest string) error
 }
 
-// ToolDef pairs a tool's MCP schema with its dispatch handler. It mirrors
-// the shape of the root package's (unexported) toolDef so the root adapter
-// can convert this slice into its own toolDef type without any loss of
-// information.
-type ToolDef struct {
-	Name        string
-	Description string
-	InputSchema map[string]interface{}
-	Handler     func(ctx context.Context, args json.RawMessage) (interface{}, error)
-}
-
 // Tools returns the deploy-domain tool definitions, bound to the given
 // Deps. The order matches the pre-refactor deployToolDefs() in
 // pkg/deploy/mcp/tools_deploy.go exactly, since tools/list order must stay
 // byte-identical (see registry.go).
-func Tools(d Deps) []ToolDef {
-	return []ToolDef{
+func Tools(d Deps) []tooldef.ToolDef {
+	return []tooldef.ToolDef{
 		{
 			Name:        "list_cluster_capabilities",
 			Description: "List what each cluster can run: GPU availability, CPU/memory capacity, node labels. Use this to understand cluster resources.",

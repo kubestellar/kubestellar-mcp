@@ -8,6 +8,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/kubectl"
+	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/tooldef"
 )
 
 // This file adapts the pkg/deploy/mcp/kubectl sub-package (the "kubectl"
@@ -46,20 +47,11 @@ func (s *Server) kubectlDeps() kubectl.Deps {
 }
 
 // kubectlToolDefs returns the tool definitions handled by the kubectl
-// sub-package. Order is preserved from the pre-refactor tools_kubectl.go so
-// tools/list output stays byte-identical (see registry.go:19-24).
-func (s *Server) kubectlToolDefs() []toolDef {
-	subDefs := s.kubectlDeps().Tools()
-	defs := make([]toolDef, 0, len(subDefs))
-	for _, d := range subDefs {
-		defs = append(defs, toolDef{
-			Name:        d.Name,
-			Description: d.Description,
-			InputSchema: d.InputSchema,
-			Handler:     d.Handler,
-		})
-	}
-	return defs
+// sub-package, bound to this server via kubectlDeps. Order is preserved from
+// the pre-refactor tools_kubectl.go so tools/list output stays byte-identical
+// (see registry.go).
+func (s *Server) kubectlToolDefs() []tooldef.ToolDef {
+	return s.kubectlDeps().Tools()
 }
 
 // handleDeleteResource delegates to kubectl.HandleDeleteResource. Retained
@@ -91,4 +83,3 @@ func (s *Server) applyManifestDynamic(ctx context.Context, clusterName, manifest
 func getGVR(kind string) (schema.GroupVersionResource, bool) {
 	return kubectl.GetGVR(kind)
 }
-

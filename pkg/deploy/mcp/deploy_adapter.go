@@ -10,6 +10,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/deploy"
+	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/tooldef"
 	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
 )
 
@@ -63,20 +64,11 @@ func (s *Server) deployDeps() deploy.Deps {
 }
 
 // deployToolDefs returns the tool definitions handled by the deploy
-// sub-package. Order is preserved from the pre-refactor tools_deploy.go so
-// tools/list output stays byte-identical (see registry.go:19-24).
-func (s *Server) deployToolDefs() []toolDef {
-	subDefs := deploy.Tools(s.deployDeps())
-	defs := make([]toolDef, 0, len(subDefs))
-	for _, d := range subDefs {
-		defs = append(defs, toolDef{
-			Name:        d.Name,
-			Description: d.Description,
-			InputSchema: d.InputSchema,
-			Handler:     d.Handler,
-		})
-	}
-	return defs
+// sub-package, bound to this server via deployDeps. Order is preserved from
+// the pre-refactor tools_deploy.go so tools/list output stays byte-identical
+// (see registry.go).
+func (s *Server) deployToolDefs() []tooldef.ToolDef {
+	return deploy.Tools(s.deployDeps())
 }
 
 // handleListClusterCapabilities delegates to deploy.HandleListClusterCapabilities.
