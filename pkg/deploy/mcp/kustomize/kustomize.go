@@ -374,10 +374,10 @@ func (d Deps) deleteKustomize(ctx context.Context, cluster, path, manifest strin
 	return result
 }
 
-// Tools returns all kustomize tool definitions in registration order. The
-// caller (the root package's kustomizeToolDefs adapter) is responsible for
-// converting these into its own toolDef shape and preserving the existing
-// tools/list position.
+// Tools returns all kustomize tool definitions in registration order, with
+// each handler already bound to d. The root package's kustomizeToolDefs
+// adapter appends this slice as-is, so the order here is the order the tools
+// appear in tools/list.
 func (d Deps) Tools() []tooldef.ToolDef {
 	return []tooldef.ToolDef{
 		{
