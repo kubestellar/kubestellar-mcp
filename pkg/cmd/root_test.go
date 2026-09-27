@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 )
 
@@ -72,7 +73,7 @@ func TestIsNaturalLanguageQuery_SubcommandsFalse(t *testing.T) {
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			got := isNaturalLanguageQuery(tt.args)
+			got := isNaturalLanguageQuery(rootCmd, tt.args)
 			require.Equal(t, tt.want, got)
 		})
 	}
@@ -91,7 +92,7 @@ func TestIsNaturalLanguageQuery_NaturalLanguageTrue(t *testing.T) {
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			got := isNaturalLanguageQuery(tt.args)
+			got := isNaturalLanguageQuery(rootCmd, tt.args)
 			require.True(t, got, "expected args to be recognized as natural language")
 		})
 	}
@@ -102,6 +103,32 @@ func TestRootCommand_HelpOutput(t *testing.T) {
 	require.NotEmpty(t, help, "root command should have help text")
 	require.True(t, strings.Contains(help, "kubestellar-ops"), "help should mention kubestellar-ops")
 	require.True(t, strings.Contains(help, "multi-cluster"), "help should mention multi-cluster")
+}
+
+// TestIsNaturalLanguageQuery_DerivesFromCobraTree pins the anti-drift
+// property that isNaturalLanguageQuery derives its subcommand set from the
+// live cobra tree instead of a hand-maintained literal. Concretely:
+//   - a newly-registered subcommand is recognized without touching the
+//     function's implementation; and
+//   - cobra command aliases are honored too.
+//
+// If someone regresses this to the old hand-maintained map, both branches
+// below fail because "brand-new-cmd" and "brand-new-alias" won't appear in
+// the literal.
+func TestIsNaturalLanguageQuery_DerivesFromCobraTree(t *testing.T) {
+	fakeRoot := &cobra.Command{Use: "kubestellar-ops"}
+	fakeRoot.AddCommand(&cobra.Command{
+		Use:     "brand-new-cmd",
+		Aliases: []string{"brand-new-alias"},
+		Run:     func(cmd *cobra.Command, args []string) {},
+	})
+
+	require.False(t, isNaturalLanguageQuery(fakeRoot, []string{"brand-new-cmd"}),
+		"newly-registered subcommand must not be treated as NLQ")
+	require.False(t, isNaturalLanguageQuery(fakeRoot, []string{"brand-new-alias"}),
+		"cobra alias must not be treated as NLQ")
+	require.True(t, isNaturalLanguageQuery(fakeRoot, []string{"why", "is", "my", "pod", "crashing"}),
+		"free-form text must still be treated as NLQ")
 }
 
 func TestRootCommand_FlagsParsedCorrectly(t *testing.T) {
