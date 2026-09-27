@@ -123,7 +123,7 @@ Examples:
 			return
 		}
 
-		if len(args) > 0 && isNaturalLanguageQuery(args) {
+		if len(args) > 0 && isNaturalLanguageQuery(cmd, args) {
 			// Treat as natural language query - run the query subcommand
 			queryCmd := newQueryCommand(configFlags)
 			queryCmd.SetArgs(args)
@@ -172,33 +172,31 @@ func init() {
 	rootCmd.AddCommand(newVersionCommand())
 }
 
-// isNaturalLanguageQuery checks if args look like a natural language query
-// rather than a subcommand
-func isNaturalLanguageQuery(args []string) bool {
+// isNaturalLanguageQuery decides whether argv looks like a natural language
+// query to route to `ai query`, rather than a registered subcommand.
+//
+// It derives the subcommand set from the live cobra tree (via cmd.Find, which
+// also honors aliases and cobra-injected commands like `help` and
+// `completion`) rather than from a hand-maintained literal, so newly-added
+// subcommands are picked up automatically and can't be silently misrouted
+// through the NLQ/ai path.
+func isNaturalLanguageQuery(cmd *cobra.Command, args []string) bool {
 	if len(args) == 0 {
 		return false
 	}
 
-	// Known subcommands
-	subcommands := map[string]bool{
-		"clusters":      true,
-		"query":         true,
-		"watch-upgrade": true,
-		"version":       true,
-		"help":          true,
-		"completion":    true,
-	}
-
-	first := strings.ToLower(args[0])
-
-	// If it's a known subcommand, it's not a natural language query
-	if subcommands[first] {
-		return false
-	}
-
 	// If it starts with a flag, it's not a natural language query
-	if strings.HasPrefix(first, "-") {
+	if strings.HasPrefix(args[0], "-") {
 		return false
+	}
+
+	// Ask cobra whether the first arg resolves to a real child command or
+	// alias. Find returns the receiver itself (and no error) when nothing
+	// matches; anything else means we found a subcommand.
+	if cmd != nil {
+		if sub, _, err := cmd.Find(args); err == nil && sub != nil && sub != cmd {
+			return false
+		}
 	}
 
 	// Otherwise, treat it as a natural language query
