@@ -187,7 +187,7 @@ func applyBranchCases() []applyBranchCase {
 	}
 }
 
-func TestApplyResourceFunctions_NewResourceReturnsUpdatedNotCreated(t *testing.T) {
+func TestApplyResourceFunctions_NewResourceReturnsCreated(t *testing.T) {
 	for _, tc := range applyBranchCases() {
 		t.Run(tc.name, func(t *testing.T) {
 			client := kubernetesfake.NewSimpleClientset()
@@ -200,7 +200,7 @@ func TestApplyResourceFunctions_NewResourceReturnsUpdatedNotCreated(t *testing.T
 
 			status, err := tc.applyFunc(context.Background(), client, tc.raw, "default")
 			require.NoError(t, err)
-			assert.Equal(t, "updated", status)
+			assert.Equal(t, "created", status)
 		})
 	}
 }
