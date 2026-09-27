@@ -119,9 +119,9 @@ func ApplyDeployment(ctx context.Context, client kubernetes.Interface, rawObj ma
 		deployment.Namespace = namespace
 	}
 
-	existing, err := client.AppsV1().Deployments(namespace).Get(ctx, deployment.Name, metav1.GetOptions{})
-	if err != nil && !apierrors.IsNotFound(err) {
-		return "", err
+	existing, getErr := client.AppsV1().Deployments(namespace).Get(ctx, deployment.Name, metav1.GetOptions{})
+	if getErr != nil && !apierrors.IsNotFound(getErr) {
+		return "", getErr
 	}
 
 	data, err = json.Marshal(deployment)
@@ -136,7 +136,7 @@ func ApplyDeployment(ctx context.Context, client kubernetes.Interface, rawObj ma
 	if err != nil {
 		return "", err
 	}
-	if existing == nil {
+	if apierrors.IsNotFound(getErr) {
 		return "created", nil
 	}
 	if existing.ResourceVersion == updated.ResourceVersion {
@@ -160,9 +160,9 @@ func ApplyService(ctx context.Context, client kubernetes.Interface, rawObj map[s
 		service.Namespace = namespace
 	}
 
-	existing, err := client.CoreV1().Services(namespace).Get(ctx, service.Name, metav1.GetOptions{})
-	if err != nil && !apierrors.IsNotFound(err) {
-		return "", err
+	existing, getErr := client.CoreV1().Services(namespace).Get(ctx, service.Name, metav1.GetOptions{})
+	if getErr != nil && !apierrors.IsNotFound(getErr) {
+		return "", getErr
 	}
 
 	data, err = json.Marshal(service)
@@ -177,7 +177,7 @@ func ApplyService(ctx context.Context, client kubernetes.Interface, rawObj map[s
 	if err != nil {
 		return "", err
 	}
-	if existing == nil {
+	if apierrors.IsNotFound(getErr) {
 		return "created", nil
 	}
 	if existing.ResourceVersion == updated.ResourceVersion {
@@ -201,9 +201,9 @@ func ApplyConfigMap(ctx context.Context, client kubernetes.Interface, rawObj map
 		cm.Namespace = namespace
 	}
 
-	existing, err := client.CoreV1().ConfigMaps(namespace).Get(ctx, cm.Name, metav1.GetOptions{})
-	if err != nil && !apierrors.IsNotFound(err) {
-		return "", err
+	existing, getErr := client.CoreV1().ConfigMaps(namespace).Get(ctx, cm.Name, metav1.GetOptions{})
+	if getErr != nil && !apierrors.IsNotFound(getErr) {
+		return "", getErr
 	}
 
 	data, err = json.Marshal(cm)
@@ -218,7 +218,7 @@ func ApplyConfigMap(ctx context.Context, client kubernetes.Interface, rawObj map
 	if err != nil {
 		return "", err
 	}
-	if existing == nil {
+	if apierrors.IsNotFound(getErr) {
 		return "created", nil
 	}
 	if existing.ResourceVersion == updated.ResourceVersion {
@@ -242,9 +242,9 @@ func ApplySecret(ctx context.Context, client kubernetes.Interface, rawObj map[st
 		secret.Namespace = namespace
 	}
 
-	existing, err := client.CoreV1().Secrets(namespace).Get(ctx, secret.Name, metav1.GetOptions{})
-	if err != nil && !apierrors.IsNotFound(err) {
-		return "", err
+	existing, getErr := client.CoreV1().Secrets(namespace).Get(ctx, secret.Name, metav1.GetOptions{})
+	if getErr != nil && !apierrors.IsNotFound(getErr) {
+		return "", getErr
 	}
 
 	data, err = json.Marshal(secret)
@@ -259,7 +259,7 @@ func ApplySecret(ctx context.Context, client kubernetes.Interface, rawObj map[st
 	if err != nil {
 		return "", err
 	}
-	if existing == nil {
+	if apierrors.IsNotFound(getErr) {
 		return "created", nil
 	}
 	if existing.ResourceVersion == updated.ResourceVersion {
