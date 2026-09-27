@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/helm"
+	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/tooldef"
 	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 )
 
@@ -24,9 +25,9 @@ func (s *Server) helmServer() *helm.Server {
 }
 
 // helmToolDefs adapts the pkg/deploy/mcp/helm sub-package (helm_install,
-// helm_uninstall, helm_list, helm_rollback) into the root Server's toolDef
-// shape. Order is preserved so tools/list output stays byte-identical (see
+// helm_uninstall, helm_list, helm_rollback) as handler-bound tooldef.ToolDefs.
+// Order is preserved so tools/list output stays byte-identical (see
 // registry.go).
-func (s *Server) helmToolDefs() []toolDef {
-	return adaptToolDefs(s.helmServer().Tools())
+func (s *Server) helmToolDefs() []tooldef.ToolDef {
+	return s.helmServer().Tools()
 }

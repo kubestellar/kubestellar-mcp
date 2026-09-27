@@ -2,9 +2,9 @@ package mcp
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/labels"
+	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/tooldef"
 	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 )
 
@@ -42,24 +42,10 @@ func (d *serverLabelsDeps) SensitiveKindError(kind string) error {
 // Compile-time interface compliance check.
 var _ labels.Deps = (*serverLabelsDeps)(nil)
 
-// labelToolDefs adapts the pkg/deploy/mcp/labels sub-package (add_labels,
-// remove_labels) into the root Server's toolDef shape, binding each handler
-// to this Server's deps. Order is preserved so tools/list output stays
+// labelToolDefs returns the pkg/deploy/mcp/labels sub-package's tools
+// (add_labels, remove_labels) with each handler bound to this *Server via
+// serverLabelsDeps. Order is preserved so tools/list output stays
 // byte-identical (see registry.go).
-func (s *Server) labelToolDefs() []toolDef {
-	deps := &serverLabelsDeps{s: s}
-	labelTools := labels.Tools()
-	defs := make([]toolDef, 0, len(labelTools))
-	for _, td := range labelTools {
-		td := td // capture loop variable
-		defs = append(defs, toolDef{
-			Name:        td.Name,
-			Description: td.Description,
-			InputSchema: td.InputSchema,
-			Handler: func(ctx context.Context, args json.RawMessage) (interface{}, error) {
-				return td.Handler(ctx, deps, args)
-			},
-		})
-	}
-	return defs
+func (s *Server) labelToolDefs() []tooldef.ToolDef {
+	return labels.Tools(&serverLabelsDeps{s: s})
 }

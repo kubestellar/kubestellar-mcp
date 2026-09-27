@@ -3,24 +3,16 @@ package labels
 import (
 	"context"
 	"encoding/json"
+
+	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/tooldef"
 )
 
-// ToolDef pairs a tool's MCP schema (name, description, inputSchema) with the
-// handler that executes it, bound to the caller-supplied Deps rather than a
-// concrete *mcp.Server. The root package adapts these into its own toolDef
-// type (see labels_adapter.go) so tools/list output stays byte-identical to
-// the pre-refactor server.
-type ToolDef struct {
-	Name        string
-	Description string
-	InputSchema map[string]interface{}
-	Handler     func(ctx context.Context, d Deps, args json.RawMessage) (interface{}, error)
-}
-
-// Tools returns the tool definitions for the labels domain, in the same
-// order they were registered in the pre-refactor tools_labels.go.
-func Tools() []ToolDef {
-	return []ToolDef{
+// Tools returns the tool definitions for the labels domain, bound to the
+// given Deps at construction time (matching app.Tools(executor) and
+// deploy.Tools(d)), in the same order they were registered in the
+// pre-refactor tools_labels.go.
+func Tools(d Deps) []tooldef.ToolDef {
+	return []tooldef.ToolDef{
 		{
 			Name:        "add_labels",
 			Description: "Add labels to a Kubernetes resource across clusters.",
@@ -55,7 +47,7 @@ func Tools() []ToolDef {
 				},
 				"required": []string{"kind", "name", "labels"},
 			},
-			Handler: HandleAddLabels,
+			Handler: bind(d, HandleAddLabels),
 		},
 		{
 			Name:        "remove_labels",
@@ -92,7 +84,14 @@ func Tools() []ToolDef {
 				},
 				"required": []string{"kind", "name", "labels"},
 			},
-			Handler: HandleRemoveLabels,
+			Handler: bind(d, HandleRemoveLabels),
 		},
+	}
+}
+
+// bind closes a Deps-taking handler over d so it satisfies tooldef.Handler.
+func bind(d Deps, h func(ctx context.Context, d Deps, args json.RawMessage) (interface{}, error)) tooldef.Handler {
+	return func(ctx context.Context, args json.RawMessage) (interface{}, error) {
+		return h(ctx, d, args)
 	}
 }

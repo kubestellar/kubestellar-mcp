@@ -6,6 +6,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/deploy"
+	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/tooldef"
 	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
 )
 
@@ -43,8 +44,8 @@ func (s *Server) deployDeps() deploy.Deps {
 
 // deployToolDefs adapts the pkg/deploy/mcp/deploy sub-package
 // (list_cluster_capabilities, find_clusters_for_workload, deploy_app,
-// scale_app, patch_app) into the root Server's toolDef shape. Order is
+// scale_app, patch_app) as handler-bound tooldef.ToolDefs. Order is
 // preserved so tools/list output stays byte-identical (see registry.go).
-func (s *Server) deployToolDefs() []toolDef {
-	return adaptToolDefs(deploy.Tools(s.deployDeps()))
+func (s *Server) deployToolDefs() []tooldef.ToolDef {
+	return deploy.Tools(s.deployDeps())
 }

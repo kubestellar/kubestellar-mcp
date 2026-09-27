@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/kubectl"
+	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/tooldef"
 )
 
 // kubectlDeps builds a kubectl.Deps bound to this *Server, wiring the shared
@@ -22,9 +23,9 @@ func (s *Server) kubectlDeps() kubectl.Deps {
 }
 
 // kubectlToolDefs adapts the pkg/deploy/mcp/kubectl sub-package
-// (delete_resource, kubectl_apply) into the root Server's toolDef shape.
+// (delete_resource, kubectl_apply) as handler-bound tooldef.ToolDefs.
 // Order is preserved so tools/list output stays byte-identical (see
 // registry.go).
-func (s *Server) kubectlToolDefs() []toolDef {
-	return adaptToolDefs(s.kubectlDeps().Tools())
+func (s *Server) kubectlToolDefs() []tooldef.ToolDef {
+	return s.kubectlDeps().Tools()
 }
