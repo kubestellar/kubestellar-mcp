@@ -187,7 +187,7 @@ func applyBranchCases() []applyBranchCase {
 	}
 }
 
-func TestApplyResourceFunctions_NewResourceReturnsUpdatedNotCreated(t *testing.T) {
+func TestApplyResourceFunctions_NewResourceReturnsCreated(t *testing.T) {
 	for _, tc := range applyBranchCases() {
 		t.Run(tc.name, func(t *testing.T) {
 			client := kubernetesfake.NewSimpleClientset()
@@ -196,6 +196,22 @@ func TestApplyResourceFunctions_NewResourceReturnsUpdatedNotCreated(t *testing.T
 			})
 			client.PrependReactor("patch", tc.resource, func(k8stesting.Action) (bool, runtime.Object, error) {
 				return true, tc.makeObj("1"), nil
+			})
+
+			status, err := tc.applyFunc(context.Background(), client, tc.raw, "default")
+			require.NoError(t, err)
+			assert.Equal(t, "created", status)
+		})
+	}
+}
+
+func TestApplyResourceFunctions_UpdatedBranch(t *testing.T) {
+	for _, tc := range applyBranchCases() {
+		t.Run(tc.name, func(t *testing.T) {
+			existing := tc.makeObj("1")
+			client := kubernetesfake.NewSimpleClientset(existing)
+			client.PrependReactor("patch", tc.resource, func(k8stesting.Action) (bool, runtime.Object, error) {
+				return true, tc.makeObj("2"), nil
 			})
 
 			status, err := tc.applyFunc(context.Background(), client, tc.raw, "default")
