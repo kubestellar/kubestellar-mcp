@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
 )
 
 // SyncAction represents what action was taken for a resource
@@ -77,6 +78,8 @@ type SyncOptions struct {
 
 // Sync applies manifests to a cluster
 func (s *Syncer) Sync(ctx context.Context, manifests []Manifest, clusterName string, opts SyncOptions) (*SyncSummary, error) {
+	klog.V(2).InfoS("gitops sync started", "cluster", clusterName, "manifests", len(manifests), "dryRun", opts.DryRun)
+
 	summary := &SyncSummary{
 		Cluster: clusterName,
 		Results: []SyncResult{},
@@ -99,6 +102,7 @@ func (s *Syncer) Sync(ctx context.Context, manifests []Manifest, clusterName str
 
 		mapping, err := resolveManifestResource(manifest, s.restMapper)
 		if err != nil {
+			klog.ErrorS(err, "gitops sync resource mapping failed", "cluster", clusterName, "kind", manifest.Kind, "name", manifest.Metadata.Name)
 			summary.Failed++
 			summary.Results = append(summary.Results, SyncResult{
 				Cluster:   clusterName,
@@ -121,6 +125,7 @@ func (s *Syncer) Sync(ctx context.Context, manifests []Manifest, clusterName str
 
 		result, err := s.syncResource(ctx, manifest, mapping, namespace, opts.DryRun)
 		if err != nil {
+			klog.ErrorS(err, "gitops sync resource failed", "cluster", clusterName, "kind", manifest.Kind, "name", manifest.Metadata.Name, "namespace", namespace)
 			summary.Failed++
 			summary.Results = append(summary.Results, SyncResult{
 				Cluster:   clusterName,
@@ -145,6 +150,10 @@ func (s *Syncer) Sync(ctx context.Context, manifests []Manifest, clusterName str
 			summary.Unchanged++
 		}
 	}
+
+	klog.V(2).InfoS("gitops sync completed", "cluster", clusterName,
+		"created", summary.Created, "updated", summary.Updated,
+		"unchanged", summary.Unchanged, "failed", summary.Failed, "skipped", summary.Skipped)
 
 	return summary, nil
 }
