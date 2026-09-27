@@ -39,8 +39,14 @@ manually:
    (kubestellar-mcp#1014). `cache-to` now carries `ignore-error=true` so
    this is no longer fatal, but for the affected release the provenance
    attestation and post-publish verification did not run and
-   `publish-mcp-registry` was skipped: re-run the failed jobs from the
-   Actions UI (or dispatch `ghcr-publish.yml` with the release tag).
+   `publish-mcp-registry` was skipped. Recover with **Re-run failed jobs**
+   on the release run in the Actions UI: that re-executes `publish-ghcr`
+   and, once it is green, the dependent `publish-mcp-registry` job. If
+   you instead dispatch `ghcr-publish.yml` with the release tag, only the
+   GHCR image is republished — that workflow does not know about the
+   registry job in `release.yml` — so you must then also dispatch
+   `publish-mcp-registry.yml` with the same tag, or the release stays
+   missing from the MCP Registry.
 
 ## 1. Stop the bleeding: pause the next scheduled run
 
