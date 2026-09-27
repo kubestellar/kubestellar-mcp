@@ -15,6 +15,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
 )
 
 // DriftType indicates the type of drift detected
@@ -66,6 +67,8 @@ func NewDriftDetector(config *rest.Config) (*DriftDetector, error) {
 
 // DetectDrift compares git manifests against cluster state
 func (d *DriftDetector) DetectDrift(ctx context.Context, manifests []Manifest, clusterName string) ([]DriftResult, error) {
+	klog.V(2).InfoS("gitops drift detection started", "cluster", clusterName, "manifests", len(manifests))
+
 	var drifts []DriftResult
 
 	// Build a map of expected resources from git
@@ -79,6 +82,7 @@ func (d *DriftDetector) DetectDrift(ctx context.Context, manifests []Manifest, c
 	for key, manifest := range expected {
 		drift, err := d.checkResource(ctx, manifest, clusterName)
 		if err != nil {
+			klog.ErrorS(err, "gitops drift check failed", "cluster", clusterName, "kind", manifest.Kind, "name", manifest.Metadata.Name)
 			// Record error as a drift
 			drifts = append(drifts, DriftResult{
 				Cluster:     clusterName,
@@ -96,6 +100,8 @@ func (d *DriftDetector) DetectDrift(ctx context.Context, manifests []Manifest, c
 			drifts = append(drifts, *drift)
 		}
 	}
+
+	klog.V(2).InfoS("gitops drift detection completed", "cluster", clusterName, "checked", len(expected), "drifts", len(drifts))
 
 	return drifts, nil
 }
