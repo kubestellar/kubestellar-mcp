@@ -56,5 +56,5 @@ internal/version/versioncmd 100.0
 # without asking scripts/check-go-coverage-ratchet.sh to look for a
 # package that never appears in the coverprofile. See kubestellar-mcp#872.
 internal/version -
-pkg/mcp/protocol -
+pkg/mcp/protocol 100
 pkg/deploy/mcp/tooldef -
