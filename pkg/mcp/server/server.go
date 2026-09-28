@@ -278,23 +278,11 @@ func (s *Server) boundedClusterLabel(cluster string) string {
 }
 
 func (s *Server) sendResult(id interface{}, result interface{}) {
-	s.send(Response{
-		JSONRPC: "2.0",
-		ID:      id,
-		Result:  result,
-	})
+	s.send(*protocol.NewResult(id, result))
 }
 
 func (s *Server) sendError(id interface{}, code int, message string, data interface{}) {
-	s.send(Response{
-		JSONRPC: "2.0",
-		ID:      id,
-		Error: &Error{
-			Code:    code,
-			Message: message,
-			Data:    data,
-		},
-	})
+	s.send(*protocol.NewError(id, code, message, data))
 }
 
 func (s *Server) send(resp Response) {

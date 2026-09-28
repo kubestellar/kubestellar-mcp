@@ -155,30 +155,22 @@ func (s *Server) handleRequest(req *protocol.Request) *protocol.Response {
 		// No response needed for MCP lifecycle notification
 		return nil
 	default:
-		return &protocol.Response{
-			JSONRPC: "2.0",
-			ID:      req.ID,
-			Error:   &protocol.Error{Code: -32601, Message: "Method not found"},
-		}
+		return protocol.NewError(req.ID, -32601, "Method not found", nil)
 	}
 }
 
 // handleInitialize handles the initialize request
 func (s *Server) handleInitialize(req *protocol.Request) *protocol.Response {
-	return &protocol.Response{
-		JSONRPC: "2.0",
-		ID:      req.ID,
-		Result: map[string]interface{}{
-			"protocolVersion": "2024-11-05",
-			"serverInfo": map[string]string{
-				"name":    ServerName,
-				"version": ServerVersion,
-			},
-			"capabilities": map[string]interface{}{
-				"tools": map[string]interface{}{},
-			},
+	return protocol.NewResult(req.ID, map[string]interface{}{
+		"protocolVersion": "2024-11-05",
+		"serverInfo": map[string]string{
+			"name":    ServerName,
+			"version": ServerVersion,
 		},
-	}
+		"capabilities": map[string]interface{}{
+			"tools": map[string]interface{}{},
+		},
+	})
 }
 
 // handleListTools returns the list of available tools. Each tool's schema is
@@ -196,13 +188,9 @@ func (s *Server) handleListTools(req *protocol.Request) *protocol.Response {
 		})
 	}
 
-	return &protocol.Response{
-		JSONRPC: "2.0",
-		ID:      req.ID,
-		Result: map[string]interface{}{
-			"tools": tools,
-		},
-	}
+	return protocol.NewResult(req.ID, map[string]interface{}{
+		"tools": tools,
+	})
 }
 
 // handleToolCall dispatches tool calls to handlers
@@ -212,11 +200,7 @@ func (s *Server) handleToolCall(ctx context.Context, req *protocol.Request) *pro
 		Arguments json.RawMessage `json:"arguments"`
 	}
 	if err := json.Unmarshal(req.Params, &params); err != nil {
-		return &protocol.Response{
-			JSONRPC: "2.0",
-			ID:      req.ID,
-			Error:   &protocol.Error{Code: -32602, Message: "Invalid params"},
-		}
+		return protocol.NewError(req.ID, -32602, "Invalid params", nil)
 	}
 
 	var result interface{}
@@ -253,11 +237,7 @@ func (s *Server) handleToolCall(ctx context.Context, req *protocol.Request) *pro
 	def, ok := s.findToolDef(params.Name)
 	if !ok {
 		span.SetStatus(codes.Error, "unknown tool")
-		return &protocol.Response{
-			JSONRPC: "2.0",
-			ID:      req.ID,
-			Error:   &protocol.Error{Code: -32601, Message: fmt.Sprintf("Unknown tool: %s", params.Name)},
-		}
+		return protocol.NewError(req.ID, -32601, fmt.Sprintf("Unknown tool: %s", params.Name), nil)
 	}
 	result, err = def.Handler(ctx, params.Arguments)
 
@@ -282,35 +262,27 @@ func (s *Server) handleToolCall(ctx context.Context, req *protocol.Request) *pro
 	}
 
 	if err != nil {
-		return &protocol.Response{
-			JSONRPC: "2.0",
-			ID:      req.ID,
-			Result: map[string]interface{}{
-				"content": []map[string]interface{}{
-					{
-						"type": "text",
-						"text": fmt.Sprintf("Error: %v", err),
-					},
+		return protocol.NewResult(req.ID, map[string]interface{}{
+			"content": []map[string]interface{}{
+				{
+					"type": "text",
+					"text": fmt.Sprintf("Error: %v", err),
 				},
-				"isError": true,
 			},
-		}
+			"isError": true,
+		})
 	}
 
 	// Format result as MCP content
 	resultJSON, _ := json.MarshalIndent(result, "", "  ")
-	return &protocol.Response{
-		JSONRPC: "2.0",
-		ID:      req.ID,
-		Result: map[string]interface{}{
-			"content": []map[string]interface{}{
-				{
-					"type": "text",
-					"text": string(resultJSON),
-				},
+	return protocol.NewResult(req.ID, map[string]interface{}{
+		"content": []map[string]interface{}{
+			{
+				"type": "text",
+				"text": string(resultJSON),
 			},
 		},
-	}
+	})
 }
 
 // sendResponse writes a response to stdout
@@ -321,10 +293,5 @@ func (s *Server) sendResponse(resp *protocol.Response) {
 
 // sendError sends an error response
 func (s *Server) sendError(id interface{}, code int, message string) {
-	resp := &protocol.Response{
-		JSONRPC: "2.0",
-		ID:      id,
-		Error:   &protocol.Error{Code: code, Message: message},
-	}
-	s.sendResponse(resp)
+	s.sendResponse(protocol.NewError(id, code, message, nil))
 }

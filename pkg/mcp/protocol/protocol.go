@@ -113,3 +113,39 @@ type ContentBlock struct {
 	Type string `json:"type"`
 	Text string `json:"text"`
 }
+
+// --- JSON-RPC response envelope constructors ---
+//
+// Both MCP servers (pkg/mcp/server and pkg/deploy/mcp) hand-roll
+// Response{JSONRPC: "2.0", ...} literals at every reply site. Centralizing
+// the envelope construction here removes that duplication and gives future
+// consolidation work (see kubestellar-mcp#1017) a single place to enforce
+// invariants such as the fixed JSONRPC version tag. The helpers do NOT
+// perform I/O; callers still choose their own transport and locking policy.
+
+// NewResult returns a JSON-RPC success Response with the shared JSONRPC
+// version tag pre-filled. The Result value is used as-is; callers should
+// pass a shape defined in this package (e.g. InitializeResult,
+// ToolsListResult, CallToolResult) so that on-wire output stays typed.
+func NewResult(id interface{}, result interface{}) *Response {
+	return &Response{
+		JSONRPC: JSONRPCVersion,
+		ID:      id,
+		Result:  result,
+	}
+}
+
+// NewError returns a JSON-RPC error Response with the shared JSONRPC
+// version tag pre-filled. Pass data == nil to omit the "data" field on the
+// wire (Error.Data has omitempty).
+func NewError(id interface{}, code int, message string, data interface{}) *Response {
+	return &Response{
+		JSONRPC: JSONRPCVersion,
+		ID:      id,
+		Error: &Error{
+			Code:    code,
+			Message: message,
+			Data:    data,
+		},
+	}
+}
