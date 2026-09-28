@@ -8,6 +8,7 @@ This changelog focuses on stable operator-facing releases. Nightly prereleases r
 ## [Unreleased]
 
 ### Added
+- Added `--metrics-addr` and a `/metrics` endpoint to `kubestellar-deploy`, matching `kubestellar-ops`; see `docs/slo.md` and `docs/alerts/README.md` for the shared-registry scraping guidance this requires.
 - Added `commands/TEMPLATE.md` to standardize future command reference documentation.
 - Added operator documentation for multi-client MCP setup, `kubestellar-deploy` CLI usage, architecture, troubleshooting, environment variables, and integration testing.
 - Added broader unit test coverage and ratcheted the repository coverage threshold.

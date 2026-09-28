@@ -1,21 +1,27 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/kubestellar/kubestellar-mcp/internal/version/versioncmd"
 	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp"
+	"github.com/kubestellar/kubestellar-mcp/pkg/metrics"
 )
 
 var (
-	mcpServer      bool
-	runMCPServer             = mcp.RunMCPServer
-	newRootCommand           = NewRootCommand
-	stderr         io.Writer = os.Stderr
+	mcpServer             bool
+	metricsAddr           string
+	runMCPServer                    = mcp.RunMCPServer
+	newRootCommand                  = NewRootCommand
+	startMetricsServer              = metrics.StartServer
+	shutdownMetricsServer           = metrics.Shutdown
+	stderr                io.Writer = os.Stderr
 )
 
 func NewRootCommand() *cobra.Command {
@@ -42,6 +48,28 @@ Examples:
   kubestellar-deploy version`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if mcpServer {
+				// Only start the /metrics endpoint when an operator
+				// explicitly configures an address; otherwise no HTTP
+				// listener is opened and no metrics data is exposed
+				// outside the process (mirrors pkg/cmd/root.go's
+				// kubestellar-ops wiring). Metrics recorded here land in
+				// the same mcpserver_* series as kubestellar-ops with no
+				// binary-distinguishing label - an operator enabling this
+				// on both binaries must scrape them as distinct
+				// Prometheus targets (e.g. separate job/instance labels),
+				// see docs/slo.md and docs/alerts/README.md.
+				if metricsAddr != "" {
+					metricsSrv, err := startMetricsServer(metricsAddr)
+					if err != nil {
+						_, _ = fmt.Fprintf(stderr, "metrics server error: %v\n", err)
+						return err
+					}
+					defer func() {
+						shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+						defer shutdownCancel()
+						_ = shutdownMetricsServer(shutdownCtx, metricsSrv)
+					}()
+				}
 				return runMCPServer()
 			}
 			return cmd.Help()
@@ -49,6 +77,7 @@ Examples:
 	}
 
 	cmd.PersistentFlags().BoolVar(&mcpServer, "mcp-server", false, "Run as MCP server for Claude Code integration")
+	cmd.PersistentFlags().StringVar(&metricsAddr, "metrics-addr", "", "Address to serve Prometheus /metrics on (e.g. 127.0.0.1:9091); disabled unless explicitly set")
 
 	cmd.AddCommand(newVersionCommand())
 
