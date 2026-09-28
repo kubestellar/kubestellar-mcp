@@ -8,21 +8,19 @@ and has opted the MCP server into the metrics endpoint (`--metrics-addr`,
 see `pkg/metrics`) can apply this as-is.
 
 **Scope: `kubestellar-ops` and `kubestellar-deploy` share these metric
-names, but only `kubestellar-ops` currently exposes them.**
-`kubestellar-deploy` (`pkg/deploy/`) is a second MCP-server binary that
-imports the same `pkg/metrics` package and records into the same
-`mcpserver_*` series as `kubestellar-ops`, with no binary-distinguishing
-label — however `kubestellar-deploy` does not currently register an
-`--metrics-addr` flag or serve `/metrics` (verified against
-`pkg/deploy/cmd/root.go`), so its recorded metrics are never scraped
-today and these rules only ever see `kubestellar-ops` traffic in
-practice. If `--metrics-addr` support is added to `kubestellar-deploy` in
-the future, scrape it as a separate Prometheus target from
-`kubestellar-ops` (distinct `job`/`instance` labels, or a relabel step)
-before applying these rules — otherwise every expression below would
-aggregate both services' traffic together, and an alert firing couldn't
-tell you which binary is actually degraded. See the "Scope note" in
-[`../slo.md`](../slo.md) for which SLOs apply to which binary.
+names and, as of `--metrics-addr` support on both binaries, can both
+expose them.** `kubestellar-deploy` (`pkg/deploy/`) is a second
+MCP-server binary that imports the same `pkg/metrics` package and
+records into the same `mcpserver_*` series as `kubestellar-ops`, with no
+binary-distinguishing label. `kubestellar-deploy` now also registers an
+`--metrics-addr` flag and serves `/metrics` (see
+`pkg/deploy/cmd/root.go`), so an operator who enables it on both
+binaries **must** scrape them as separate Prometheus targets (distinct
+`job`/`instance` labels, or a relabel step) before applying these rules
+— otherwise every expression below would aggregate both services'
+traffic together, and an alert firing couldn't tell you which binary is
+actually degraded. See the "Scope note" in [`../slo.md`](../slo.md) for
+which SLOs apply to which binary.
 
 ## `mcpserver-rules.yaml`
 

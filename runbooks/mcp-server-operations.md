@@ -256,27 +256,20 @@ kubestellar-ops --mcp-server --metrics-addr 127.0.0.1:9090
 curl -s http://127.0.0.1:9090/metrics | grep mcpserver_
 ```
 
-**`kubestellar-deploy` does not currently support this flag.** Although
+**`kubestellar-deploy` now also supports this flag.**
 `kubestellar-deploy` (`pkg/deploy/cmd/root.go`) imports the same
 `pkg/metrics` package and records tool calls into the identical
-`mcpserver_*` series, it only registers an `--mcp-server` flag — there is
-no `--metrics-addr` flag or `/metrics` HTTP endpoint wired up for it today.
-Running the command below against `kubestellar-deploy` fails immediately:
+`mcpserver_*` series as `kubestellar-ops`, and now registers its own
+`--metrics-addr` flag and `/metrics` HTTP endpoint:
 
 ```bash
-$ kubestellar-deploy --mcp-server --metrics-addr 127.0.0.1:9091
-Error: unknown flag: --metrics-addr
+kubestellar-deploy --mcp-server --metrics-addr 127.0.0.1:9091
+curl -s http://127.0.0.1:9091/metrics | grep mcpserver_
 ```
 
-Do not use this as a diagnostic option for `kubestellar-deploy` incidents
-until that support is added; rely on process/log-level diagnosis instead
-(see [Container Health Verification](#container-health-verification) and
-[Diagnosing Silent Failures](#diagnosing-silent-failures)).
-
-**Shared-registry caveat (for when `--metrics-addr` is added to
-`kubestellar-deploy`):** because both binaries would emit the same metric
+**Shared-registry caveat:** because both binaries emit the same metric
 names with no binary-distinguishing label, running both with `--metrics-addr`
-and scraping them into one Prometheus would require separating them by
+and scraping them into one Prometheus **requires** separating them by
 `job`/`instance` label (or a relabel step) — otherwise the alert rules in
 [`docs/alerts/mcpserver-rules.yaml`](../docs/alerts/mcpserver-rules.yaml)
 and the SLOs in [`docs/slo.md`](../docs/slo.md) would blend `kubestellar-ops`
