@@ -1,8 +1,7 @@
 package server
 
 import (
-	"fmt"
-
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/server/handlers"
 	"github.com/kubestellar/kubestellar-mcp/pkg/security/namespace"
 )
 
@@ -20,20 +19,10 @@ func ValidateNamespace(ns string) error {
 // map and validates it. When the key is absent, the call is allowed in
 // all-namespaces mode and ("", nil) is returned. A provided namespace must be
 // a non-empty string and pass ValidateNamespace.
+//
+// This is a thin package-local shim around
+// handlers.ExtractAndValidateNamespace, which is the import-safe seam
+// domain sub-packages consume directly (see #1027).
 func extractAndValidateNamespace(args map[string]interface{}) (string, error) {
-	raw, ok := args["namespace"]
-	if !ok {
-		return "", nil
-	}
-
-	ns, ok := raw.(string)
-	if !ok {
-		return "", fmt.Errorf("namespace must be a string, got %T", raw)
-	}
-
-	if err := ValidateNamespace(ns); err != nil {
-		return "", err
-	}
-
-	return ns, nil
+	return handlers.ExtractAndValidateNamespace(args)
 }
