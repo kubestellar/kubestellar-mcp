@@ -69,6 +69,13 @@ signs:
     args:
       - "sign-blob"
       - "--yes" # required in cosign >= 2.0 for keyless
+      # cosign 2.6.0 flipped --new-bundle-format on by default, which silently
+      # ignores --output-signature / --output-certificate and requires --bundle
+      # instead. Pin the legacy flag layout so this config keeps working across
+      # the 2.5 → 2.6 boundary; the on-disk .sig / .pem artifact names are
+      # what our release attestation, SBOM signing, and downstream verifiers
+      # already expect.
+      - "--new-bundle-format=false"
       - "--output-signature=${signature}"
       - "--output-certificate=${certificate}"
       - "${artifact}"
