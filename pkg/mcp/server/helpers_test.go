@@ -5,12 +5,10 @@ import (
 	"compress/gzip"
 	"encoding/base64"
 	"encoding/json"
-	"strings"
 	"testing"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -39,28 +37,6 @@ func TestFormattingHelpers(t *testing.T) {
 	ports := formatPorts([]corev1.ServicePort{{Port: 80, Protocol: corev1.ProtocolTCP}, {Port: 443, NodePort: 30443, Protocol: corev1.ProtocolTCP}})
 	if ports != "80/TCP,443:30443/TCP" {
 		t.Fatalf("formatPorts() = %q", ports)
-	}
-
-	subjects := []rbacv1.Subject{
-		{Kind: "ServiceAccount", Namespace: "apps", Name: "builder"},
-		{Kind: "User", Name: "alice"},
-		{Kind: "Group", Name: "admins"},
-	}
-	formattedSubjects := formatSubjects(subjects)
-	for _, want := range []string{"SA:apps/builder", "User:alice", "Group:admins"} {
-		if !strings.Contains(formattedSubjects, want) {
-			t.Fatalf("formatSubjects() missing %q in %q", want, formattedSubjects)
-		}
-	}
-
-	if !subjectMatches(subjects, "ServiceAccount", "builder", "apps") {
-		t.Fatal("subjectMatches() should match service account with namespace")
-	}
-	if subjectMatches(subjects, "ServiceAccount", "builder", "other") {
-		t.Fatal("subjectMatches() should reject service account in wrong namespace")
-	}
-	if !subjectMatches(subjects, "User", "alice", "") {
-		t.Fatal("subjectMatches() should match user without namespace")
 	}
 }
 

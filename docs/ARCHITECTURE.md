@@ -174,7 +174,7 @@ Keep handlers grouped by domain.
 
 Expose the tool to MCP clients by adding it to the tool catalog in the relevant server file:
 
-- `pkg/mcp/server/tools_<domain>_registry.go` → `RegisterTool(schema, handler)` in `init()` (listed by `handleToolsList`); for domains already extracted into a sub-package (e.g. `pkg/mcp/server/drift`), add the schema to that package's `Register(reg *handlers.Registry)` instead
+- `pkg/mcp/server/tools_<domain>_registry.go` → `RegisterTool(schema, handler)` in `init()` (listed by `handleToolsList`); for domains already extracted into a sub-package (e.g. `pkg/mcp/server/drift`, `pkg/mcp/server/rbac`), add the schema to that package's `Register(reg *handlers.Registry)` instead
 - `pkg/deploy/mcp/server.go` → `handleListTools`
 
 At this stage define:

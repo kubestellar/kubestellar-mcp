@@ -1,4 +1,4 @@
-package server
+package rbac
 
 import (
 	"errors"
@@ -12,9 +12,9 @@ import (
 )
 
 // The existing TestToolGetRoleBindingsSuccess / TestToolGetClusterRoleBindingsSuccess
-// / TestToolGetClusterRolesSuccess suites in tools_rbac_test.go cover the happy
+// / TestToolGetClusterRolesSuccess suites in rbac_test.go cover the happy
 // paths only, leaving three error arms per function uncovered at
-// pkg/mcp/server/tools_rbac.go:
+// pkg/mcp/server/rbac.go:
 //
 //   toolGetRoleBindings         (line 94): extractAndValidateNamespace error,
 //                                          getClientForCluster error,
@@ -29,7 +29,7 @@ import (
 // (c) using PrependReactor on a fake client to force the List call to fail.
 
 func TestToolGetRoleBindingsInvalidNamespaceType(t *testing.T) {
-	s := &Server{
+	s := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(string) (kubernetes.Interface, error) {
 			t.Fatalf("clientFactory must not be called when namespace validation fails")
@@ -55,7 +55,7 @@ func TestToolGetRoleBindingsInvalidNamespaceType(t *testing.T) {
 }
 
 func TestToolGetRoleBindingsClientFactoryError(t *testing.T) {
-	s := &Server{
+	s := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(string) (kubernetes.Interface, error) {
 			return nil, errors.New("kubeconfig missing")
@@ -83,7 +83,7 @@ func TestToolGetRoleBindingsListError(t *testing.T) {
 		return true, nil, errors.New("forbidden: cannot list rolebindings")
 	})
 
-	s := &Server{
+	s := &testServer{
 		discoverer:    stubDiscoverer{},
 		clientFactory: func(string) (kubernetes.Interface, error) { return client, nil },
 	}
@@ -106,7 +106,7 @@ func TestToolGetRoleBindingsListError(t *testing.T) {
 }
 
 func TestToolGetClusterRoleBindingsClientFactoryError(t *testing.T) {
-	s := &Server{
+	s := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(string) (kubernetes.Interface, error) {
 			return nil, errors.New("no kubeconfig")
@@ -131,7 +131,7 @@ func TestToolGetClusterRoleBindingsListError(t *testing.T) {
 		return true, nil, errors.New("apiserver unavailable")
 	})
 
-	s := &Server{
+	s := &testServer{
 		discoverer:    stubDiscoverer{},
 		clientFactory: func(string) (kubernetes.Interface, error) { return client, nil },
 	}
@@ -152,7 +152,7 @@ func TestToolGetClusterRoleBindingsListError(t *testing.T) {
 }
 
 func TestToolGetClusterRolesClientFactoryError(t *testing.T) {
-	s := &Server{
+	s := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(string) (kubernetes.Interface, error) {
 			return nil, errors.New("kubeconfig missing")
@@ -177,7 +177,7 @@ func TestToolGetClusterRolesListError(t *testing.T) {
 		return true, nil, errors.New("boom: apiserver unavailable")
 	})
 
-	s := &Server{
+	s := &testServer{
 		discoverer:    stubDiscoverer{},
 		clientFactory: func(string) (kubernetes.Interface, error) { return client, nil },
 	}

@@ -1,4 +1,4 @@
-package server
+package rbac
 
 import (
 	"context"
@@ -16,13 +16,13 @@ import (
 
 // Existing tests (TestToolCanIAllowed / TestToolCanIValidation) cover
 // happy-path formatting and the missing-verb/-resource validation branches,
-// leaving toolCanI (tools_rbac.go:190) at 82.5% statement coverage. This
+// leaving toolCanI (rbac.go:190) at 82.5% statement coverage. This
 // file exercises the remaining branches.
 
 // TestToolCanI_InvalidNamespaceArg covers the extractAndValidateNamespace
 // error branch inside toolCanI.
 func TestToolCanI_InvalidNamespaceArg(t *testing.T) {
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(string) (kubernetes.Interface, error) {
 			return k8sfake.NewSimpleClientset(), nil
 		},
@@ -44,7 +44,7 @@ func TestToolCanI_InvalidNamespaceArg(t *testing.T) {
 // TestToolCanI_ClientFactoryError covers the getClientForCluster failure
 // branch.
 func TestToolCanI_ClientFactoryError(t *testing.T) {
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(string) (kubernetes.Interface, error) {
 			return nil, errors.New("kubeconfig missing")
 		},
@@ -72,7 +72,7 @@ func TestToolCanI_SARCreateError(t *testing.T) {
 			return true, nil, errors.New("api-server unreachable")
 		})
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -101,7 +101,7 @@ func TestToolCanI_AllowedTruePath(t *testing.T) {
 			}, nil
 		})
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -133,7 +133,7 @@ func TestToolCanI_DeniedWithReason(t *testing.T) {
 			}, nil
 		})
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -163,7 +163,7 @@ func TestToolCanI_SubresourceAndNameFormatting(t *testing.T) {
 	// subject of this test — the formatting branches are.
 	_ = metav1.ListOptions{}
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(string) (kubernetes.Interface, error) {
 			return client, nil
 		},
