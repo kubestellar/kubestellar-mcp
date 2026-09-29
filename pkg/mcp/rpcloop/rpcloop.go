@@ -87,9 +87,23 @@ func (l *Loop) effectiveMaxFrameSize() int {
 // behavior of treating end-of-input as graceful shutdown, not an error),
 // ctx.Err() if ctx was done, or the underlying scan error otherwise.
 func (l *Loop) Run(ctx context.Context, handler Handler) error {
+	maxFrameSize := l.effectiveMaxFrameSize()
+
 	scanner := bufio.NewScanner(l.reader)
-	buf := make([]byte, 0, initialScannerBufferSize)
-	scanner.Buffer(buf, l.effectiveMaxFrameSize())
+	// bufio.Scanner.Buffer documents that the effective maximum token size
+	// is the larger of the two arguments - cap(buf) and max - so an
+	// initial buffer capacity greater than maxFrameSize would silently
+	// raise the real cap above what SetMaxFrameSize configured. Keep the
+	// initial buffer no larger than maxFrameSize itself so small
+	// maxFrameSize values (e.g. in tests) are actually enforced, while
+	// still starting below the default cap to avoid over-allocating for
+	// the common case.
+	initialSize := initialScannerBufferSize
+	if initialSize > maxFrameSize {
+		initialSize = maxFrameSize
+	}
+	buf := make([]byte, 0, initialSize)
+	scanner.Buffer(buf, maxFrameSize)
 
 	for scanner.Scan() {
 		select {
