@@ -1,4 +1,4 @@
-package server
+package policy
 
 import (
 	"context"
@@ -92,7 +92,7 @@ func toolGetOwnershipPolicyStatus(ctx context.Context, d *handlers.Deps, args ma
 
 func toolListOwnershipViolations(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
-	namespaceFilter, err := extractAndValidateNamespace(args)
+	namespaceFilter, err := handlers.ExtractAndValidateNamespace(args)
 	if err != nil {
 		return fmt.Sprintf("error: %v", err), true
 	}

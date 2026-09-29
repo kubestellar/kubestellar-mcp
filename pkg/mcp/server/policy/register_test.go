@@ -1,11 +1,25 @@
-package server
+package policy
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/protocol"
 )
+
+// registeredSchemas returns a name -> Schema map from a fresh Register-populated
+// registry, so these assertions cover exactly what pkg/mcp/server's package
+// init() wires in through policy_tools.go.
+func registeredSchemas() map[string]protocol.Tool {
+	reg := newTestRegistry()
+	out := make(map[string]protocol.Tool)
+	for _, td := range reg.Defs() {
+		out[td.Schema.Name] = td.Schema
+	}
+	return out
+}
 
 func TestPolicyToolRegistry_AllToolsRegistered(t *testing.T) {
 	expectedTools := []string{
@@ -17,10 +31,7 @@ func TestPolicyToolRegistry_AllToolsRegistered(t *testing.T) {
 		"uninstall_ownership_policy",
 	}
 
-	registered := make(map[string]Tool)
-	for _, td := range toolRegistry.Defs() {
-		registered[td.Schema.Name] = td.Schema
-	}
+	registered := registeredSchemas()
 
 	for _, name := range expectedTools {
 		tool, ok := registered[name]
@@ -31,16 +42,8 @@ func TestPolicyToolRegistry_AllToolsRegistered(t *testing.T) {
 
 func TestPolicyToolRegistry_ToolCount(t *testing.T) {
 	expectedCount := 6
-	policyTools := 0
-	for _, td := range toolRegistry.Defs() {
-		switch td.Schema.Name {
-		case "check_gatekeeper", "get_ownership_policy_status",
-			"list_ownership_violations", "install_ownership_policy",
-			"set_ownership_policy_mode", "uninstall_ownership_policy":
-			policyTools++
-		}
-	}
-	assert.Equal(t, expectedCount, policyTools, "Policy registry should have exactly %d tools", expectedCount)
+	assert.Equal(t, expectedCount, len(registeredSchemas()),
+		"Policy registry should have exactly %d tools", expectedCount)
 }
 
 func TestPolicyToolRegistry_RequiredFields(t *testing.T) {
@@ -48,10 +51,7 @@ func TestPolicyToolRegistry_RequiredFields(t *testing.T) {
 		"set_ownership_policy_mode": {"mode"},
 	}
 
-	registered := make(map[string]Tool)
-	for _, td := range toolRegistry.Defs() {
-		registered[td.Schema.Name] = td.Schema
-	}
+	registered := registeredSchemas()
 
 	for toolName, expectedRequired := range requiredFields {
 		tool, ok := registered[toolName]
@@ -62,10 +62,7 @@ func TestPolicyToolRegistry_RequiredFields(t *testing.T) {
 }
 
 func TestPolicyToolRegistry_EnumFields(t *testing.T) {
-	registered := make(map[string]Tool)
-	for _, td := range toolRegistry.Defs() {
-		registered[td.Schema.Name] = td.Schema
-	}
+	registered := registeredSchemas()
 
 	testCases := []struct {
 		toolName     string

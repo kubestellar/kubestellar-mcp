@@ -1,4 +1,4 @@
-package server
+package policy
 
 import (
 	"strings"
@@ -10,9 +10,9 @@ import (
 	dynfake "k8s.io/client-go/dynamic/fake"
 )
 
-// newViolationServer returns a *Server whose dynamic client already has the
+// newViolationServer returns a *testServer whose dynamic client already has the
 // supplied ownership constraint seeded (or none if nil).
-func newViolationServer(t *testing.T, constraint *unstructured.Unstructured) *Server {
+func newViolationServer(t *testing.T, constraint *unstructured.Unstructured) *testServer {
 	t.Helper()
 	fakeDyn := dynfake.NewSimpleDynamicClient(dynamicScheme)
 	if constraint != nil {
@@ -23,7 +23,7 @@ func newViolationServer(t *testing.T, constraint *unstructured.Unstructured) *Se
 			t.Fatalf("seed constraint: %v", err)
 		}
 	}
-	return &Server{
+	return &testServer{
 		discoverer: stubDiscoverer{},
 		dynamicClientFactory: func(clusterName string) (dynamic.Interface, error) {
 			return fakeDyn, nil

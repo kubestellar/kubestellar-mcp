@@ -28,6 +28,7 @@ pkg/mcp/server 95.6
 pkg/mcp/server/cluster 100.0
 pkg/mcp/server/drift 95.0
 pkg/mcp/server/handlers 99.0
+pkg/mcp/server/policy 97.5
 pkg/mcp/server/rbac 93.0
 pkg/mcp/rpcloop 95.0
 pkg/mcp/tools/upgrades 97.0

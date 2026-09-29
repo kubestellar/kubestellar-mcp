@@ -1,4 +1,4 @@
-package server
+package policy
 
 import (
 	"errors"
@@ -53,7 +53,7 @@ func newConstraintClient(t *testing.T, enforcementAction string) *dynfake.FakeDy
 // success path.
 func TestToolSetOwnershipPolicyMode_EmptyCurrentModeDefaultsToDeny(t *testing.T) {
 	fakeDyn := newConstraintClient(t, "")
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		dynamicClientFactory: func(_ string) (dynamic.Interface, error) {
 			return fakeDyn, nil
@@ -83,7 +83,7 @@ func TestToolSetOwnershipPolicyMode_EmptyCurrentModeDefaultsToDeny(t *testing.T)
 // dryrun contract expected by ops runbooks.
 func TestToolSetOwnershipPolicyMode_DryrunSwitchArm(t *testing.T) {
 	fakeDyn := newConstraintClient(t, "enforce")
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		dynamicClientFactory: func(_ string) (dynamic.Interface, error) {
 			return fakeDyn, nil
@@ -113,7 +113,7 @@ func TestToolSetOwnershipPolicyMode_DryrunSwitchArm(t *testing.T) {
 // test which short-circuits BEFORE reaching the switch.
 func TestToolSetOwnershipPolicyMode_WarnSwitchArm(t *testing.T) {
 	fakeDyn := newConstraintClient(t, "dryrun")
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		dynamicClientFactory: func(_ string) (dynamic.Interface, error) {
 			return fakeDyn, nil
@@ -146,7 +146,7 @@ func TestToolSetOwnershipPolicyMode_UpdateError(t *testing.T) {
 	fakeDyn.PrependReactor("update", "k8srequiredlabels", func(action k8stesting.Action) (bool, runtime.Object, error) {
 		return true, nil, errors.New("webhook denied update")
 	})
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		dynamicClientFactory: func(_ string) (dynamic.Interface, error) {
 			return fakeDyn, nil
