@@ -1,4 +1,4 @@
-package server
+package rbac
 
 import (
 	"context"
@@ -9,9 +9,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// toolFindResourceOwners implements the "find_resource_owners" MCP tool. It
+// scans Pods, Deployments, and Services in a namespace and reports the
+// manager, owner reference, and ownership labels/annotations found on each.
 func toolFindResourceOwners(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
-	namespace, err := extractAndValidateNamespace(args)
+	namespace, err := handlers.ExtractAndValidateNamespace(args)
 	if err != nil {
 		return fmt.Sprintf("error: %v", err), true
 	}

@@ -24,10 +24,12 @@ func (stubDiscoverer) CheckHealthByContext(string) (*cluster.HealthInfo, error) 
 type testServer struct {
 	discoverer    handlers.Discoverer
 	clientFactory func(clusterName string) (kubernetes.Interface, error)
+	kubeconfig    string
 }
 
 func (s *testServer) deps() *handlers.Deps {
 	return &handlers.Deps{
+		Kubeconfig:    s.kubeconfig,
 		Discoverer:    s.discoverer,
 		ClientFactory: s.clientFactory,
 	}

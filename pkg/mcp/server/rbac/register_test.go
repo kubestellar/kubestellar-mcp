@@ -18,6 +18,8 @@ func TestRBACToolRegistry_AllToolsRegistered(t *testing.T) {
 		"can_i",
 		"analyze_subject_permissions",
 		"describe_role",
+		"audit_kubeconfig",
+		"find_resource_owners",
 	}
 
 	registered := make(map[string]protocol.Tool)
@@ -33,13 +35,13 @@ func TestRBACToolRegistry_AllToolsRegistered(t *testing.T) {
 }
 
 func TestRBACToolRegistry_ToolCount(t *testing.T) {
-	expectedCount := 7
+	expectedCount := 9
 	rbacTools := 0
 	for _, td := range newTestRegistry().Defs() {
 		switch td.Schema.Name {
 		case "get_roles", "get_cluster_roles", "get_role_bindings",
 			"get_cluster_role_bindings", "can_i", "analyze_subject_permissions",
-			"describe_role":
+			"describe_role", "audit_kubeconfig", "find_resource_owners":
 			rbacTools++
 		}
 	}
@@ -51,6 +53,7 @@ func TestRBACToolRegistry_RequiredFields(t *testing.T) {
 		"can_i":                       {"verb", "resource"},
 		"analyze_subject_permissions": {"subject_kind", "subject_name"},
 		"describe_role":               {"name"},
+		"find_resource_owners":        {"namespace"},
 	}
 
 	registered := make(map[string]protocol.Tool)
@@ -90,6 +93,8 @@ func TestRegister_PreservesRegistrationOrder(t *testing.T) {
 		"can_i",
 		"analyze_subject_permissions",
 		"describe_role",
+		"audit_kubeconfig",
+		"find_resource_owners",
 	}
 
 	var got []string

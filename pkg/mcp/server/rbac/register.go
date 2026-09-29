@@ -8,6 +8,12 @@ import (
 // Register adds the RBAC-domain tools to reg. pkg/mcp/server calls it from
 // tools_rbac_registry.go's init(), so the tools' positions in tools/list are
 // unchanged from when they were registered directly in that file.
+//
+// audit_kubeconfig and find_resource_owners were originally registered from
+// tools_workloads_registry.go even though their handlers
+// (tools_rbac_audit.go, tools_rbac_owners.go) always lived in the rbac
+// domain; that cross-domain edge is closed here as a follow-up
+// kubestellar-mcp#1027 slice.
 func Register(reg *handlers.Registry) {
 	reg.Register(protocol.Tool{
 		Name:        "get_roles",
@@ -173,5 +179,44 @@ func Register(reg *handlers.Registry) {
 		},
 	},
 		toolDescribeRole,
+	)
+	reg.Register(protocol.Tool{
+		Name:        "audit_kubeconfig",
+		Description: "Audit all clusters in kubeconfig: check connectivity, identify stale/inaccessible clusters, and recommend cleanup",
+		InputSchema: protocol.InputSchema{
+			Type: "object",
+			Properties: map[string]protocol.Property{
+				"timeout_seconds": {
+					Type:        "integer",
+					Description: "Connection timeout in seconds per cluster (default 5)",
+				},
+			},
+		},
+	},
+		toolAuditKubeconfig,
+	)
+	reg.Register(protocol.Tool{
+		Name:        "find_resource_owners",
+		Description: "Find who owns/manages resources by checking managedFields, ownership labels, and annotations",
+		InputSchema: protocol.InputSchema{
+			Type: "object",
+			Properties: map[string]protocol.Property{
+				"cluster": {
+					Type:        "string",
+					Description: "Cluster name (uses current context if not specified)",
+				},
+				"namespace": {
+					Type:        "string",
+					Description: "Namespace to check (required)",
+				},
+				"resource_type": {
+					Type:        "string",
+					Description: "Resource type to check: pods, deployments, services, all (default: all)",
+				},
+			},
+			Required: []string{"namespace"},
+		},
+	},
+		toolFindResourceOwners,
 	)
 }

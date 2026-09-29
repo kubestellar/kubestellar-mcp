@@ -1,4 +1,4 @@
-package server
+package rbac
 
 import (
 	"strings"
@@ -11,7 +11,7 @@ import (
 
 func TestToolAuditKubeconfig_NoKubeconfig(t *testing.T) {
 	// Server with no kubeconfig set - will try default locations
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		kubeconfig: "/tmp/nonexistent-kubeconfig-for-test",
 	}
@@ -28,7 +28,7 @@ func TestToolAuditKubeconfig_NoKubeconfig(t *testing.T) {
 }
 
 func TestToolAuditKubeconfig_WithTimeoutParam(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		kubeconfig: "/tmp/nonexistent-kubeconfig-for-test-2",
 	}
