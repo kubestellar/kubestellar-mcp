@@ -1,4 +1,4 @@
-package server
+package policy
 
 import (
 	"errors"
@@ -38,11 +38,11 @@ func init() {
 }
 
 // newPolicyTestServer creates a test Server with injected k8s and dynamic clients.
-func newPolicyTestServer(k8sObjs []runtime.Object, dynObjs []runtime.Object) *Server {
+func newPolicyTestServer(k8sObjs []runtime.Object, dynObjs []runtime.Object) *testServer {
 	fakeK8s := k8sfake.NewSimpleClientset(k8sObjs...)
 	fakeDyn := dynfake.NewSimpleDynamicClient(dynamicScheme, dynObjs...)
 
-	return &Server{
+	return &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return fakeK8s, nil
@@ -71,7 +71,7 @@ func TestToolCheckGatekeeper_NotInstalled(t *testing.T) {
 }
 
 func TestToolCheckGatekeeper_ClientFactoryError(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return nil, errors.New("kubeconfig not found")
@@ -128,7 +128,7 @@ func TestToolCheckGatekeeper_InstalledWithPods(t *testing.T) {
 // --- toolGetOwnershipPolicyStatus ---
 
 func TestToolGetOwnershipPolicyStatus_DynamicClientError(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return k8sfake.NewSimpleClientset(), nil
@@ -165,7 +165,7 @@ func TestToolGetOwnershipPolicyStatus_NoPolicy(t *testing.T) {
 // --- toolListOwnershipViolations ---
 
 func TestToolListOwnershipViolations_DynamicClientError(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return k8sfake.NewSimpleClientset(), nil
