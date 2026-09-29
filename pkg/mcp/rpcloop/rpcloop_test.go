@@ -221,3 +221,50 @@ func TestNewLoopDefaultsMaxFrameSize(t *testing.T) {
 	loop := NewLoop(strings.NewReader(""), &bytes.Buffer{})
 	assert.Equal(t, DefaultMaxFrameSize, loop.effectiveMaxFrameSize())
 }
+
+func TestLoopRunReturnsContextErrorBeforeReading(t *testing.T) {
+	// An already-cancelled context must win over an empty reader: without
+	// the pre-read check, Run would report a clean EOF (nil) and callers
+	// that translate nil into "graceful shutdown" could not distinguish
+	// cancellation from end-of-input.
+	loop := NewLoop(strings.NewReader(""), &bytes.Buffer{})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := loop.Run(ctx, echoHandler(t))
+	assert.ErrorIs(t, err, context.Canceled)
+}
+
+func TestLoopSetWriteMutexSharesSerializationWithCaller(t *testing.T) {
+	var input bytes.Buffer
+	input.WriteString(marshalLine(t, protocol.Request{JSONRPC: "2.0", ID: 1, Method: "initialize"}))
+
+	var output bytes.Buffer
+	var shared sync.Mutex
+
+	loop := NewLoop(&input, &output)
+	loop.SetWriteMutex(&shared)
+	assert.Same(t, &shared, loop.writeMu)
+
+	require.NoError(t, loop.Run(context.Background(), echoHandler(t)))
+	// The caller's own direct write goes through the same mutex, so both
+	// frames land intact on the shared writer.
+	require.NoError(t, SendResponse(&shared, &output, protocol.NewResult(2, "direct")))
+
+	lines := strings.Split(strings.TrimSpace(output.String()), "\n")
+	require.Len(t, lines, 2)
+	for _, line := range lines {
+		var resp protocol.Response
+		assert.NoError(t, json.Unmarshal([]byte(line), &resp))
+	}
+}
+
+func TestLoopSetWriteMutexIgnoresNil(t *testing.T) {
+	loop := NewLoop(strings.NewReader(""), &bytes.Buffer{})
+	original := loop.writeMu
+
+	loop.SetWriteMutex(nil)
+
+	assert.Same(t, original, loop.writeMu, "a nil mutex must not clear the Loop's own")
+}

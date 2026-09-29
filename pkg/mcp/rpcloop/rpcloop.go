@@ -2,11 +2,11 @@
 // KubeStellar's MCP servers.
 //
 // Both kubestellar-ops (pkg/mcp/server) and kubestellar-deploy
-// (pkg/deploy/mcp) hand-roll their own newline-delimited JSON-RPC read
-// loop, response writer, and per-tool-call tracing/metrics/logging wrapper
-// (see kubestellar-mcp#1017). This package centralizes the transport-layer
-// pieces so future cross-cutting changes (framing policy, write safety,
-// telemetry attributes) have a single owner and a single test suite.
+// (pkg/deploy/mcp) used to hand-roll their own newline-delimited JSON-RPC
+// read loop, response writer, and per-tool-call tracing/metrics/logging
+// wrapper (see kubestellar-mcp#1017); both now run on this package, so
+// cross-cutting changes (framing policy, write safety, telemetry
+// attributes) have a single owner and a single test suite.
 //
 // Framing policy: Loop reads newline-delimited requests via bufio.Scanner
 // with a buffer capped at MaxFrameSize (default DefaultMaxFrameSize, 1 MiB).
@@ -47,13 +47,14 @@ type Handler func(ctx context.Context, req *protocol.Request) *protocol.Response
 
 // Loop owns the stdio transport for an MCP server: reading newline-delimited
 // JSON-RPC requests up to MaxFrameSize, decoding them, invoking a Handler,
-// and writing any resulting response back to the writer with its own
-// internal write mutex so concurrent Loop.Run/SendResponse-style writers
-// never interleave partial output.
+// and writing any resulting response back to the writer under a write
+// mutex - its own by default, or a caller-supplied one via SetWriteMutex -
+// so concurrent Loop.Run/SendResponse-style writers never interleave
+// partial output.
 type Loop struct {
 	reader       io.Reader
 	writer       io.Writer
-	mu           sync.Mutex
+	writeMu      *sync.Mutex
 	maxFrameSize int
 }
 
@@ -61,7 +62,19 @@ type Loop struct {
 // w. MaxFrameSize defaults to DefaultMaxFrameSize; call SetMaxFrameSize
 // before Run to override it.
 func NewLoop(r io.Reader, w io.Writer) *Loop {
-	return &Loop{reader: r, writer: w}
+	return &Loop{reader: r, writer: w, writeMu: &sync.Mutex{}}
+}
+
+// SetWriteMutex makes the Loop serialize its own writes on mu instead of on
+// its private mutex, so a server that also writes responses to the same
+// writer outside the read loop (e.g. a synchronous reply built by a handler)
+// shares one serialization domain with Run rather than racing it through a
+// second, independent mutex. A nil mu is ignored.
+func (l *Loop) SetWriteMutex(mu *sync.Mutex) {
+	if mu == nil {
+		return
+	}
+	l.writeMu = mu
 }
 
 // SetMaxFrameSize overrides the maximum accepted request size, in bytes. A
@@ -87,6 +100,15 @@ func (l *Loop) effectiveMaxFrameSize() int {
 // behavior of treating end-of-input as graceful shutdown, not an error),
 // ctx.Err() if ctx was done, or the underlying scan error otherwise.
 func (l *Loop) Run(ctx context.Context, handler Handler) error {
+	// Checked before the first read as well as on every iteration: a
+	// caller that cancels ctx before Run starts must observe ctx.Err(),
+	// never a nil "clean EOF" just because the reader happened to be
+	// empty. This preserves pkg/mcp/server's pre-existing
+	// check-context-before-reading semantics.
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
 	maxFrameSize := l.effectiveMaxFrameSize()
 
 	scanner := bufio.NewScanner(l.reader)
@@ -134,7 +156,7 @@ func (l *Loop) Run(ctx context.Context, handler Handler) error {
 // send marshals and writes resp followed by a newline, serialized by l's
 // internal mutex.
 func (l *Loop) send(resp *protocol.Response) {
-	_ = SendResponse(&l.mu, l.writer, resp)
+	_ = SendResponse(l.writeMu, l.writer, resp)
 }
 
 // SendResponse marshals resp to JSON and writes it followed by a newline to

@@ -1,18 +1,15 @@
 package server
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"sync"
 	"time"
 
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/trace"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -21,6 +18,7 @@ import (
 	"github.com/kubestellar/kubestellar-mcp/internal/version"
 	"github.com/kubestellar/kubestellar-mcp/pkg/cluster"
 	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/protocol"
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/rpcloop"
 	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/server/handlers"
 	"github.com/kubestellar/kubestellar-mcp/pkg/metrics"
 )
@@ -72,9 +70,17 @@ type Server struct {
 	dynamicClientFactory  func(clusterName string) (dynamic.Interface, error)
 	manifestReaderFactory func() handlers.ManifestReader
 	driftDetectorFactory  func(config *rest.Config) (handlers.DriftDetector, error)
-	reader                *bufio.Reader
-	writer                io.Writer
-	mu                    sync.Mutex
+	// reader is the raw request stream; framing (newline-delimited frames
+	// bounded by rpcloop.DefaultMaxFrameSize) is owned by pkg/mcp/rpcloop
+	// rather than by this package's own buffered reader. It was previously
+	// an uncapped bufio.Reader.ReadBytes('\n') read - see
+	// kubestellar-mcp#1017.
+	reader io.Reader
+	writer io.Writer
+	// mu serializes every write to writer, including the shared rpcloop
+	// Loop's own writes (Run hands it to Loop.SetWriteMutex), so read-loop
+	// responses and direct send calls share one serialization domain.
+	mu sync.Mutex
 }
 
 // deps projects the server's injectable dependencies into the *handlers.Deps
@@ -97,35 +103,37 @@ func NewServer(kubeconfig string) *Server {
 	return &Server{
 		kubeconfig: kubeconfig,
 		discoverer: cluster.NewDiscoverer(kubeconfig),
-		reader:     bufio.NewReader(os.Stdin),
+		reader:     os.Stdin,
 		writer:     os.Stdout,
 	}
 }
 
-// Run starts the MCP server
+// Run starts the MCP server. The stdio transport - newline-delimited
+// JSON-RPC framing bounded by rpcloop.DefaultMaxFrameSize, parse-error
+// replies, context cancellation and EOF-as-clean-shutdown - is owned by
+// pkg/mcp/rpcloop, shared with the sibling kubestellar-deploy server (see
+// kubestellar-mcp#1017). Handlers keep writing their responses through
+// s.send, and the Loop writes its own parse-error replies under the same
+// s.mu, so all output to s.writer stays serialized on one mutex.
 func (s *Server) Run(ctx context.Context) error {
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
+	loop := rpcloop.NewLoop(s.reader, s.writer)
+	loop.SetWriteMutex(&s.mu)
 
-		line, err := s.reader.ReadBytes('\n')
-		if err != nil {
-			if err == io.EOF {
-				return nil
-			}
-			return fmt.Errorf("failed to read request: %w", err)
-		}
+	err := loop.Run(ctx, func(ctx context.Context, req *protocol.Request) *protocol.Response {
+		s.handleRequest(ctx, req)
+		// Responses are written by s.send from within handleRequest, so
+		// the Loop itself has nothing left to write for this request.
+		return nil
+	})
 
-		var req Request
-		if err := json.Unmarshal(line, &req); err != nil {
-			s.sendError(nil, -32700, "Parse error", nil)
-			continue
-		}
-
-		s.handleRequest(ctx, &req)
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
+		return err
+	default:
+		// Preserves this server's pre-existing read-failure wrapping.
+		return fmt.Errorf("failed to read request: %w", err)
 	}
 }
 
@@ -171,46 +179,40 @@ func (s *Server) handleToolsCall(ctx context.Context, req *Request) {
 		return
 	}
 
-	// Root span for the tool-dispatch request path. tool.name is bounded:
-	// it is either a registered tool name or the fixed literal below, never
-	// arbitrary caller-supplied text.
-	ctx, span := tracer.Start(ctx, "mcp.tool.call", trace.WithAttributes(
-		attribute.String("tool.name", params.Name),
-	))
-	defer span.End()
-
-	handler := findToolHandler(params.Name)
-	if handler == nil {
-		span.SetStatus(codes.Error, "unknown tool")
-		s.sendError(req.ID, -32602, fmt.Sprintf("Unknown tool: %s", params.Name), nil)
-		return
-	}
-
 	// Bounded before use as a span attribute or metrics/log label: raw
 	// tool-call arguments are client-controlled, so unrecognized cluster
 	// names are mapped to a fixed label (see boundedClusterLabel).
 	cluster := s.boundedClusterLabel(clusterArg(params.Arguments))
-	if cluster != "" {
-		span.SetAttributes(attribute.String("k8s.cluster.name", cluster))
-	}
 
-	start := time.Now()
-	result, isError := handler(ctx, s.deps(), params.Arguments)
-	duration := time.Since(start)
-	metrics.RecordToolCall(params.Name, cluster, duration, isError, errKindFromContext(ctx))
+	var result string
+	var isError bool
 
-	// Structured, bounded lifecycle logging: tool and cluster come from
-	// closed/known sets (see clusterArg, boundedClusterLabel, metrics
-	// package doc), so this never logs raw error text or unbounded values -
-	// only the same status/timing data already exposed via metrics. Uses
-	// klog's key/value form (InfoS/ErrorS) rather than Errorf/Infof so the
-	// fields are actually structured (parseable key=value pairs) instead of
-	// baked into a free-form message string.
-	if isError {
-		span.SetStatus(codes.Error, "tool call returned an error result")
-		klog.ErrorS(nil, "tool call failed", "tool", params.Name, "cluster", cluster, "duration", duration)
-	} else {
-		klog.V(2).InfoS("tool call succeeded", "tool", params.Name, "cluster", cluster, "duration", duration)
+	// The span/timing/metrics/structured-logging wrapper used to be
+	// hand-written here and mirrored, statement for statement, in the
+	// sibling kubestellar-deploy server; it now lives once in
+	// rpcloop.InstrumentToolCall (see kubestellar-mcp#1017). tool.name is
+	// bounded (a registered tool name or the unknown-tool arm below) and
+	// cluster is bounded by boundedClusterLabel, so neither can widen the
+	// span-attribute or metrics label space.
+	outcome := rpcloop.InstrumentToolCall(ctx, params.Name, cluster, func(ctx context.Context) rpcloop.ToolCallOutcome {
+		handler := findToolHandler(params.Name)
+		if handler == nil {
+			return rpcloop.ToolCallOutcome{Found: false}
+		}
+
+		start := time.Now()
+		result, isError = handler(ctx, s.deps(), params.Arguments)
+		return rpcloop.ToolCallOutcome{
+			Found:    true,
+			IsError:  isError,
+			ErrKind:  errKindFromContext(ctx),
+			Duration: time.Since(start),
+		}
+	})
+
+	if !outcome.Found {
+		s.sendError(req.ID, -32602, fmt.Sprintf("Unknown tool: %s", params.Name), nil)
+		return
 	}
 
 	s.sendResult(req.ID, CallToolResult{
@@ -285,14 +287,12 @@ func (s *Server) sendError(id interface{}, code int, message string, data interf
 	s.send(*protocol.NewError(id, code, message, data))
 }
 
+// send writes resp to the transport, serialized against every other writer
+// (including the rpcloop Loop's own parse-error replies) by s.mu. A response
+// that cannot be marshaled is logged and dropped rather than emitting a
+// partial frame.
 func (s *Server) send(resp Response) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	data, err := json.Marshal(resp)
-	if err != nil {
+	if err := rpcloop.SendResponse(&s.mu, s.writer, &resp); err != nil {
 		klog.Errorf("Failed to marshal MCP response: %v", err)
-		return
 	}
-	_, _ = fmt.Fprintf(s.writer, "%s\n", data)
 }

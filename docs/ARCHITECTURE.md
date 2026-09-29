@@ -121,8 +121,8 @@ Once started, the server reads JSON-RPC messages from stdin.
 - `tools/list` returns the tool catalog and JSON schema for each tool
 - `initialized` / `notifications/initialized` is accepted as a notification without a response
 
-In `kubestellar-ops`, the stdio loop lives in `pkg/mcp/server/server.go` and uses `bufio.Reader.ReadBytes('\n')`.
-In `kubestellar-deploy`, the loop is in `pkg/deploy/mcp/server.go` and uses a `bufio.Scanner` with a larger buffer for larger payloads.
+Both servers share one stdio loop: `pkg/mcp/rpcloop` owns newline-delimited framing (`bufio.Scanner`, bounded by `rpcloop.DefaultMaxFrameSize`, 1 MiB), parse-error replies, context cancellation, EOF-as-clean-shutdown, and mutex-serialized response writes.
+`pkg/mcp/server/server.go` and `pkg/deploy/mcp/server.go` each supply only their own request handler.
 
 ### 3. Tool dispatch
 
