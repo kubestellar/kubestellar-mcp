@@ -1,4 +1,16 @@
-package server
+// Package workloads provides the kubestellar-ops core workload-inspection
+// MCP tool handlers (pods, deployments, services, nodes, events, pod
+// describe/logs). It was extracted from the flat pkg/mcp/server package as
+// part of kubestellar-mcp#1027 (per-domain sub-package decomposition),
+// mirroring the pattern established for pkg/deploy/mcp in #983. It depends
+// only on the leaf pkg/mcp/server/handlers package, never on pkg/mcp/server
+// itself. The workload-diagnostics tools (find_pod_issues,
+// find_deployment_issues, check_resource_limits, check_security_issues,
+// analyze_namespace, get_warning_events) that used to be registered from
+// this package's registry file now live in the sibling
+// pkg/mcp/server/diagnostics package, closing the hidden cross-domain edge
+// noted in #1027.
+package workloads
 
 import (
 	"context"
@@ -13,7 +25,7 @@ import (
 
 func toolGetPods(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
-	namespace, err := extractAndValidateNamespace(args)
+	namespace, err := handlers.ExtractAndValidateNamespace(args)
 	if err != nil {
 		return fmt.Sprintf("error: %v", err), true
 	}
@@ -74,7 +86,7 @@ func toolGetPods(ctx context.Context, d *handlers.Deps, args map[string]interfac
 
 func toolGetDeployments(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
-	namespace, err := extractAndValidateNamespace(args)
+	namespace, err := handlers.ExtractAndValidateNamespace(args)
 	if err != nil {
 		return fmt.Sprintf("error: %v", err), true
 	}
@@ -101,7 +113,7 @@ func toolGetDeployments(ctx context.Context, d *handlers.Deps, args map[string]i
 
 func toolGetServices(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
-	namespace, err := extractAndValidateNamespace(args)
+	namespace, err := handlers.ExtractAndValidateNamespace(args)
 	if err != nil {
 		return fmt.Sprintf("error: %v", err), true
 	}
@@ -207,7 +219,7 @@ func toolGetNodes(ctx context.Context, d *handlers.Deps, args map[string]interfa
 
 func toolGetEvents(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
-	namespace, err := extractAndValidateNamespace(args)
+	namespace, err := handlers.ExtractAndValidateNamespace(args)
 	if err != nil {
 		return fmt.Sprintf("error: %v", err), true
 	}
@@ -256,7 +268,7 @@ func toolGetEvents(ctx context.Context, d *handlers.Deps, args map[string]interf
 
 func toolDescribePod(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
-	namespace, err := extractAndValidateNamespace(args)
+	namespace, err := handlers.ExtractAndValidateNamespace(args)
 	if err != nil {
 		return fmt.Sprintf("error: %v", err), true
 	}
@@ -314,7 +326,7 @@ func toolDescribePod(ctx context.Context, d *handlers.Deps, args map[string]inte
 
 func toolGetPodLogs(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
-	namespace, err := extractAndValidateNamespace(args)
+	namespace, err := handlers.ExtractAndValidateNamespace(args)
 	if err != nil {
 		return fmt.Sprintf("error: %v", err), true
 	}

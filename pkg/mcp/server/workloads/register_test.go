@@ -1,10 +1,12 @@
-package server
+package workloads
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/protocol"
 )
 
 func TestWorkloadsToolRegistry_AllToolsRegistered(t *testing.T) {
@@ -16,18 +18,10 @@ func TestWorkloadsToolRegistry_AllToolsRegistered(t *testing.T) {
 		"get_events",
 		"describe_pod",
 		"get_pod_logs",
-		"find_pod_issues",
-		"find_deployment_issues",
-		"check_resource_limits",
-		"check_security_issues",
-		"analyze_namespace",
-		"get_warning_events",
-		"audit_kubeconfig",
-		"find_resource_owners",
 	}
 
-	registered := make(map[string]Tool)
-	for _, td := range toolRegistry.Defs() {
+	registered := make(map[string]protocol.Tool)
+	for _, td := range newTestRegistry().Defs() {
 		registered[td.Schema.Name] = td.Schema
 	}
 
@@ -39,31 +33,18 @@ func TestWorkloadsToolRegistry_AllToolsRegistered(t *testing.T) {
 }
 
 func TestWorkloadsToolRegistry_ToolCount(t *testing.T) {
-	expectedCount := 15
-	workloadTools := 0
-	for _, td := range toolRegistry.Defs() {
-		switch td.Schema.Name {
-		case "get_pods", "get_deployments", "get_services", "get_nodes",
-			"get_events", "describe_pod", "get_pod_logs", "find_pod_issues",
-			"find_deployment_issues", "check_resource_limits",
-			"check_security_issues", "analyze_namespace", "get_warning_events",
-			"audit_kubeconfig", "find_resource_owners":
-			workloadTools++
-		}
-	}
-	assert.Equal(t, expectedCount, workloadTools, "Workloads registry should have exactly %d tools", expectedCount)
+	expectedCount := 7
+	assert.Equal(t, expectedCount, len(newTestRegistry().Defs()), "Workloads registry should have exactly %d tools", expectedCount)
 }
 
 func TestWorkloadsToolRegistry_RequiredFields(t *testing.T) {
 	requiredFields := map[string][]string{
-		"describe_pod":         {"name"},
-		"get_pod_logs":         {"name"},
-		"analyze_namespace":    {"namespace"},
-		"find_resource_owners": {"namespace"},
+		"describe_pod": {"name"},
+		"get_pod_logs": {"name"},
 	}
 
-	registered := make(map[string]Tool)
-	for _, td := range toolRegistry.Defs() {
+	registered := make(map[string]protocol.Tool)
+	for _, td := range newTestRegistry().Defs() {
 		registered[td.Schema.Name] = td.Schema
 	}
 
@@ -76,8 +57,8 @@ func TestWorkloadsToolRegistry_RequiredFields(t *testing.T) {
 }
 
 func TestWorkloadsToolRegistry_IntegerProperties(t *testing.T) {
-	registered := make(map[string]Tool)
-	for _, td := range toolRegistry.Defs() {
+	registered := make(map[string]protocol.Tool)
+	for _, td := range newTestRegistry().Defs() {
 		registered[td.Schema.Name] = td.Schema
 	}
 
@@ -87,8 +68,6 @@ func TestWorkloadsToolRegistry_IntegerProperties(t *testing.T) {
 	}{
 		{"get_events", "limit"},
 		{"get_pod_logs", "tail_lines"},
-		{"get_warning_events", "limit"},
-		{"audit_kubeconfig", "timeout_seconds"},
 	}
 
 	for _, tc := range testCases {

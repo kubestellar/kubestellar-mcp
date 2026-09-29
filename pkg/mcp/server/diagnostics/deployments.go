@@ -1,4 +1,4 @@
-package server
+package diagnostics
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 
 func toolFindDeploymentIssues(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
-	namespace, err := extractAndValidateNamespace(args)
+	namespace, err := handlers.ExtractAndValidateNamespace(args)
 	if err != nil {
 		return fmt.Sprintf("error: %v", err), true
 	}
@@ -115,7 +115,7 @@ func toolFindDeploymentIssues(ctx context.Context, d *handlers.Deps, args map[st
 
 func toolCheckResourceLimits(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
-	namespace, err := extractAndValidateNamespace(args)
+	namespace, err := handlers.ExtractAndValidateNamespace(args)
 	if err != nil {
 		return fmt.Sprintf("error: %v", err), true
 	}

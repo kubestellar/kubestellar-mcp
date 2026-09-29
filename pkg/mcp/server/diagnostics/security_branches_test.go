@@ -1,4 +1,4 @@
-package server
+package diagnostics
 
 import (
 	"context"
@@ -24,7 +24,7 @@ import (
 // TestToolCheckSecurityIssues_InvalidNamespaceArg covers the
 // extractAndValidateNamespace error return (diagnostics.go:297-298).
 func TestToolCheckSecurityIssues_InvalidNamespaceArg(t *testing.T) {
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(string) (kubernetes.Interface, error) {
 			return k8sfake.NewSimpleClientset(), nil
 		},
@@ -44,7 +44,7 @@ func TestToolCheckSecurityIssues_InvalidNamespaceArg(t *testing.T) {
 // TestToolCheckSecurityIssues_ClientFactoryError covers the
 // getClientForCluster failure branch (diagnostics.go:302-303).
 func TestToolCheckSecurityIssues_ClientFactoryError(t *testing.T) {
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(string) (kubernetes.Interface, error) {
 			return nil, errors.New("kubeconfig missing")
 		},
@@ -68,7 +68,7 @@ func TestToolCheckSecurityIssues_ListPodsError(t *testing.T) {
 		return true, nil, errors.New("api-server unreachable")
 	})
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -98,7 +98,7 @@ func TestToolCheckSecurityIssues_NamespaceScoped(t *testing.T) {
 		Status: corev1.PodStatus{Phase: corev1.PodRunning},
 	})
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -155,7 +155,7 @@ func TestToolCheckSecurityIssues_SkipsKubeSystemAndTerminalPods(t *testing.T) {
 		},
 	)
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -194,7 +194,7 @@ func TestToolCheckSecurityIssues_HostPIDAndHostIPC(t *testing.T) {
 		},
 	)
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -282,7 +282,7 @@ func TestToolCheckSecurityIssues_ContainerSecurityContextBranches(t *testing.T) 
 		},
 	)
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -330,7 +330,7 @@ func TestToolCheckSecurityIssues_DockerSocketMount(t *testing.T) {
 		Status: corev1.PodStatus{Phase: corev1.PodRunning},
 	})
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(string) (kubernetes.Interface, error) {
 			return client, nil
 		},

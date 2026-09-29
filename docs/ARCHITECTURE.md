@@ -167,14 +167,14 @@ Start by deciding which MCP server owns the capability:
 
 Keep handlers grouped by domain.
 
-- add diagnostics logic to `diagnostics.go` or a new domain-specific file in `pkg/mcp/server/`
+- add diagnostics logic to `pkg/mcp/server/diagnostics/` or a new domain-specific sub-package under `pkg/mcp/server/`
 - add deploy/GitOps/Helm/kubectl logic to the matching `pkg/deploy/mcp/tools_*.go` file
 
 ### Step 2: add the tool schema to the tool list
 
 Expose the tool to MCP clients by adding it to the tool catalog in the relevant server file:
 
-- `pkg/mcp/server/tools_<domain>_registry.go` → `RegisterTool(schema, handler)` in `init()` (listed by `handleToolsList`); for domains already extracted into a sub-package (e.g. `pkg/mcp/server/drift`, `pkg/mcp/server/rbac`, `pkg/mcp/server/cluster`, `pkg/mcp/server/policy`), add the schema to that package's `Register(reg *handlers.Registry)` instead
+- `pkg/mcp/server/tools_<domain>_registry.go` → `RegisterTool(schema, handler)` in `init()` (listed by `handleToolsList`); for domains already extracted into a sub-package (e.g. `pkg/mcp/server/drift`, `pkg/mcp/server/rbac`, `pkg/mcp/server/cluster`, `pkg/mcp/server/policy`, `pkg/mcp/server/workloads`, `pkg/mcp/server/diagnostics`), add the schema to that package's `Register(reg *handlers.Registry)` instead
 - `pkg/deploy/mcp/server.go` → `handleListTools`
 
 At this stage define:
@@ -218,7 +218,7 @@ Add focused unit tests beside the implementation.
 Examples already in the repo:
 
 - `pkg/mcp/server/tools_test.go`
-- `pkg/mcp/server/diagnostics_test.go`
+- `pkg/mcp/server/diagnostics/diagnostics_test.go`
 - `pkg/deploy/mcp/tools_app_test.go`
 - `pkg/deploy/mcp/tools_gitops_test.go`
 

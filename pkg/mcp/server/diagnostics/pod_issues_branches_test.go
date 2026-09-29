@@ -1,4 +1,4 @@
-package server
+package diagnostics
 
 import (
 	"context"
@@ -31,7 +31,7 @@ import (
 // TestToolFindPodIssues_InvalidNamespace covers the
 // extractAndValidateNamespace error path at diagnostics.go:19-21.
 func TestToolFindPodIssues_InvalidNamespace(t *testing.T) {
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return k8sfake.NewSimpleClientset(), nil
 		},
@@ -52,7 +52,7 @@ func TestToolFindPodIssues_InvalidNamespace(t *testing.T) {
 // error path at diagnostics.go:25-27 (distinct from the pods.List error path
 // already covered by TestToolFindPodIssues_ClientError).
 func TestToolFindPodIssues_ClientFactoryError(t *testing.T) {
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return nil, errors.New("kubeconfig missing")
 		},
@@ -94,7 +94,7 @@ func TestToolFindPodIssues_NamespaceScopedList(t *testing.T) {
 		return false, nil, nil // fall through to default tracker
 	})
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -138,7 +138,7 @@ func TestToolFindPodIssues_SkipsCompletedByDefault(t *testing.T) {
 	}
 	client := k8sfake.NewSimpleClientset(completed, alsoDone)
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -181,7 +181,7 @@ func TestToolFindPodIssues_LongWaitingMessageTruncated(t *testing.T) {
 		},
 	})
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -219,7 +219,7 @@ func TestToolFindPodIssues_ContainerRunningNotReady(t *testing.T) {
 		},
 	})
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -258,7 +258,7 @@ func TestToolFindPodIssues_InitContainerWaiting(t *testing.T) {
 		},
 	})
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return client, nil
 		},
