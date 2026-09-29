@@ -122,7 +122,7 @@ Once started, the server reads JSON-RPC messages from stdin.
 - `initialized` / `notifications/initialized` is accepted as a notification without a response
 
 Both servers share one stdio loop: `pkg/mcp/rpcloop` owns newline-delimited framing (`bufio.Scanner`, bounded by `rpcloop.DefaultMaxFrameSize`, 1 MiB), parse-error replies, context cancellation, EOF-as-clean-shutdown, and mutex-serialized response writes.
-`pkg/mcp/server/server.go` and `pkg/deploy/mcp/server.go` each supply only their own request handler.
+`rpcloop.Dispatch` owns the shared method table (`initialized` / `notifications/initialized`, `ping`, and `-32601 Method not found: <method>`), so `pkg/mcp/server/server.go` and `pkg/deploy/mcp/server.go` each supply only their own `initialize`, `tools/list`, and `tools/call` handlers.
 
 ### 3. Tool dispatch
 
@@ -174,7 +174,7 @@ Keep handlers grouped by domain.
 
 Expose the tool to MCP clients by adding it to the tool catalog in the relevant server file:
 
-- `pkg/mcp/server/tools_<domain>_registry.go` → `RegisterTool(schema, handler)` in `init()` (listed by `handleToolsList`)
+- `pkg/mcp/server/tools_<domain>_registry.go` → `RegisterTool(schema, handler)` in `init()` (listed by `handleToolsList`); for domains already extracted into a sub-package (e.g. `pkg/mcp/server/drift`), add the schema to that package's `Register(reg *handlers.Registry)` instead
 - `pkg/deploy/mcp/server.go` → `handleListTools`
 
 At this stage define:

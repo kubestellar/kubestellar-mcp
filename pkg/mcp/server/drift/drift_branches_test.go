@@ -1,4 +1,4 @@
-package server
+package drift
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-// This file complements tools_drift_test.go by covering the branches
+// This file complements drift_test.go by covering the branches
 // that TestToolDetectDrift does not exercise:
 //
 //   1. reader.ReadFromGit returns an error
@@ -30,18 +30,18 @@ import (
 
 func TestToolDetectDrift_ReadFromGitError(t *testing.T) {
 	reader := &fakeManifestReader{err: errors.New("git clone failed")}
-	server := &Server{
-		restConfigFactory: func(_ string) (*rest.Config, error) {
+	deps := &handlers.Deps{
+		RESTConfigFactory: func(_ string) (*rest.Config, error) {
 			return &rest.Config{Host: "https://cluster.example"}, nil
 		},
-		manifestReaderFactory: func() handlers.ManifestReader { return reader },
-		driftDetectorFactory: func(_ *rest.Config) (handlers.DriftDetector, error) {
+		ManifestReaderFactory: func() handlers.ManifestReader { return reader },
+		DriftDetectorFactory: func(_ *rest.Config) (handlers.DriftDetector, error) {
 			t.Fatal("driftDetectorFactory must not be called when ReadFromGit fails")
 			return nil, nil
 		},
 	}
 
-	result, rpcErr := callTool(t, server, "detect_drift", map[string]interface{}{
+	result, rpcErr := callTool(t, deps, "detect_drift", map[string]interface{}{
 		"repo_url": "https://github.com/example/configs",
 	})
 	if rpcErr != nil {
@@ -69,17 +69,17 @@ func TestToolDetectDrift_DetectorFactoryError(t *testing.T) {
 			},
 		},
 	}
-	server := &Server{
-		restConfigFactory: func(_ string) (*rest.Config, error) {
+	deps := &handlers.Deps{
+		RESTConfigFactory: func(_ string) (*rest.Config, error) {
 			return &rest.Config{Host: "https://cluster.example"}, nil
 		},
-		manifestReaderFactory: func() handlers.ManifestReader { return reader },
-		driftDetectorFactory: func(_ *rest.Config) (handlers.DriftDetector, error) {
+		ManifestReaderFactory: func() handlers.ManifestReader { return reader },
+		DriftDetectorFactory: func(_ *rest.Config) (handlers.DriftDetector, error) {
 			return nil, errors.New("rest mapper unavailable")
 		},
 	}
 
-	result, rpcErr := callTool(t, server, "detect_drift", map[string]interface{}{
+	result, rpcErr := callTool(t, deps, "detect_drift", map[string]interface{}{
 		"repo_url": "https://github.com/example/configs",
 	})
 	if rpcErr != nil {
@@ -108,15 +108,15 @@ func TestToolDetectDrift_DetectDriftError(t *testing.T) {
 		},
 	}
 	detector := &fakeDriftDetector{err: errors.New("api server unreachable")}
-	server := &Server{
-		restConfigFactory: func(_ string) (*rest.Config, error) {
+	deps := &handlers.Deps{
+		RESTConfigFactory: func(_ string) (*rest.Config, error) {
 			return &rest.Config{Host: "https://cluster.example"}, nil
 		},
-		manifestReaderFactory: func() handlers.ManifestReader { return reader },
-		driftDetectorFactory:  func(_ *rest.Config) (handlers.DriftDetector, error) { return detector, nil },
+		ManifestReaderFactory: func() handlers.ManifestReader { return reader },
+		DriftDetectorFactory:  func(_ *rest.Config) (handlers.DriftDetector, error) { return detector, nil },
 	}
 
-	result, rpcErr := callTool(t, server, "detect_drift", map[string]interface{}{
+	result, rpcErr := callTool(t, deps, "detect_drift", map[string]interface{}{
 		"repo_url": "https://github.com/example/configs",
 	})
 	if rpcErr != nil {
@@ -164,15 +164,15 @@ func TestToolDetectDrift_DriftPresent_MarkdownAndJSON(t *testing.T) {
 			},
 		},
 	}
-	server := &Server{
-		restConfigFactory: func(_ string) (*rest.Config, error) {
+	deps := &handlers.Deps{
+		RESTConfigFactory: func(_ string) (*rest.Config, error) {
 			return &rest.Config{Host: "https://cluster.example"}, nil
 		},
-		manifestReaderFactory: func() handlers.ManifestReader { return reader },
-		driftDetectorFactory:  func(_ *rest.Config) (handlers.DriftDetector, error) { return detector, nil },
+		ManifestReaderFactory: func() handlers.ManifestReader { return reader },
+		DriftDetectorFactory:  func(_ *rest.Config) (handlers.DriftDetector, error) { return detector, nil },
 	}
 
-	result, rpcErr := callTool(t, server, "detect_drift", map[string]interface{}{
+	result, rpcErr := callTool(t, deps, "detect_drift", map[string]interface{}{
 		"repo_url": "https://github.com/example/configs",
 		"path":     "clusters/dev",
 		"branch":   "main",
@@ -281,7 +281,7 @@ func TestToolDetectDrift_DriftPresent_MarkdownAndJSON(t *testing.T) {
 }
 
 // Compile-time assertion: the fakes still satisfy the handlers interfaces
-// used by tools_drift.go. If either interface changes shape, this line will
+// used by drift.go. If either interface changes shape, this line will
 // fail to compile and flag the drift tests for review.
 var (
 	_ handlers.ManifestReader = (*fakeManifestReader)(nil)

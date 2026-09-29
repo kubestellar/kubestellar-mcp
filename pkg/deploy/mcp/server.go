@@ -128,23 +128,21 @@ func (s *Server) Run() error {
 	})
 }
 
-// handleRequest processes an MCP request and returns a response
+// handleRequest processes an MCP request and returns a response. The method
+// table (lifecycle notifications, ping, unknown-method errors) is shared with
+// the kubestellar-ops server via rpcloop.Dispatch (see kubestellar-mcp#1017);
+// this server supplies only its initialize, tools/list and tools/call
+// handlers.
 func (s *Server) handleRequest(req *protocol.Request) *protocol.Response {
-	ctx := context.Background()
-
-	switch req.Method {
-	case "initialize":
-		return s.handleInitialize(req)
-	case "tools/list":
-		return s.handleListTools(req)
-	case "tools/call":
-		return s.handleToolCall(ctx, req)
-	case "initialized", "notifications/initialized":
-		// No response needed for MCP lifecycle notification
-		return nil
-	default:
-		return protocol.NewError(req.ID, -32601, "Method not found", nil)
-	}
+	return rpcloop.Dispatch(context.Background(), req, rpcloop.Methods{
+		Initialize: func(_ context.Context, req *protocol.Request) *protocol.Response {
+			return s.handleInitialize(req)
+		},
+		ToolsList: func(_ context.Context, req *protocol.Request) *protocol.Response {
+			return s.handleListTools(req)
+		},
+		ToolsCall: s.handleToolCall,
+	})
 }
 
 // handleInitialize handles the initialize request
