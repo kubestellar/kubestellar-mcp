@@ -1,4 +1,4 @@
-package server
+package rbac
 
 import (
 	"context"
@@ -11,6 +11,10 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+// toolAuditKubeconfig implements the "audit_kubeconfig" MCP tool. It walks
+// every context in the active kubeconfig, probes reachability with a
+// lightweight discovery call, and reports accessible/inaccessible clusters
+// plus consolidation and cleanup suggestions for duplicates and orphans.
 func toolAuditKubeconfig(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	timeoutSeconds := 5
 	if v, ok := args["timeout_seconds"].(float64); ok {

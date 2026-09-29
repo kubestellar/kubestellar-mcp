@@ -19,14 +19,13 @@ var expectedToolsByRegistry = map[string][]string{
 	"rbac": {
 		"get_roles", "get_cluster_roles", "get_role_bindings",
 		"get_cluster_role_bindings", "can_i", "analyze_subject_permissions",
-		"describe_role",
+		"describe_role", "audit_kubeconfig", "find_resource_owners",
 	},
 	"workloads": {
 		"get_pods", "get_deployments", "get_services", "get_nodes",
 		"get_events", "describe_pod", "get_pod_logs", "find_pod_issues",
 		"find_deployment_issues", "check_resource_limits",
 		"check_security_issues", "analyze_namespace", "get_warning_events",
-		"audit_kubeconfig", "find_resource_owners",
 	},
 }
 

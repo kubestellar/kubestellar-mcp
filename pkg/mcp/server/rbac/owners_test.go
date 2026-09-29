@@ -1,4 +1,4 @@
-package server
+package rbac
 
 import (
 	"strings"
@@ -15,7 +15,7 @@ import (
 // --- toolFindResourceOwners ---
 
 func TestToolFindResourceOwnersValidation(t *testing.T) {
-	server := &Server{discoverer: stubDiscoverer{}}
+	server := &testServer{discoverer: stubDiscoverer{}}
 
 	result, rpcErr := callTool(t, server, "find_resource_owners", map[string]interface{}{})
 	if rpcErr != nil {
@@ -30,7 +30,7 @@ func TestToolFindResourceOwnersValidation(t *testing.T) {
 }
 
 func TestToolFindResourceOwnersEmpty(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return k8sfake.NewSimpleClientset(), nil
@@ -56,7 +56,7 @@ func TestToolFindResourceOwnersEmpty(t *testing.T) {
 func TestToolFindResourceOwnersWithResources(t *testing.T) {
 	now := metav1.NewTime(time.Date(2025, time.June, 15, 10, 0, 0, 0, time.UTC))
 	replicas := int32(3)
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return k8sfake.NewSimpleClientset(
@@ -152,7 +152,7 @@ func TestToolFindResourceOwnersWithResources(t *testing.T) {
 }
 
 func TestToolFindResourceOwnersFilterByType(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return k8sfake.NewSimpleClientset(

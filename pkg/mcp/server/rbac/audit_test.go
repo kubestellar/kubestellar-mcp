@@ -1,4 +1,4 @@
-package server
+package rbac
 
 import (
 	"fmt"
@@ -26,7 +26,7 @@ func writeKubeconfig(t *testing.T, body string) string {
 func TestToolAuditKubeconfig_MalformedFile(t *testing.T) {
 	// Non-YAML nonsense triggers the clientcmd loader's parse error path.
 	path := writeKubeconfig(t, "this is: not: valid: yaml: [unbalanced\n")
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		kubeconfig: path,
 	}
@@ -45,7 +45,7 @@ func TestToolAuditKubeconfig_MalformedFile(t *testing.T) {
 func TestToolAuditKubeconfig_NoContexts(t *testing.T) {
 	// A valid but empty kubeconfig — zero contexts branch.
 	path := writeKubeconfig(t, "apiVersion: v1\nkind: Config\ncontexts: []\nclusters: []\nusers: []\ncurrent-context: \"\"\n")
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		kubeconfig: path,
 	}
@@ -100,7 +100,7 @@ contexts:
     user: user-solo
 `
 	path := writeKubeconfig(t, body)
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		kubeconfig: path,
 	}
@@ -188,7 +188,7 @@ contexts:
     user: user-live
 `, ts.URL)
 	path := writeKubeconfig(t, body)
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		kubeconfig: path,
 	}

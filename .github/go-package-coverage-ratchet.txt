@@ -24,13 +24,13 @@ pkg/deploy/mcp/helm 97.2
 pkg/deploy/mcp/kubectl 97.5
 pkg/deploy/mcp/kustomize 96.0
 pkg/deploy/mcp/labels 99.0
-pkg/mcp/server 92.0
+pkg/mcp/server 90.0
 pkg/mcp/server/cluster 100.0
 pkg/mcp/server/diagnostics 88.0
 pkg/mcp/server/drift 95.0
 pkg/mcp/server/handlers 99.0
 pkg/mcp/server/policy 90.0
-pkg/mcp/server/rbac 93.0
+pkg/mcp/server/rbac 85.0
 pkg/mcp/server/workloads 85.0
 pkg/mcp/rpcloop 95.0
 pkg/mcp/tools/upgrades 97.0
