@@ -1,22 +1,19 @@
 package mcp
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/trace"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog/v2"
 
 	"github.com/kubestellar/kubestellar-mcp/internal/version"
 	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
 	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/protocol"
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/rpcloop"
 	"github.com/kubestellar/kubestellar-mcp/pkg/metrics"
 	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 )
@@ -54,6 +51,12 @@ type Server struct {
 	// newDriftDetector is a factory for creating drift detectors.
 	// Tests can override this to avoid talking to a real API server.
 	newDriftDetector func(*rest.Config) (driftDetector, error)
+	// writeMu serializes direct sendResponse/sendError writes to stdout
+	// against each other (Run's own rpcloop.Loop instance carries its own
+	// independent write mutex for the read-loop's writes). Previously this
+	// server had no write-safety guarantee at all here; see
+	// kubestellar-mcp#1017/#1018.
+	writeMu sync.Mutex
 }
 
 // NewServer creates a new MCP server
@@ -112,32 +115,17 @@ func RunMCPServer() error {
 	return server.Run()
 }
 
-// Run starts the server loop
+// Run starts the server loop. The stdio transport (newline-delimited
+// JSON-RPC framing up to rpcloop.DefaultMaxFrameSize, EOF-as-clean-shutdown)
+// is owned by pkg/mcp/rpcloop, shared with the sibling kubestellar-mcp
+// server's dispatch loop (see kubestellar-mcp#1017/#1018). os.Stdin/os.Stdout
+// are read at call time (not cached on Server) so tests that swap them
+// before calling Run continue to work unchanged.
 func (s *Server) Run() error {
-	scanner := bufio.NewScanner(os.Stdin)
-	// Increase buffer size for large messages
-	buf := make([]byte, 0, 64*1024)
-	scanner.Buffer(buf, 1024*1024)
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		if line == "" {
-			continue
-		}
-
-		var req protocol.Request
-		if err := json.Unmarshal([]byte(line), &req); err != nil {
-			s.sendError(nil, -32700, "Parse error")
-			continue
-		}
-
-		response := s.handleRequest(&req)
-		if response != nil {
-			s.sendResponse(response)
-		}
-	}
-
-	return scanner.Err()
+	loop := rpcloop.NewLoop(os.Stdin, os.Stdout)
+	return loop.Run(context.Background(), func(ctx context.Context, req *protocol.Request) *protocol.Response {
+		return s.handleRequest(req)
+	})
 }
 
 // handleRequest processes an MCP request and returns a response
@@ -206,59 +194,37 @@ func (s *Server) handleToolCall(ctx context.Context, req *protocol.Request) *pro
 	var result interface{}
 	var err error
 
-	// Root span for the tool-dispatch request path, matching the sibling
-	// kubestellar-mcp server's instrumentation of
-	// pkg/mcp/server.handleToolsCall (see tracing.go for why this is a
-	// free, no-op span unless an operator registers a TracerProvider).
-	// tool.name is set from the client-supplied value, same as the
-	// sibling server's span attribute; it is only ever used as a trace
-	// attribute here, never as a Prometheus metric label, so unbounded
-	// cardinality does not apply.
-	ctx, span := tracer.Start(ctx, "mcp.tool.call", trace.WithAttributes(
-		attribute.String("tool.name", params.Name),
-	))
-	defer span.End()
+	// The span/timing/metrics/structured-logging wrapper below used to be
+	// hand-duplicated here (with a comment pointing at the sibling
+	// kubestellar-mcp server's identical block) - it now lives once in
+	// pkg/mcp/rpcloop.InstrumentToolCall (see kubestellar-mcp#1017/#1018).
+	// dispatch performs the single map lookup against the registry built
+	// from every tools_*.go file's *ToolDefs() (see registry.go), then
+	// invokes the handler using the traced ctx InstrumentToolCall hands it.
+	// No per-request cluster scoping is available at this dispatch point,
+	// so cluster is left empty and normalized to the bounded "none" label
+	// by metrics.RecordToolCall.
+	outcome := rpcloop.InstrumentToolCall(ctx, params.Name, "", func(ctx context.Context) rpcloop.ToolCallOutcome {
+		def, ok := s.findToolDef(params.Name)
+		if !ok {
+			return rpcloop.ToolCallOutcome{Found: false}
+		}
+		start := time.Now()
+		result, err = def.Handler(ctx, params.Arguments)
+		errKind := metrics.ErrorKind("")
+		if err != nil {
+			errKind = metrics.ClassifyError(err)
+		}
+		return rpcloop.ToolCallOutcome{
+			Found:    true,
+			IsError:  err != nil,
+			ErrKind:  errKind,
+			Duration: time.Since(start),
+		}
+	})
 
-	// start/duration bracket the dispatched handler call below so every
-	// recognized tool (fixed switch-case set) is timed and recorded via
-	// metrics.RecordToolCall, matching the sibling kubestellar-mcp server's
-	// instrumentation of pkg/mcp/server.handleToolsCall. The default
-	// (unrecognized-tool) arm returns before this point, so a
-	// client-supplied tool name can never reach RecordToolCall as a label
-	// value. No per-request cluster scoping is available at this dispatch
-	// point, so cluster is left empty and normalized to the bounded "none"
-	// label by RecordToolCall.
-	start := time.Now()
-
-	// Single map lookup against the registry built from every tools_*.go
-	// file's *ToolDefs() (see registry.go), replacing what used to be a
-	// 27-case switch duplicating the tool names already listed in
-	// handleListTools.
-	def, ok := s.findToolDef(params.Name)
-	if !ok {
-		span.SetStatus(codes.Error, "unknown tool")
+	if !outcome.Found {
 		return protocol.NewError(req.ID, -32601, fmt.Sprintf("Unknown tool: %s", params.Name), nil)
-	}
-	result, err = def.Handler(ctx, params.Arguments)
-
-	errKind := metrics.ErrorKind("")
-	if err != nil {
-		errKind = metrics.ClassifyError(err)
-	}
-	duration := time.Since(start)
-	metrics.RecordToolCall(params.Name, "", duration, err != nil, errKind)
-
-	// Structured, bounded lifecycle logging mirroring the sibling
-	// kubestellar-mcp server (pkg/mcp/server.handleToolsCall): tool comes
-	// from the fixed switch-case set reached above, so this never logs
-	// raw error text - only the same status/timing data already exposed
-	// via metrics. Uses klog's key/value form (InfoS/ErrorS) so the
-	// fields are structured rather than baked into a free-form message.
-	if err != nil {
-		span.SetStatus(codes.Error, "tool call returned an error result")
-		klog.ErrorS(nil, "tool call failed", "tool", params.Name, "duration", duration)
-	} else {
-		klog.V(2).InfoS("tool call succeeded", "tool", params.Name, "duration", duration)
 	}
 
 	if err != nil {
@@ -285,10 +251,11 @@ func (s *Server) handleToolCall(ctx context.Context, req *protocol.Request) *pro
 	})
 }
 
-// sendResponse writes a response to stdout
+// sendResponse writes a response to stdout, serialized against concurrent
+// direct sendResponse/sendError callers by s.writeMu (see kubestellar-mcp#1017/#1018;
+// previously this had no write-safety guarantee at all).
 func (s *Server) sendResponse(resp *protocol.Response) {
-	data, _ := json.Marshal(resp)
-	fmt.Println(string(data))
+	_ = rpcloop.SendResponse(&s.writeMu, os.Stdout, resp)
 }
 
 // sendError sends an error response
