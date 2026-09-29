@@ -137,20 +137,28 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 }
 
+// handleRequest routes req through the method table shared with the
+// kubestellar-deploy server (rpcloop.Dispatch, see kubestellar-mcp#1017).
+// This server's own method handlers reply directly via s.send and so hand
+// Dispatch a nil response; only Dispatch's shared arms (ping, unknown
+// method) produce a response that is written here.
 func (s *Server) handleRequest(ctx context.Context, req *Request) {
-	switch req.Method {
-	case "initialize":
-		s.handleInitialize(req)
-	case "initialized", "notifications/initialized":
-		// No response needed for notification
-	case "tools/list":
-		s.handleToolsList(req)
-	case "tools/call":
-		s.handleToolsCall(ctx, req)
-	case "ping":
-		s.sendResult(req.ID, map[string]interface{}{})
-	default:
-		s.sendError(req.ID, -32601, fmt.Sprintf("Method not found: %s", req.Method), nil)
+	resp := rpcloop.Dispatch(ctx, req, rpcloop.Methods{
+		Initialize: func(_ context.Context, req *Request) *Response {
+			s.handleInitialize(req)
+			return nil
+		},
+		ToolsList: func(_ context.Context, req *Request) *Response {
+			s.handleToolsList(req)
+			return nil
+		},
+		ToolsCall: func(ctx context.Context, req *Request) *Response {
+			s.handleToolsCall(ctx, req)
+			return nil
+		},
+	})
+	if resp != nil {
+		s.send(*resp)
 	}
 }
 

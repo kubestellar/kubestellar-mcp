@@ -1,4 +1,4 @@
-package server
+package drift
 
 import (
 	"context"
@@ -56,7 +56,7 @@ func (f *fakeDriftDetector) DetectDrift(_ context.Context, manifests []gitops.Ma
 
 func TestToolDetectDrift(t *testing.T) {
 	t.Run("missing repo_url", func(t *testing.T) {
-		result, rpcErr := callTool(t, &Server{}, "detect_drift", map[string]interface{}{})
+		result, rpcErr := callTool(t, &handlers.Deps{}, "detect_drift", map[string]interface{}{})
 		if rpcErr != nil {
 			t.Fatalf("unexpected RPC error: %v", rpcErr)
 		}
@@ -71,20 +71,20 @@ func TestToolDetectDrift(t *testing.T) {
 	t.Run("empty manifests", func(t *testing.T) {
 		reader := &fakeManifestReader{}
 		detectorCreated := false
-		server := &Server{
-			restConfigFactory: func(clusterName string) (*rest.Config, error) {
+		deps := &handlers.Deps{
+			RESTConfigFactory: func(clusterName string) (*rest.Config, error) {
 				return &rest.Config{Host: "https://cluster.example"}, nil
 			},
-			manifestReaderFactory: func() handlers.ManifestReader {
+			ManifestReaderFactory: func() handlers.ManifestReader {
 				return reader
 			},
-			driftDetectorFactory: func(config *rest.Config) (handlers.DriftDetector, error) {
+			DriftDetectorFactory: func(config *rest.Config) (handlers.DriftDetector, error) {
 				detectorCreated = true
 				return &fakeDriftDetector{}, nil
 			},
 		}
 
-		result, rpcErr := callTool(t, server, "detect_drift", map[string]interface{}{
+		result, rpcErr := callTool(t, deps, "detect_drift", map[string]interface{}{
 			"repo_url": "https://github.com/example/configs",
 			"path":     "clusters/dev",
 			"branch":   "main",
@@ -132,17 +132,17 @@ func TestToolDetectDrift(t *testing.T) {
 		detector := &fakeDriftDetector{
 			clusterScopedKinds: map[string]bool{"ClusterRole": true},
 		}
-		server := &Server{
-			restConfigFactory: func(clusterName string) (*rest.Config, error) {
+		deps := &handlers.Deps{
+			RESTConfigFactory: func(clusterName string) (*rest.Config, error) {
 				if clusterName != "" {
 					t.Fatalf("restConfigFactory cluster = %q, want empty current context", clusterName)
 				}
 				return &rest.Config{Host: "https://cluster.example"}, nil
 			},
-			manifestReaderFactory: func() handlers.ManifestReader {
+			ManifestReaderFactory: func() handlers.ManifestReader {
 				return reader
 			},
-			driftDetectorFactory: func(config *rest.Config) (handlers.DriftDetector, error) {
+			DriftDetectorFactory: func(config *rest.Config) (handlers.DriftDetector, error) {
 				if config.Host != "https://cluster.example" {
 					t.Fatalf("driftDetectorFactory host = %q", config.Host)
 				}
@@ -150,7 +150,7 @@ func TestToolDetectDrift(t *testing.T) {
 			},
 		}
 
-		result, rpcErr := callTool(t, server, "detect_drift", map[string]interface{}{
+		result, rpcErr := callTool(t, deps, "detect_drift", map[string]interface{}{
 			"repo_url":  "https://github.com/example/configs",
 			"namespace": "apps",
 		})
@@ -208,8 +208,8 @@ func TestToolDetectDrift(t *testing.T) {
 	})
 
 	t.Run("cluster config error", func(t *testing.T) {
-		server := &Server{
-			restConfigFactory: func(clusterName string) (*rest.Config, error) {
+		deps := &handlers.Deps{
+			RESTConfigFactory: func(clusterName string) (*rest.Config, error) {
 				if clusterName != "member1" {
 					t.Fatalf("restConfigFactory cluster = %q, want member1", clusterName)
 				}
@@ -217,7 +217,7 @@ func TestToolDetectDrift(t *testing.T) {
 			},
 		}
 
-		result, rpcErr := callTool(t, server, "detect_drift", map[string]interface{}{
+		result, rpcErr := callTool(t, deps, "detect_drift", map[string]interface{}{
 			"repo_url": "https://github.com/example/configs",
 			"cluster":  "member1",
 		})

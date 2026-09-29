@@ -1,4 +1,10 @@
-package server
+// Package drift provides the kubestellar-ops detect_drift MCP tool handler,
+// which compares Git-hosted manifests against live cluster state. It was
+// extracted from the flat pkg/mcp/server package as part of
+// kubestellar-mcp#1027 (per-domain sub-package decomposition), mirroring the
+// pattern established for pkg/deploy/mcp in #983. It depends only on the
+// leaf pkg/mcp/server/handlers package, never on pkg/mcp/server itself.
+package drift
 
 import (
 	"context"

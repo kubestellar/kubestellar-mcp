@@ -1,36 +1,10 @@
 package server
 
+import "github.com/kubestellar/kubestellar-mcp/pkg/mcp/server/drift"
+
+// The drift domain lives in pkg/mcp/server/drift (kubestellar-mcp#1027);
+// registering it from this file's init() keeps detect_drift at the same
+// position in tools/list as before the extraction.
 func init() {
-	RegisterTool(Tool{
-		Name:        "detect_drift",
-		Description: "Detect configuration drift between Git repository manifests and cluster state. Shows which resources differ.",
-		InputSchema: InputSchema{
-			Type: "object",
-			Properties: map[string]Property{
-				"repo_url": {
-					Type:        "string",
-					Description: "Git repository URL (e.g., https://github.com/org/manifests)",
-				},
-				"path": {
-					Type:        "string",
-					Description: "Path within repository to YAML manifests (e.g., production/)",
-				},
-				"branch": {
-					Type:        "string",
-					Description: "Git branch to use (default: main)",
-				},
-				"cluster": {
-					Type:        "string",
-					Description: "Target cluster to check (uses current context if not specified)",
-				},
-				"namespace": {
-					Type:        "string",
-					Description: "Override namespace for all resources",
-				},
-			},
-			Required: []string{"repo_url"},
-		},
-	},
-		toolDetectDrift,
-	)
+	drift.Register(toolRegistry)
 }
