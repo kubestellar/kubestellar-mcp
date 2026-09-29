@@ -1,4 +1,4 @@
-package server
+package policy
 
 import (
 	"errors"
@@ -112,7 +112,7 @@ func TestToolInstallOwnershipPolicy_ConstraintTemplateCreateError(t *testing.T) 
 	fakeDyn.PrependReactor("create", "constrainttemplates", func(action k8stesting.Action) (bool, runtime.Object, error) {
 		return true, nil, errors.New("webhook rejected")
 	})
-	server := &Server{
+	server := &testServer{
 		discoverer:           stubDiscoverer{},
 		clientFactory:        func(string) (kubernetes.Interface, error) { return fakeK8s, nil },
 		dynamicClientFactory: func(string) (dynamic.Interface, error) { return fakeDyn, nil },
@@ -141,7 +141,7 @@ func TestToolInstallOwnershipPolicy_ConstraintCreateError(t *testing.T) {
 	fakeDyn.PrependReactor("create", "k8srequiredlabels", func(action k8stesting.Action) (bool, runtime.Object, error) {
 		return true, nil, errors.New("constraint create rejected")
 	})
-	server := &Server{
+	server := &testServer{
 		discoverer:           stubDiscoverer{},
 		clientFactory:        func(string) (kubernetes.Interface, error) { return fakeK8s, nil },
 		dynamicClientFactory: func(string) (dynamic.Interface, error) { return fakeDyn, nil },
@@ -198,7 +198,7 @@ func TestToolInstallOwnershipPolicy_ConstraintAlreadyExists(t *testing.T) {
 	fakeDyn.PrependReactor("update", "k8srequiredlabels", func(action k8stesting.Action) (bool, runtime.Object, error) {
 		return true, existing, nil
 	})
-	server := &Server{
+	server := &testServer{
 		discoverer:           stubDiscoverer{},
 		clientFactory:        func(string) (kubernetes.Interface, error) { return fakeK8s, nil },
 		dynamicClientFactory: func(string) (dynamic.Interface, error) { return fakeDyn, nil },

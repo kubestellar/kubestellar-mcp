@@ -1,4 +1,4 @@
-package server
+package policy
 
 import (
 	"strings"
@@ -22,7 +22,7 @@ import (
 // result, seeded constraint objects appear absent to the code path.
 // Here we seed via the fake tracker's Create at the exact GVR the
 // production code will hit.
-func newPolicyStatusTestServer(t *testing.T, template *unstructured.Unstructured, constraint *unstructured.Unstructured) *Server {
+func newPolicyStatusTestServer(t *testing.T, template *unstructured.Unstructured, constraint *unstructured.Unstructured) *testServer {
 	t.Helper()
 	gvrToListKind := map[schema.GroupVersionResource]string{
 		{Group: "templates.gatekeeper.sh", Version: "v1", Resource: "constrainttemplates"}:      "ConstraintTemplateList",
@@ -41,7 +41,7 @@ func newPolicyStatusTestServer(t *testing.T, template *unstructured.Unstructured
 			t.Fatalf("seed K8sRequiredLabels constraint: %v", err)
 		}
 	}
-	return &Server{
+	return &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return k8sfake.NewSimpleClientset(), nil

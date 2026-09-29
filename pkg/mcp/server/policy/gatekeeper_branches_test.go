@@ -1,4 +1,4 @@
-package server
+package policy
 
 import (
 	"errors"
@@ -71,7 +71,7 @@ func TestToolCheckGatekeeper_PodListError(t *testing.T) {
 	fakeK8s.PrependReactor("list", "pods", func(action k8stesting.Action) (bool, runtime.Object, error) {
 		return true, nil, errors.New("forbidden")
 	})
-	server := &Server{
+	server := &testServer{
 		discoverer:    stubDiscoverer{},
 		clientFactory: func(_ string) (kubernetes.Interface, error) { return fakeK8s, nil },
 	}
@@ -94,7 +94,7 @@ func TestToolCheckGatekeeper_DynamicClientError(t *testing.T) {
 	fakeK8s := k8sfake.NewSimpleClientset(
 		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "gatekeeper-system"}},
 	)
-	server := &Server{
+	server := &testServer{
 		discoverer:    stubDiscoverer{},
 		clientFactory: func(_ string) (kubernetes.Interface, error) { return fakeK8s, nil },
 		dynamicClientFactory: func(_ string) (dynamic.Interface, error) {

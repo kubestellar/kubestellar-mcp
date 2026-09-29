@@ -1,4 +1,12 @@
-package server
+// Package policy provides the kubestellar-ops OPA Gatekeeper ownership
+// policy MCP tool handlers (check_gatekeeper, get_ownership_policy_status,
+// list_ownership_violations, install_ownership_policy,
+// set_ownership_policy_mode, uninstall_ownership_policy). It was extracted
+// from the flat pkg/mcp/server package as part of kubestellar-mcp#1027
+// (per-domain sub-package decomposition), mirroring the pattern established
+// for pkg/deploy/mcp in #983. It depends only on the leaf
+// pkg/mcp/server/handlers package, never on pkg/mcp/server itself.
+package policy
 
 import (
 	"context"
@@ -9,6 +17,16 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+)
+
+// Constants for the OPA Gatekeeper ownership-labels policy. These moved here
+// from tools_rbac_audit.go, where they had been misplaced (kubestellar-mcp#1027).
+const (
+	gatekeeperNamespace          = "gatekeeper-system"
+	ownershipTemplateName        = "k8srequiredlabels"
+	ownershipConstraintName      = "require-ownership-labels"
+	constraintTemplateAPIVersion = "templates.gatekeeper.sh/v1"
+	constraintAPIVersion         = "constraints.gatekeeper.sh/v1beta1"
 )
 
 func toolCheckGatekeeper(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {

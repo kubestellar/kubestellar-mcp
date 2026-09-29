@@ -255,13 +255,3 @@ func toolAuditKubeconfig(ctx context.Context, d *handlers.Deps, args map[string]
 
 	return sb.String(), false
 }
-
-// OPA Gatekeeper Tools
-
-const (
-	gatekeeperNamespace          = "gatekeeper-system"
-	ownershipTemplateName        = "k8srequiredlabels"
-	ownershipConstraintName      = "require-ownership-labels"
-	constraintTemplateAPIVersion = "templates.gatekeeper.sh/v1"
-	constraintAPIVersion         = "constraints.gatekeeper.sh/v1beta1"
-)

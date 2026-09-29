@@ -16,7 +16,7 @@ import (
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 )
 
-// upgradesScheme extends dynamicScheme with OpenShift GVKs needed for upgrade tests.
+// upgradesScheme registers the OpenShift GVKs needed for upgrade tests.
 var upgradesScheme *runtime.Scheme
 
 func init() {

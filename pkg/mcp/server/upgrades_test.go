@@ -18,9 +18,20 @@ import (
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 )
 
+// upgradeTestScheme is a minimal scheme (corev1 only) for the dynamic fake
+// client these tests use. It used to reuse the pkg/mcp/server/policy tests'
+// dynamicScheme, a hidden cross-domain coupling; kept package-local here
+// since no test in this file actually seeds gatekeeper-CRD dynamic objects
+// (kubestellar-mcp#1027).
+var upgradeTestScheme = func() *runtime.Scheme {
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+	return scheme
+}()
+
 func newUpgradeTestServer(k8sObjs []runtime.Object, dynObjs []runtime.Object) *Server {
 	fakeK8s := k8sfake.NewSimpleClientset(k8sObjs...)
-	fakeDyn := dynfake.NewSimpleDynamicClient(dynamicScheme, dynObjs...)
+	fakeDyn := dynfake.NewSimpleDynamicClient(upgradeTestScheme, dynObjs...)
 
 	return &Server{
 		discoverer: stubDiscoverer{},

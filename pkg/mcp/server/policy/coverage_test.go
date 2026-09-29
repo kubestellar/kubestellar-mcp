@@ -1,4 +1,4 @@
-package server
+package policy
 
 import (
 	"context"
@@ -19,7 +19,7 @@ import (
 // --- toolInstallOwnershipPolicy ---
 
 func TestToolInstallOwnershipPolicy_ClientFactoryError(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return nil, errors.New("kubeconfig not found")
@@ -39,7 +39,7 @@ func TestToolInstallOwnershipPolicy_ClientFactoryError(t *testing.T) {
 
 func TestToolInstallOwnershipPolicy_DynamicClientError(t *testing.T) {
 	fakeK8s := k8sfake.NewSimpleClientset()
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return fakeK8s, nil
@@ -63,7 +63,7 @@ func TestToolInstallOwnershipPolicy_DynamicClientError(t *testing.T) {
 func TestToolInstallOwnershipPolicy_Success(t *testing.T) {
 	fakeK8s := k8sfake.NewSimpleClientset()
 	fakeDyn := dynfake.NewSimpleDynamicClient(dynamicScheme)
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return fakeK8s, nil
@@ -91,7 +91,7 @@ func TestToolInstallOwnershipPolicy_Success(t *testing.T) {
 func TestToolInstallOwnershipPolicy_WithCustomLabels(t *testing.T) {
 	fakeK8s := k8sfake.NewSimpleClientset()
 	fakeDyn := dynfake.NewSimpleDynamicClient(dynamicScheme)
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return fakeK8s, nil
@@ -151,7 +151,7 @@ func TestToolSetOwnershipPolicyMode_InvalidMode(t *testing.T) {
 }
 
 func TestToolSetOwnershipPolicyMode_DynamicClientError(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		dynamicClientFactory: func(clusterName string) (dynamic.Interface, error) {
 			return nil, errors.New("no dynamic client")
@@ -219,7 +219,7 @@ func TestToolSetOwnershipPolicyMode_SuccessUpdate(t *testing.T) {
 	if err := fakeDyn.Tracker().Create(constraintGVR, constraint, ""); err != nil {
 		t.Fatalf("failed to seed constraint: %v", err)
 	}
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		dynamicClientFactory: func(clusterName string) (dynamic.Interface, error) {
 			return fakeDyn, nil
@@ -269,7 +269,7 @@ func TestToolSetOwnershipPolicyMode_AlreadySameMode(t *testing.T) {
 	if err := fakeDyn.Tracker().Create(constraintGVR, constraint, ""); err != nil {
 		t.Fatalf("failed to seed constraint: %v", err)
 	}
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		dynamicClientFactory: func(clusterName string) (dynamic.Interface, error) {
 			return fakeDyn, nil
@@ -294,7 +294,7 @@ func TestToolSetOwnershipPolicyMode_AlreadySameMode(t *testing.T) {
 // --- toolUninstallOwnershipPolicy ---
 
 func TestToolUninstallOwnershipPolicy_DynamicClientError(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		dynamicClientFactory: func(clusterName string) (dynamic.Interface, error) {
 			return nil, errors.New("no dynamic client")
@@ -349,7 +349,7 @@ func TestToolUninstallOwnershipPolicy_Success(t *testing.T) {
 	}
 
 	fakeDyn := dynfake.NewSimpleDynamicClient(dynamicScheme, constraint, template)
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		dynamicClientFactory: func(clusterName string) (dynamic.Interface, error) {
 			return fakeDyn, nil

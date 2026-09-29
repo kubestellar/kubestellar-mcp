@@ -1,128 +1,13 @@
 package server
 
+import "github.com/kubestellar/kubestellar-mcp/pkg/mcp/server/policy"
+
+// The ownership-policy domain lives in pkg/mcp/server/policy
+// (kubestellar-mcp#1027); registering it from this file's init() keeps
+// check_gatekeeper, get_ownership_policy_status, list_ownership_violations,
+// install_ownership_policy, set_ownership_policy_mode and
+// uninstall_ownership_policy at the same positions in tools/list as before
+// the extraction.
 func init() {
-	RegisterTool(Tool{
-		Name:        "check_gatekeeper",
-		Description: "Check if OPA Gatekeeper is installed and running in the cluster",
-		InputSchema: InputSchema{
-			Type: "object",
-			Properties: map[string]Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
-			},
-		},
-	},
-		toolCheckGatekeeper,
-	)
-	RegisterTool(Tool{
-		Name:        "get_ownership_policy_status",
-		Description: "Get the status of the ownership labels policy including violation count",
-		InputSchema: InputSchema{
-			Type: "object",
-			Properties: map[string]Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
-			},
-		},
-	},
-		toolGetOwnershipPolicyStatus,
-	)
-	RegisterTool(Tool{
-		Name:        "list_ownership_violations",
-		Description: "List resources that violate the ownership labels policy (missing owner/team labels)",
-		InputSchema: InputSchema{
-			Type: "object",
-			Properties: map[string]Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
-				"namespace": {
-					Type:        "string",
-					Description: "Filter violations by namespace",
-				},
-				"limit": {
-					Type:        "integer",
-					Description: "Maximum number of violations to return (default 50)",
-				},
-			},
-		},
-	},
-		toolListOwnershipViolations,
-	)
-	RegisterTool(Tool{
-		Name:        "install_ownership_policy",
-		Description: "Install the ownership labels policy (ConstraintTemplate and Constraint) for OPA Gatekeeper",
-		InputSchema: InputSchema{
-			Type: "object",
-			Properties: map[string]Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
-				"labels": {
-					Type:        "array",
-					Description: "Required labels (default: [\"owner\", \"team\"])",
-					Items:       &Items{Type: "string"},
-				},
-				"target_namespaces": {
-					Type:        "array",
-					Description: "Namespaces to enforce (empty means all non-system namespaces)",
-					Items:       &Items{Type: "string"},
-				},
-				"exclude_namespaces": {
-					Type:        "array",
-					Description: "Namespaces to exclude (default: kube-*, openshift-*, gatekeeper-system)",
-					Items:       &Items{Type: "string"},
-				},
-				"mode": {
-					Type:        "string",
-					Description: "Enforcement mode: dryrun, warn, or enforce (default: dryrun)",
-					Enum:        []string{"dryrun", "warn", "enforce"},
-				},
-			},
-		},
-	},
-		toolInstallOwnershipPolicy,
-	)
-	RegisterTool(Tool{
-		Name:        "set_ownership_policy_mode",
-		Description: "Change the enforcement mode of the ownership labels policy",
-		InputSchema: InputSchema{
-			Type: "object",
-			Properties: map[string]Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
-				"mode": {
-					Type:        "string",
-					Description: "Enforcement mode: dryrun, warn, or enforce",
-					Enum:        []string{"dryrun", "warn", "enforce"},
-				},
-			},
-			Required: []string{"mode"},
-		},
-	},
-		toolSetOwnershipPolicyMode,
-	)
-	RegisterTool(Tool{
-		Name:        "uninstall_ownership_policy",
-		Description: "Remove the ownership labels policy from the cluster",
-		InputSchema: InputSchema{
-			Type: "object",
-			Properties: map[string]Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
-			},
-		},
-	},
-		toolUninstallOwnershipPolicy,
-	)
+	policy.Register(toolRegistry)
 }
