@@ -1,4 +1,4 @@
-package server
+package workloads
 
 import (
 	"errors"
@@ -15,7 +15,7 @@ import (
 // --- toolGetPodLogs extended tests (was 25.0% coverage) ---
 
 func TestToolGetPodLogs_InvalidNamespace(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return k8sfake.NewSimpleClientset(), nil
@@ -38,7 +38,7 @@ func TestToolGetPodLogs_InvalidNamespace(t *testing.T) {
 }
 
 func TestToolGetPodLogs_ClientFactoryError(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return nil, errors.New("no kubeconfig")
@@ -65,7 +65,7 @@ func TestToolGetPodLogs_SuccessDefaultsNamespaceAndTail(t *testing.T) {
 	}
 	cs := k8sfake.NewSimpleClientset(pod)
 
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return cs, nil
@@ -110,7 +110,7 @@ func TestToolGetPodLogs_ContainerAndTailPassedThrough(t *testing.T) {
 	}
 	cs := k8sfake.NewSimpleClientset(pod)
 
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return cs, nil

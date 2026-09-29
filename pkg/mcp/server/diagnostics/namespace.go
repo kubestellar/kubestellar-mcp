@@ -1,4 +1,4 @@
-package server
+package diagnostics
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 
 func toolAnalyzeNamespace(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
-	namespace, err := extractAndValidateNamespace(args)
+	namespace, err := handlers.ExtractAndValidateNamespace(args)
 	if err != nil {
 		return fmt.Sprintf("error: %v", err), true
 	}

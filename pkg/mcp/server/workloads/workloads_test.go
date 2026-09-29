@@ -1,4 +1,4 @@
-package server
+package workloads
 
 import (
 	"strings"
@@ -13,7 +13,7 @@ import (
 
 func TestToolGetPodsSuccess(t *testing.T) {
 	now := metav1.NewTime(time.Date(2024, time.June, 1, 12, 0, 0, 0, time.UTC))
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return k8sfake.NewSimpleClientset(
@@ -69,7 +69,7 @@ func TestToolGetPodsSuccess(t *testing.T) {
 }
 
 func TestToolGetPodsWithLabelSelector(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return k8sfake.NewSimpleClientset(
@@ -103,7 +103,7 @@ func TestToolGetPodsWithLabelSelector(t *testing.T) {
 }
 
 func TestToolGetServicesSuccess(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return k8sfake.NewSimpleClientset(
@@ -159,7 +159,7 @@ func TestToolGetServicesSuccess(t *testing.T) {
 }
 
 func TestToolGetNodesSuccess(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return k8sfake.NewSimpleClientset(
@@ -221,7 +221,7 @@ func TestToolGetNodesSuccess(t *testing.T) {
 }
 
 func TestToolGetEventsSuccess(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return k8sfake.NewSimpleClientset(
@@ -269,7 +269,7 @@ func TestToolGetEventsSuccess(t *testing.T) {
 
 func TestToolDescribePodSuccess(t *testing.T) {
 	now := metav1.NewTime(time.Date(2024, time.June, 1, 12, 0, 0, 0, time.UTC))
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return k8sfake.NewSimpleClientset(
@@ -324,7 +324,7 @@ func TestToolDescribePodSuccess(t *testing.T) {
 }
 
 func TestToolDescribePodMissingName(t *testing.T) {
-	server := &Server{discoverer: stubDiscoverer{}}
+	server := &testServer{discoverer: stubDiscoverer{}}
 	result, rpcErr := callTool(t, server, "describe_pod", map[string]interface{}{"namespace": "default"})
 	if rpcErr != nil {
 		t.Fatalf("unexpected RPC error: %v", rpcErr)
@@ -338,7 +338,7 @@ func TestToolDescribePodMissingName(t *testing.T) {
 }
 
 func TestToolGetPodLogsValidation(t *testing.T) {
-	server := &Server{discoverer: stubDiscoverer{}}
+	server := &testServer{discoverer: stubDiscoverer{}}
 	result, rpcErr := callTool(t, server, "get_pod_logs", map[string]interface{}{"namespace": "default"})
 	if rpcErr != nil {
 		t.Fatalf("unexpected RPC error: %v", rpcErr)

@@ -30,7 +30,7 @@ import (
 )
 
 func TestToolGetWarningEvents_InvalidNamespace(t *testing.T) {
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(string) (kubernetes.Interface, error) {
 			return k8sfake.NewSimpleClientset(), nil
 		},
@@ -49,7 +49,7 @@ func TestToolGetWarningEvents_InvalidNamespace(t *testing.T) {
 
 func TestToolGetWarningEvents_ClientFactoryError(t *testing.T) {
 	sentinel := errors.New("kubeconfig missing")
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(string) (kubernetes.Interface, error) {
 			return nil, sentinel
 		},
@@ -70,7 +70,7 @@ func TestToolGetWarningEvents_ListError(t *testing.T) {
 		return true, nil, errors.New("etcd unavailable")
 	})
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(string) (kubernetes.Interface, error) { return client, nil },
 	}
 
@@ -106,7 +106,7 @@ func TestToolGetWarningEvents_NamespaceScopedList(t *testing.T) {
 		},
 	)
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(string) (kubernetes.Interface, error) { return client, nil },
 	}
 
@@ -146,7 +146,7 @@ func TestToolGetWarningEvents_InvolvedObjectFilter(t *testing.T) {
 		},
 	)
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(string) (kubernetes.Interface, error) { return client, nil },
 	}
 
@@ -181,7 +181,7 @@ func TestToolGetWarningEvents_ZeroTimestampShowsUnknownAge(t *testing.T) {
 		},
 	)
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(string) (kubernetes.Interface, error) { return client, nil },
 	}
 
@@ -213,7 +213,7 @@ func TestToolGetWarningEvents_LimitFromArgs(t *testing.T) {
 		return true, &corev1.EventList{}, nil
 	})
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(string) (kubernetes.Interface, error) { return client, nil },
 	}
 

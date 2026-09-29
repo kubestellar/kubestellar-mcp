@@ -1,4 +1,4 @@
-package server
+package workloads
 
 import (
 	"errors"
@@ -34,7 +34,7 @@ import (
 // must surface it via IsError=true with the descriptive prefix. Without
 // this test a factory regression would silently return "No pods found".
 func TestToolGetPodsClientError(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return nil, errors.New("kubeconfig missing for cluster")
@@ -61,7 +61,7 @@ func TestToolGetPodsClientError(t *testing.T) {
 // extractAndValidateNamespace, and the fake client returns every seeded
 // pod regardless of namespace when the empty selector is used.
 func TestToolGetPodsAllNamespacesSuccess(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return k8sfake.NewSimpleClientset(
@@ -97,7 +97,7 @@ func TestToolGetPodsAllNamespacesSuccess(t *testing.T) {
 // PrependReactor causes CoreV1().Pods().List to return an error; the tool
 // must not swallow it or fall through to "No pods found".
 func TestToolGetPodsListError(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			client := k8sfake.NewSimpleClientset()
@@ -129,7 +129,7 @@ func TestToolGetPodsListError(t *testing.T) {
 // return so a regression that emitted "Found 0 pods:\n\n" instead would
 // be caught by the test.
 func TestToolGetPodsNoPodsFound(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return k8sfake.NewSimpleClientset(), nil

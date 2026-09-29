@@ -1,4 +1,4 @@
-package server
+package diagnostics
 
 import (
 	"context"
@@ -32,7 +32,7 @@ import (
 // TestToolCheckResourceLimits_InvalidNamespaceArg covers the
 // extractAndValidateNamespace error branch (line 224).
 func TestToolCheckResourceLimits_InvalidNamespaceArg(t *testing.T) {
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(string) (kubernetes.Interface, error) {
 			return k8sfake.NewSimpleClientset(), nil
 		},
@@ -51,7 +51,7 @@ func TestToolCheckResourceLimits_InvalidNamespaceArg(t *testing.T) {
 // TestToolCheckResourceLimits_ClientFactoryError covers the getClientForCluster
 // failure branch (line 229).
 func TestToolCheckResourceLimits_ClientFactoryError(t *testing.T) {
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(string) (kubernetes.Interface, error) {
 			return nil, errors.New("kubeconfig missing")
 		},
@@ -80,7 +80,7 @@ func TestToolCheckResourceLimits_NamespacedListError(t *testing.T) {
 		}
 		return true, nil, errors.New("forbidden: user cannot list pods")
 	})
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(string) (kubernetes.Interface, error) { return client, nil },
 	}
 	result, isErr := toolCheckResourceLimits(context.Background(), s.deps(), map[string]interface{}{
@@ -128,7 +128,7 @@ func TestToolCheckResourceLimits_TerminalPodsSkipped(t *testing.T) {
 		Status: corev1.PodStatus{Phase: corev1.PodRunning},
 	}
 	client := k8sfake.NewSimpleClientset(succeededPod, failedPod, runningPod)
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(string) (kubernetes.Interface, error) { return client, nil },
 	}
 	result, isErr := toolCheckResourceLimits(context.Background(), s.deps(), map[string]interface{}{})
@@ -173,7 +173,7 @@ func TestToolCheckResourceLimits_PartialLimits(t *testing.T) {
 		Status: corev1.PodStatus{Phase: corev1.PodRunning},
 	}
 	client := k8sfake.NewSimpleClientset(pod)
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(string) (kubernetes.Interface, error) { return client, nil },
 	}
 	result, isErr := toolCheckResourceLimits(context.Background(), s.deps(), map[string]interface{}{})
@@ -199,7 +199,7 @@ func TestToolCheckResourceLimits_PartialLimits(t *testing.T) {
 func TestToolCheckResourceLimits_ClusterArgPropagated(t *testing.T) {
 	client := k8sfake.NewSimpleClientset()
 	var got string
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			got = clusterName
 			return client, nil

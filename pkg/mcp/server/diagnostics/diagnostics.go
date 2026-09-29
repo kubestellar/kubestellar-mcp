@@ -1,4 +1,19 @@
-package server
+// Package diagnostics provides the kubestellar-ops cluster-diagnostics MCP
+// tool handlers (find_pod_issues, find_deployment_issues,
+// check_resource_limits, check_security_issues, analyze_namespace,
+// get_warning_events). It was extracted from the flat pkg/mcp/server
+// package as part of kubestellar-mcp#1027 (per-domain sub-package
+// decomposition), mirroring the pattern established for pkg/deploy/mcp in
+// #983. It depends only on the leaf pkg/mcp/server/handlers package, never
+// on pkg/mcp/server itself.
+//
+// These handlers used to be registered from
+// pkg/mcp/server/tools_workloads_registry.go's init(), an unadvertised
+// cross-domain edge where the workloads registry owned diagnostics tools.
+// This package's own Register function closes that edge: pkg/mcp/server
+// calls diagnostics.Register(toolRegistry) directly, immediately after
+// workloads.Register(toolRegistry), so tools/list ordering is unchanged.
+package diagnostics
 
 import (
 	"context"
@@ -13,7 +28,7 @@ import (
 
 func toolGetWarningEvents(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
-	namespace, err := extractAndValidateNamespace(args)
+	namespace, err := handlers.ExtractAndValidateNamespace(args)
 	if err != nil {
 		return fmt.Sprintf("error: %v", err), true
 	}

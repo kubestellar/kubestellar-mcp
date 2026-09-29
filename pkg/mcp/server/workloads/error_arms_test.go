@@ -1,4 +1,4 @@
-package server
+package workloads
 
 import (
 	"errors"
@@ -37,7 +37,7 @@ func TestToolGetDeploymentsAllNamespacesSuccess(t *testing.T) {
 	// namespace == "" arm — the tool must list Deployments across
 	// every namespace via `.Deployments("")`. The fake client returns
 	// all seeded objects when given the empty namespace selector.
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return k8sfake.NewSimpleClientset(
@@ -73,7 +73,7 @@ func TestToolGetDeploymentsNamespaceValidationError(t *testing.T) {
 	// extractAndValidateNamespace BEFORE any client is created.
 	// Locks the "error: %v" prefix that upstream callers depend on
 	// to distinguish validation errors from client / list errors.
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			t.Fatalf("clientFactory must not be called when validation fails")
@@ -98,7 +98,7 @@ func TestToolGetDeploymentsClientFactoryError(t *testing.T) {
 	// getClientForCluster failure must surface as
 	// "Failed to create client: ..." — a distinct prefix so callers
 	// can tell it apart from a list-time failure.
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return nil, errors.New("kubeconfig missing for cluster")
@@ -124,7 +124,7 @@ func TestToolGetDeploymentsListError(t *testing.T) {
 	// tool must surface it via the "Failed to list deployments" arm.
 	// Guards against regressions that would (e.g.) swallow the error
 	// and return the zero DeploymentList as valid JSON.
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			client := k8sfake.NewSimpleClientset()
@@ -156,7 +156,7 @@ func TestToolGetDeploymentsListError(t *testing.T) {
 // -----------------------------------------------------------------------
 
 func TestToolGetServicesNamespaceValidationError(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			t.Fatalf("clientFactory must not be called when validation fails")
@@ -178,7 +178,7 @@ func TestToolGetServicesNamespaceValidationError(t *testing.T) {
 }
 
 func TestToolGetServicesClientFactoryError(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return nil, errors.New("no such cluster")
@@ -200,7 +200,7 @@ func TestToolGetServicesClientFactoryError(t *testing.T) {
 }
 
 func TestToolGetServicesListError(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			client := k8sfake.NewSimpleClientset()
@@ -233,7 +233,7 @@ func TestToolGetServicesEmptyListReturnsFriendlyMessage(t *testing.T) {
 	// no services is queried in the happy path. Existing test only
 	// exercises a non-empty list. Locks the exact "No services
 	// found" copy that PMs use for docs/screenshots.
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			// Seed a Service in a different namespace so the

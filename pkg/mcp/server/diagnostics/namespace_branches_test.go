@@ -1,4 +1,4 @@
-package server
+package diagnostics
 
 import (
 	"context"
@@ -20,7 +20,7 @@ import (
 // extractAndValidateNamespace error branch (not the "missing" branch, which is
 // tested elsewhere).
 func TestToolAnalyzeNamespace_InvalidNamespaceArg(t *testing.T) {
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(string) (kubernetes.Interface, error) {
 			return k8sfake.NewSimpleClientset(), nil
 		},
@@ -42,7 +42,7 @@ func TestToolAnalyzeNamespace_InvalidNamespaceArg(t *testing.T) {
 // TestToolAnalyzeNamespace_ClientFactoryError covers the
 // getClientForCluster failure branch.
 func TestToolAnalyzeNamespace_ClientFactoryError(t *testing.T) {
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(string) (kubernetes.Interface, error) {
 			return nil, errors.New("kubeconfig missing")
 		},
@@ -63,7 +63,7 @@ func TestToolAnalyzeNamespace_ClientFactoryError(t *testing.T) {
 // Namespaces().Get(...) fails (e.g. namespace does not exist).
 func TestToolAnalyzeNamespace_NamespaceGetError(t *testing.T) {
 	client := k8sfake.NewSimpleClientset() // no namespace object
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -185,7 +185,7 @@ func TestToolAnalyzeNamespace_FullDetails(t *testing.T) {
 		warningEvent,
 	)
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(string) (kubernetes.Interface, error) { return client, nil },
 	}
 
@@ -234,7 +234,7 @@ func TestToolAnalyzeNamespace_MinimalPathsSuppressed(t *testing.T) {
 			Status:     corev1.NamespaceStatus{Phase: corev1.NamespaceActive},
 		},
 	)
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(string) (kubernetes.Interface, error) { return client, nil },
 	}
 	result, isErr := toolAnalyzeNamespace(context.Background(), s.deps(), map[string]interface{}{
@@ -268,7 +268,7 @@ func TestToolAnalyzeNamespace_ClusterArgPropagated(t *testing.T) {
 		},
 	)
 	var got string
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			got = clusterName
 			return client, nil

@@ -1,4 +1,4 @@
-package server
+package diagnostics
 
 import (
 	"context"
@@ -18,7 +18,7 @@ import (
 
 func TestToolFindPodIssues_NoPods(t *testing.T) {
 	client := k8sfake.NewSimpleClientset()
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -54,7 +54,7 @@ func TestToolFindPodIssues_CrashLoopBackOff(t *testing.T) {
 		},
 	})
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -92,7 +92,7 @@ func TestToolFindPodIssues_ImagePullBackOff(t *testing.T) {
 		},
 	})
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -129,7 +129,7 @@ func TestToolFindPodIssues_OOMKilled(t *testing.T) {
 		},
 	})
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -163,7 +163,7 @@ func TestToolFindPodIssues_Unschedulable(t *testing.T) {
 		},
 	})
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -194,7 +194,7 @@ func TestToolFindPodIssues_IncludeCompleted(t *testing.T) {
 		},
 	)
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -221,7 +221,7 @@ func TestToolFindDeploymentIssues_NoIssues(t *testing.T) {
 		},
 	})
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -247,7 +247,7 @@ func TestToolFindDeploymentIssues_NotReady(t *testing.T) {
 		},
 	})
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -282,7 +282,7 @@ func TestToolFindDeploymentIssues_ProgressingFalse(t *testing.T) {
 		},
 	})
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -324,7 +324,7 @@ func TestToolCheckResourceLimits_NoIssues(t *testing.T) {
 		Status: corev1.PodStatus{Phase: corev1.PodRunning},
 	})
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -351,7 +351,7 @@ func TestToolCheckResourceLimits_MissingLimits(t *testing.T) {
 		Status: corev1.PodStatus{Phase: corev1.PodRunning},
 	})
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -392,7 +392,7 @@ func TestToolCheckSecurityIssues_NoIssues(t *testing.T) {
 		Status: corev1.PodStatus{Phase: corev1.PodRunning},
 	})
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -423,7 +423,7 @@ func TestToolCheckSecurityIssues_Privileged(t *testing.T) {
 		Status: corev1.PodStatus{Phase: corev1.PodRunning},
 	})
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -452,7 +452,7 @@ func TestToolCheckSecurityIssues_HostNetwork(t *testing.T) {
 		Status: corev1.PodStatus{Phase: corev1.PodRunning},
 	})
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -493,7 +493,7 @@ func TestToolAnalyzeNamespace(t *testing.T) {
 		},
 	)
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -523,7 +523,7 @@ func TestToolAnalyzeNamespace(t *testing.T) {
 
 func TestToolAnalyzeNamespace_MissingNamespace(t *testing.T) {
 	client := k8sfake.NewSimpleClientset()
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -541,7 +541,7 @@ func TestToolAnalyzeNamespace_MissingNamespace(t *testing.T) {
 
 func TestToolGetWarningEvents_NoEvents(t *testing.T) {
 	client := k8sfake.NewSimpleClientset()
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -571,7 +571,7 @@ func TestToolGetWarningEvents_HasEvents(t *testing.T) {
 		LastTimestamp: metav1.Now(),
 	})
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -596,7 +596,7 @@ func TestToolFindPodIssues_ClientError(t *testing.T) {
 		return true, nil, errors.New("API server unavailable")
 	})
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return client, nil
 		},

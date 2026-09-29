@@ -6,39 +6,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"testing"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-func TestFormatAge(t *testing.T) {
-	tests := []struct {
-		name string
-		when time.Time
-		want string
-	}{
-		{name: "seconds", when: time.Now().Add(-30 * time.Second), want: "30s"},
-		{name: "minutes", when: time.Now().Add(-(2*time.Minute + 10*time.Second)), want: "2m"},
-		{name: "hours", when: time.Now().Add(-(3*time.Hour + 5*time.Minute)), want: "3h"},
-		{name: "days", when: time.Now().Add(-(49 * time.Hour)), want: "2d"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := formatAge(tt.when); got != tt.want {
-				t.Fatalf("formatAge() = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestFormattingHelpers(t *testing.T) {
-	ports := formatPorts([]corev1.ServicePort{{Port: 80, Protocol: corev1.ProtocolTCP}, {Port: 443, NodePort: 30443, Protocol: corev1.ProtocolTCP}})
-	if ports != "80/TCP,443:30443/TCP" {
-		t.Fatalf("formatPorts() = %q", ports)
-	}
-}
 
 func TestParseHelmSecret(t *testing.T) {
 	release := map[string]interface{}{

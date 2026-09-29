@@ -1,4 +1,4 @@
-package server
+package diagnostics
 
 import (
 	"context"
@@ -21,7 +21,7 @@ import (
 // function from 72.9% line coverage toward the ~90% floor the rest of the
 // package already meets.
 //
-// Every test follows the established fake-client + Server{clientFactory}
+// Every test follows the established fake-client + testServer{clientFactory}
 // pattern used by the sibling tests in this package.
 
 func TestToolFindDeploymentIssues_AvailableFalse(t *testing.T) {
@@ -40,7 +40,7 @@ func TestToolFindDeploymentIssues_AvailableFalse(t *testing.T) {
 		},
 	})
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -74,7 +74,7 @@ func TestToolFindDeploymentIssues_ReplicaFailure(t *testing.T) {
 		},
 	})
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -135,7 +135,7 @@ func TestToolFindDeploymentIssues_ReplicaSetError(t *testing.T) {
 	}
 
 	client := k8sfake.NewSimpleClientset(deploy, oldRS, newRS)
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -172,7 +172,7 @@ func TestToolFindDeploymentIssues_AllNamespaces(t *testing.T) {
 		},
 	)
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -198,7 +198,7 @@ func TestToolFindDeploymentIssues_ListError(t *testing.T) {
 		},
 	)
 
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return client, nil
 		},
@@ -216,7 +216,7 @@ func TestToolFindDeploymentIssues_ListError(t *testing.T) {
 }
 
 func TestToolFindDeploymentIssues_ClientFactoryError(t *testing.T) {
-	s := &Server{
+	s := &testServer{
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return nil, errors.New("cluster \"nope\" not found in kubeconfig")
 		},

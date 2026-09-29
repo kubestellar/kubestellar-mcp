@@ -1,4 +1,4 @@
-package server
+package workloads
 
 import (
 	"context"
@@ -18,7 +18,7 @@ import (
 // extractAndValidateNamespace returns an error (namespace passed as a non-string).
 // The existing TestToolGetEventsSuccess only covers a valid namespace.
 func TestToolGetEventsInvalidNamespaceArg(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return k8sfake.NewSimpleClientset(), nil
@@ -46,7 +46,7 @@ func TestToolGetEventsInvalidNamespaceArg(t *testing.T) {
 // s.getClientForCluster returns an error, tool must surface it with the
 // "Failed to create client" prefix.
 func TestToolGetEventsClientFactoryError(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return nil, fmt.Errorf("kubeconfig context %q not found", clusterName)
@@ -76,7 +76,7 @@ func TestToolGetEventsListError(t *testing.T) {
 	client.PrependReactor("list", "events", func(action k8stesting.Action) (bool, runtime.Object, error) {
 		return true, nil, fmt.Errorf("etcd unavailable")
 	})
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return client, nil
@@ -103,7 +103,7 @@ func TestToolGetEventsListError(t *testing.T) {
 // must call Events("").List, which the fake client-set handles by returning
 // events regardless of their namespace field.
 func TestToolGetEventsAllNamespaces(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return k8sfake.NewSimpleClientset(
@@ -145,7 +145,7 @@ func TestToolGetEventsAllNamespaces(t *testing.T) {
 // with IsError=false. Combined with the success branch this pins down the
 // len(events.Items) == 0 vs. > 0 fork.
 func TestToolGetEventsEmptyList(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return k8sfake.NewSimpleClientset(), nil
@@ -170,7 +170,7 @@ func TestToolGetEventsEmptyList(t *testing.T) {
 // the arg without error and still return events. This pins down the
 // `if v, ok := args["limit"].(float64); ok` conversion branch.
 func TestToolGetEventsLimitOverride(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return k8sfake.NewSimpleClientset(
