@@ -1,4 +1,4 @@
-package server
+package cluster
 
 import (
 	"context"
@@ -7,7 +7,14 @@ import (
 	"testing"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/cluster"
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/server/handlers"
 )
+
+// depsWith wraps a mockDiscoverer in a *handlers.Deps for the exported
+// ListClusters / GetClusterHealth handlers.
+func depsWith(m *mockDiscoverer) *handlers.Deps {
+	return &handlers.Deps{Discoverer: m}
+}
 
 // mockDiscoverer implements the discoverer interface for testing.
 type mockDiscoverer struct {
@@ -46,9 +53,9 @@ func (m *mockDiscoverer) CheckHealthByContext(contextName string) (*cluster.Heal
 }
 
 func TestToolListClusters_Empty(t *testing.T) {
-	s := &Server{discoverer: &mockDiscoverer{clusters: nil}}
+	d := depsWith(&mockDiscoverer{clusters: nil})
 
-	result, isErr := toolListClusters(context.Background(), s.deps(), map[string]interface{}{})
+	result, isErr := ListClusters(context.Background(), d, map[string]interface{}{})
 	if isErr {
 		t.Fatalf("unexpected error: %s", result)
 	}
@@ -58,9 +65,9 @@ func TestToolListClusters_Empty(t *testing.T) {
 }
 
 func TestToolListClusters_DiscoveryError(t *testing.T) {
-	s := &Server{discoverer: &mockDiscoverer{err: errors.New("kubeconfig not found")}}
+	d := depsWith(&mockDiscoverer{err: errors.New("kubeconfig not found")})
 
-	result, isErr := toolListClusters(context.Background(), s.deps(), map[string]interface{}{})
+	result, isErr := ListClusters(context.Background(), d, map[string]interface{}{})
 	if !isErr {
 		t.Fatal("expected isErr=true for discovery failure")
 	}
@@ -70,14 +77,14 @@ func TestToolListClusters_DiscoveryError(t *testing.T) {
 }
 
 func TestToolListClusters_MultipleClusters(t *testing.T) {
-	s := &Server{discoverer: &mockDiscoverer{
+	d := depsWith(&mockDiscoverer{
 		clusters: []cluster.ClusterInfo{
 			{Name: "prod", Source: "kubeconfig", Server: "https://prod:6443", Current: true, Status: "Ready"},
 			{Name: "staging", Source: "kubestellar", Server: "https://staging:6443", Current: false},
 		},
-	}}
+	})
 
-	result, isErr := toolListClusters(context.Background(), s.deps(), map[string]interface{}{})
+	result, isErr := ListClusters(context.Background(), d, map[string]interface{}{})
 	if isErr {
 		t.Fatalf("unexpected error: %s", result)
 	}
@@ -97,14 +104,14 @@ func TestToolListClusters_MultipleClusters(t *testing.T) {
 }
 
 func TestToolListClusters_SourceFilter(t *testing.T) {
-	s := &Server{discoverer: &mockDiscoverer{
+	d := depsWith(&mockDiscoverer{
 		clusters: []cluster.ClusterInfo{
 			{Name: "prod", Source: "kubeconfig", Server: "https://prod:6443"},
 			{Name: "edge", Source: "kubestellar", Server: "https://edge:6443"},
 		},
-	}}
+	})
 
-	result, isErr := toolListClusters(context.Background(), s.deps(), map[string]interface{}{"source": "kubestellar"})
+	result, isErr := ListClusters(context.Background(), d, map[string]interface{}{"source": "kubestellar"})
 	if isErr {
 		t.Fatalf("unexpected error: %s", result)
 	}
@@ -116,7 +123,7 @@ func TestToolListClusters_SourceFilter(t *testing.T) {
 }
 
 func TestToolGetClusterHealth_CurrentCluster(t *testing.T) {
-	s := &Server{discoverer: &mockDiscoverer{
+	d := depsWith(&mockDiscoverer{
 		clusters: []cluster.ClusterInfo{
 			{Name: "prod", Context: "prod-ctx", Current: true, Server: "https://prod:6443"},
 		},
@@ -125,9 +132,9 @@ func TestToolGetClusterHealth_CurrentCluster(t *testing.T) {
 			APIServerStatus: "Responding",
 			NodesReady:      "3/3",
 		},
-	}}
+	})
 
-	result, isErr := toolGetClusterHealth(context.Background(), s.deps(), map[string]interface{}{})
+	result, isErr := GetClusterHealth(context.Background(), d, map[string]interface{}{})
 	if isErr {
 		t.Fatalf("unexpected error: %s", result)
 	}
@@ -144,7 +151,7 @@ func TestToolGetClusterHealth_CurrentCluster(t *testing.T) {
 }
 
 func TestToolGetClusterHealth_ByName(t *testing.T) {
-	s := &Server{discoverer: &mockDiscoverer{
+	d := depsWith(&mockDiscoverer{
 		clusters: []cluster.ClusterInfo{
 			{Name: "prod", Context: "prod-ctx", Current: true, Server: "https://prod:6443"},
 			{Name: "staging", Context: "staging-ctx", Current: false, Server: "https://staging:6443"},
@@ -152,9 +159,9 @@ func TestToolGetClusterHealth_ByName(t *testing.T) {
 		healthBy: map[string]*cluster.HealthInfo{
 			"staging-ctx": {Status: "Degraded", APIServerStatus: "Responding", NodesReady: "2/3", Error: "node-3 NotReady"},
 		},
-	}}
+	})
 
-	result, isErr := toolGetClusterHealth(context.Background(), s.deps(), map[string]interface{}{"cluster": "staging"})
+	result, isErr := GetClusterHealth(context.Background(), d, map[string]interface{}{"cluster": "staging"})
 	if isErr {
 		t.Fatalf("unexpected error: %s", result)
 	}
@@ -171,13 +178,13 @@ func TestToolGetClusterHealth_ByName(t *testing.T) {
 }
 
 func TestToolGetClusterHealth_ClusterNotFound(t *testing.T) {
-	s := &Server{discoverer: &mockDiscoverer{
+	d := depsWith(&mockDiscoverer{
 		clusters: []cluster.ClusterInfo{
 			{Name: "prod", Context: "prod-ctx", Current: true},
 		},
-	}}
+	})
 
-	result, isErr := toolGetClusterHealth(context.Background(), s.deps(), map[string]interface{}{"cluster": "nonexistent"})
+	result, isErr := GetClusterHealth(context.Background(), d, map[string]interface{}{"cluster": "nonexistent"})
 	if !isErr {
 		t.Fatal("expected isErr=true for missing cluster")
 	}
@@ -187,13 +194,13 @@ func TestToolGetClusterHealth_ClusterNotFound(t *testing.T) {
 }
 
 func TestToolGetClusterHealth_NoCurrentContext(t *testing.T) {
-	s := &Server{discoverer: &mockDiscoverer{
+	d := depsWith(&mockDiscoverer{
 		clusters: []cluster.ClusterInfo{
 			{Name: "prod", Context: "prod-ctx", Current: false},
 		},
-	}}
+	})
 
-	result, isErr := toolGetClusterHealth(context.Background(), s.deps(), map[string]interface{}{})
+	result, isErr := GetClusterHealth(context.Background(), d, map[string]interface{}{})
 	if !isErr {
 		t.Fatal("expected isErr=true when no current context")
 	}
@@ -203,9 +210,9 @@ func TestToolGetClusterHealth_NoCurrentContext(t *testing.T) {
 }
 
 func TestToolGetClusterHealth_DiscoveryError(t *testing.T) {
-	s := &Server{discoverer: &mockDiscoverer{err: errors.New("connection refused")}}
+	d := depsWith(&mockDiscoverer{err: errors.New("connection refused")})
 
-	result, isErr := toolGetClusterHealth(context.Background(), s.deps(), map[string]interface{}{})
+	result, isErr := GetClusterHealth(context.Background(), d, map[string]interface{}{})
 	if !isErr {
 		t.Fatal("expected isErr=true for discovery error")
 	}
@@ -215,7 +222,7 @@ func TestToolGetClusterHealth_DiscoveryError(t *testing.T) {
 }
 
 func TestToolGetClusterHealth_ByContext(t *testing.T) {
-	s := &Server{discoverer: &mockDiscoverer{
+	d := depsWith(&mockDiscoverer{
 		clusters: []cluster.ClusterInfo{
 			{Name: "prod", Context: "prod-ctx", Current: false},
 		},
@@ -224,10 +231,10 @@ func TestToolGetClusterHealth_ByContext(t *testing.T) {
 			APIServerStatus: "OK",
 			NodesReady:      "5/5",
 		},
-	}}
+	})
 
-	// toolGetClusterHealth matches by Name OR Context
-	result, isErr := toolGetClusterHealth(context.Background(), s.deps(), map[string]interface{}{"cluster": "prod-ctx"})
+	// GetClusterHealth matches by Name OR Context
+	result, isErr := GetClusterHealth(context.Background(), d, map[string]interface{}{"cluster": "prod-ctx"})
 	if isErr {
 		t.Fatalf("unexpected error: %s", result)
 	}

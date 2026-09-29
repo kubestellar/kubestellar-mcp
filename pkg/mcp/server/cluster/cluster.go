@@ -1,4 +1,11 @@
-package server
+// Package cluster implements the "list_clusters" and "get_cluster_health"
+// tool handlers for the kubestellar-ops MCP server. It was extracted from
+// pkg/mcp/server/tools_cluster*.go as part of the flat-package decomposition
+// tracked in kubestellar-mcp#1027, mirroring the pkg/deploy/mcp/{kubectl,
+// helm, kustomize, ...} extractions in #983. It has no import path back to
+// pkg/mcp/server: handlers depend only on pkg/mcp/server/handlers.Deps, and
+// the server-side wiring is done via Tools() (see register.go).
+package cluster
 
 import (
 	"context"
@@ -8,7 +15,10 @@ import (
 	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/server/handlers"
 )
 
-func toolListClusters(_ context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
+// ListClusters implements the "list_clusters" MCP tool. It reports every
+// cluster the injected Discoverer knows about, tagged with its source and
+// current-context marker.
+func ListClusters(_ context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	source := "all"
 	if v, ok := args["source"].(string); ok {
 		source = v
@@ -43,7 +53,10 @@ func toolListClusters(_ context.Context, d *handlers.Deps, args map[string]inter
 	return sb.String(), false
 }
 
-func toolGetClusterHealth(_ context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
+// GetClusterHealth implements the "get_cluster_health" MCP tool. When the
+// caller omits "cluster", it reports on the current-context cluster; when
+// they name one, that name is matched against both Name and Context.
+func GetClusterHealth(_ context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	clusterName, _ := args["cluster"].(string)
 
 	clusters, err := d.Discoverer.DiscoverClusters("all")
@@ -86,7 +99,6 @@ func toolGetClusterHealth(_ context.Context, d *handlers.Deps, args map[string]i
 		return fmt.Sprintf("Cluster %q not found", clusterName), true
 	}
 
-	// Check health
 	health, err := d.Discoverer.CheckHealthByContext(targetCluster.Context)
 	if err != nil {
 		return fmt.Sprintf("Failed to check health: %v", err), true
