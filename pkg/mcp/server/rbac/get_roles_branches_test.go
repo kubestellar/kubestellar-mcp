@@ -1,4 +1,4 @@
-package server
+package rbac
 
 import (
 	"fmt"
@@ -18,7 +18,7 @@ import (
 // extractAndValidateNamespace returns an error (namespace passed as a non-string).
 // The existing TestToolGetRolesSuccess only covers the valid-namespace path.
 func TestToolGetRolesInvalidNamespaceArg(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return k8sfake.NewSimpleClientset(), nil
@@ -46,7 +46,7 @@ func TestToolGetRolesInvalidNamespaceArg(t *testing.T) {
 // s.getClientForCluster returns an error, tool must surface it with the
 // "Failed to create client" prefix.
 func TestToolGetRolesClientFactoryError(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return nil, fmt.Errorf("kubeconfig context %q not found", clusterName)
@@ -76,7 +76,7 @@ func TestToolGetRolesListError(t *testing.T) {
 	client.PrependReactor("list", "roles", func(action k8stesting.Action) (bool, runtime.Object, error) {
 		return true, nil, fmt.Errorf("etcd unavailable")
 	})
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return client, nil
@@ -99,7 +99,7 @@ func TestToolGetRolesListError(t *testing.T) {
 // list succeeds but returns zero items — tool must return "No roles found"
 // with IsError=false. Existing tests only cover populated lists.
 func TestToolGetRolesEmpty(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return k8sfake.NewSimpleClientset(), nil // no roles seeded
@@ -141,7 +141,7 @@ func TestToolGetRolesAllNamespaces(t *testing.T) {
 		mkRole("apps", "pod-reader"),
 		mkRole("infra", "node-reader"),
 	)
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return client, nil

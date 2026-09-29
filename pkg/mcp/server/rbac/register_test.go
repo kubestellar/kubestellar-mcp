@@ -1,10 +1,12 @@
-package server
+package rbac
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/protocol"
 )
 
 func TestRBACToolRegistry_AllToolsRegistered(t *testing.T) {
@@ -18,8 +20,8 @@ func TestRBACToolRegistry_AllToolsRegistered(t *testing.T) {
 		"describe_role",
 	}
 
-	registered := make(map[string]Tool)
-	for _, td := range toolRegistry.Defs() {
+	registered := make(map[string]protocol.Tool)
+	for _, td := range newTestRegistry().Defs() {
 		registered[td.Schema.Name] = td.Schema
 	}
 
@@ -33,7 +35,7 @@ func TestRBACToolRegistry_AllToolsRegistered(t *testing.T) {
 func TestRBACToolRegistry_ToolCount(t *testing.T) {
 	expectedCount := 7
 	rbacTools := 0
-	for _, td := range toolRegistry.Defs() {
+	for _, td := range newTestRegistry().Defs() {
 		switch td.Schema.Name {
 		case "get_roles", "get_cluster_roles", "get_role_bindings",
 			"get_cluster_role_bindings", "can_i", "analyze_subject_permissions",
@@ -51,8 +53,8 @@ func TestRBACToolRegistry_RequiredFields(t *testing.T) {
 		"describe_role":               {"name"},
 	}
 
-	registered := make(map[string]Tool)
-	for _, td := range toolRegistry.Defs() {
+	registered := make(map[string]protocol.Tool)
+	for _, td := range newTestRegistry().Defs() {
 		registered[td.Schema.Name] = td.Schema
 	}
 
@@ -65,8 +67,8 @@ func TestRBACToolRegistry_RequiredFields(t *testing.T) {
 }
 
 func TestRBACToolRegistry_EnumFields(t *testing.T) {
-	registered := make(map[string]Tool)
-	for _, td := range toolRegistry.Defs() {
+	registered := make(map[string]protocol.Tool)
+	for _, td := range newTestRegistry().Defs() {
 		registered[td.Schema.Name] = td.Schema
 	}
 
@@ -77,4 +79,23 @@ func TestRBACToolRegistry_EnumFields(t *testing.T) {
 	require.True(t, exists, "subject_kind property should exist")
 	assert.NotEmpty(t, subjectKind.Enum, "subject_kind should have enum values")
 	assert.ElementsMatch(t, []string{"User", "Group", "ServiceAccount"}, subjectKind.Enum)
+}
+
+func TestRegister_PreservesRegistrationOrder(t *testing.T) {
+	want := []string{
+		"get_roles",
+		"get_cluster_roles",
+		"get_role_bindings",
+		"get_cluster_role_bindings",
+		"can_i",
+		"analyze_subject_permissions",
+		"describe_role",
+	}
+
+	var got []string
+	for _, td := range newTestRegistry().Defs() {
+		got = append(got, td.Schema.Name)
+		assert.NotNil(t, td.Handler, "tool %q should have a handler", td.Schema.Name)
+	}
+	assert.Equal(t, want, got)
 }

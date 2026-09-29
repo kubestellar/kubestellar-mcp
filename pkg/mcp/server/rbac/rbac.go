@@ -1,4 +1,12 @@
-package server
+// Package rbac provides the kubestellar-ops RBAC inspection MCP tool
+// handlers (get_roles, get_cluster_roles, get_role_bindings,
+// get_cluster_role_bindings, can_i, analyze_subject_permissions,
+// describe_role). It was extracted from the flat pkg/mcp/server package as
+// part of kubestellar-mcp#1027 (per-domain sub-package decomposition),
+// mirroring the pattern established for pkg/deploy/mcp in #983. It depends
+// only on the leaf pkg/mcp/server/handlers package, never on pkg/mcp/server
+// itself.
+package rbac
 
 import (
 	"context"
@@ -13,7 +21,7 @@ import (
 
 func toolGetRoles(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
-	namespace, err := extractAndValidateNamespace(args)
+	namespace, err := handlers.ExtractAndValidateNamespace(args)
 	if err != nil {
 		return fmt.Sprintf("error: %v", err), true
 	}
@@ -91,7 +99,7 @@ func toolGetClusterRoles(ctx context.Context, d *handlers.Deps, args map[string]
 
 func toolGetRoleBindings(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
-	namespace, err := extractAndValidateNamespace(args)
+	namespace, err := handlers.ExtractAndValidateNamespace(args)
 	if err != nil {
 		return fmt.Sprintf("error: %v", err), true
 	}
@@ -189,7 +197,7 @@ func toolCanI(ctx context.Context, d *handlers.Deps, args map[string]interface{}
 	cluster, _ := args["cluster"].(string)
 	verb, _ := args["verb"].(string)
 	resource, _ := args["resource"].(string)
-	namespace, err := extractAndValidateNamespace(args)
+	namespace, err := handlers.ExtractAndValidateNamespace(args)
 	if err != nil {
 		return fmt.Sprintf("error: %v", err), true
 	}
@@ -251,7 +259,7 @@ func toolAnalyzeSubjectPermissions(ctx context.Context, d *handlers.Deps, args m
 	cluster, _ := args["cluster"].(string)
 	subjectKind, _ := args["subject_kind"].(string)
 	subjectName, _ := args["subject_name"].(string)
-	subjectNamespace, err := extractAndValidateNamespace(args)
+	subjectNamespace, err := handlers.ExtractAndValidateNamespace(args)
 	if err != nil {
 		return fmt.Sprintf("error: %v", err), true
 	}
@@ -347,7 +355,7 @@ func subjectMatches(subjects []rbacv1.Subject, kind, name, namespace string) boo
 func toolDescribeRole(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
 	name, _ := args["name"].(string)
-	namespace, err := extractAndValidateNamespace(args)
+	namespace, err := handlers.ExtractAndValidateNamespace(args)
 	if err != nil {
 		return fmt.Sprintf("error: %v", err), true
 	}

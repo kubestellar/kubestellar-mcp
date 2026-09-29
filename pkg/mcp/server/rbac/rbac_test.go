@@ -1,4 +1,4 @@
-package server
+package rbac
 
 import (
 	"strings"
@@ -13,7 +13,7 @@ import (
 
 func TestToolGetRolesSuccess(t *testing.T) {
 	now := metav1.NewTime(time.Date(2024, time.March, 15, 10, 0, 0, 0, time.UTC))
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return k8sfake.NewSimpleClientset(
@@ -69,7 +69,7 @@ func TestToolGetRolesSuccess(t *testing.T) {
 }
 
 func TestToolGetClusterRolesSuccess(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return k8sfake.NewSimpleClientset(
@@ -128,7 +128,7 @@ func TestToolGetClusterRolesSuccess(t *testing.T) {
 }
 
 func TestToolGetRoleBindingsSuccess(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return k8sfake.NewSimpleClientset(
@@ -168,7 +168,7 @@ func TestToolGetRoleBindingsSuccess(t *testing.T) {
 }
 
 func TestToolGetClusterRoleBindingsSuccess(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			return k8sfake.NewSimpleClientset(
@@ -212,7 +212,7 @@ func TestToolGetClusterRoleBindingsSuccess(t *testing.T) {
 }
 
 func TestToolCanIAllowed(t *testing.T) {
-	server := &Server{
+	server := &testServer{
 		discoverer: stubDiscoverer{},
 		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
 			client := k8sfake.NewSimpleClientset()
@@ -242,7 +242,7 @@ func TestToolCanIAllowed(t *testing.T) {
 }
 
 func TestToolCanIValidation(t *testing.T) {
-	server := &Server{discoverer: stubDiscoverer{}}
+	server := &testServer{discoverer: stubDiscoverer{}}
 
 	// Missing verb
 	result, rpcErr := callTool(t, server, "can_i", map[string]interface{}{"resource": "pods"})
