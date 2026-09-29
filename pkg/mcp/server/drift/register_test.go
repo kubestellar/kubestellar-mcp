@@ -1,10 +1,14 @@
-package server
+package drift
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/protocol"
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/server/handlers"
 )
 
 func TestDriftToolRegistry_AllToolsRegistered(t *testing.T) {
@@ -12,8 +16,8 @@ func TestDriftToolRegistry_AllToolsRegistered(t *testing.T) {
 		"detect_drift",
 	}
 
-	registered := make(map[string]Tool)
-	for _, td := range toolRegistry.Defs() {
+	registered := make(map[string]protocol.Tool)
+	for _, td := range newTestRegistry().Defs() {
 		registered[td.Schema.Name] = td.Schema
 	}
 
@@ -27,7 +31,7 @@ func TestDriftToolRegistry_AllToolsRegistered(t *testing.T) {
 func TestDriftToolRegistry_ToolCount(t *testing.T) {
 	expectedCount := 1
 	driftTools := 0
-	for _, td := range toolRegistry.Defs() {
+	for _, td := range newTestRegistry().Defs() {
 		if td.Schema.Name == "detect_drift" {
 			driftTools++
 		}
@@ -40,8 +44,8 @@ func TestDriftToolRegistry_RequiredFields(t *testing.T) {
 		"detect_drift": {"repo_url"},
 	}
 
-	registered := make(map[string]Tool)
-	for _, td := range toolRegistry.Defs() {
+	registered := make(map[string]protocol.Tool)
+	for _, td := range newTestRegistry().Defs() {
 		registered[td.Schema.Name] = td.Schema
 	}
 
@@ -54,8 +58,8 @@ func TestDriftToolRegistry_RequiredFields(t *testing.T) {
 }
 
 func TestDriftToolRegistry_StringProperties(t *testing.T) {
-	registered := make(map[string]Tool)
-	for _, td := range toolRegistry.Defs() {
+	registered := make(map[string]protocol.Tool)
+	for _, td := range newTestRegistry().Defs() {
 		registered[td.Schema.Name] = td.Schema
 	}
 
@@ -68,4 +72,14 @@ func TestDriftToolRegistry_StringProperties(t *testing.T) {
 		require.True(t, exists, "%q property should exist", propName)
 		assert.Equal(t, "string", prop.Type, "%q should be string type", propName)
 	}
+}
+
+func TestRegister_HandlerIsToolDetectDrift(t *testing.T) {
+	reg := newTestRegistry()
+	handler := reg.Find("detect_drift")
+	require.NotNil(t, handler, "detect_drift handler should be registered")
+
+	result, isError := handler(context.Background(), &handlers.Deps{}, map[string]interface{}{})
+	assert.True(t, isError)
+	assert.Equal(t, "repo_url is required", result)
 }
