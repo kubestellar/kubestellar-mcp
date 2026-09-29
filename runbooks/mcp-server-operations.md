@@ -487,6 +487,19 @@ unnoticed indefinitely unless someone is watching.
 
 ## Detecting a Broken PR-Gating Check (`pull_request_target` startup_failure)
 
+**Current status:** fixed since `pr-verifier.yml` was restored to a
+self-contained, fork-guarded check in
+[#923](https://github.com/kubestellar/kubestellar-mcp/pull/923) (merged
+2026-09-17), which removed the dependency on
+`kubestellar/infra/.github/workflows/reusable-pr-verifier.yml` entirely —
+the workflow no longer has a `uses:` reference that can go missing
+upstream. Recent runs are `success`, not `startup_failure`. This section is
+kept because the failure mode below has recurred twice already
+([#567](https://github.com/kubestellar/kubestellar-mcp/issues/567),
+[#877](https://github.com/kubestellar/kubestellar-mcp/issues/877)); if
+`pr-verifier.yml` is ever changed back to call a reusable workflow, the
+same class of outage can reoccur.
+
 **Symptom:** Every PR shows a red X on the **PR Verifier** check
 (`.github/workflows/pr-verifier.yml`), but the failure is a
 `startup_failure` — zero jobs actually run, so no title-format validation
@@ -495,16 +508,18 @@ fires on *every* PR (making it highly visible), yet because it fails before
 any job starts, reviewers can misread the red X as "the check ran and the
 title is wrong" when in fact the check never ran.
 
-**Root cause (as of the most recent occurrence):** `pr-verifier.yml`'s only
-job calls a reusable workflow —
+**Root cause (of the past occurrences):** `pr-verifier.yml`'s only job
+called a reusable workflow —
 `uses: kubestellar/infra/.github/workflows/reusable-pr-verifier.yml@<sha>` —
-that does not exist in `kubestellar/infra` at the pinned SHA or at `main`.
-This has recurred at least twice: first reported and closed via
+that did not exist in `kubestellar/infra` at the pinned SHA or at `main`.
+This recurred at least twice: first reported and closed via
 [#567](https://github.com/kubestellar/kubestellar-mcp/issues/567) (fixed by
 re-pinning the `uses:` SHA), then found broken again by the same symptom in
-[#877](https://github.com/kubestellar/kubestellar-mcp/issues/877) — re-pinning
-the SHA does not help if the target file still doesn't exist at that
-revision in `infra`.
+[#877](https://github.com/kubestellar/kubestellar-mcp/issues/877) —
+re-pinning the SHA did not help because the target file still didn't exist
+at that revision in `infra`. [#923](https://github.com/kubestellar/kubestellar-mcp/pull/923)
+resolved this by dropping the reusable-workflow dependency altogether
+rather than re-pinning it again.
 
 ### Diagnosis steps
 
@@ -519,7 +534,7 @@ broken again — check whether
 `kubestellar/infra/.github/workflows/reusable-pr-verifier.yml` exists at the
 SHA/ref `pr-verifier.yml` currently points to.
 
-### Interim manual safeguards (until the workflow file is fixed)
+### Interim manual safeguards (if this recurs)
 
 1. **Do not treat the red X as a title-format failure.** Open the run and
    confirm it is `startup_failure` with zero jobs executed before asking a
@@ -527,14 +542,13 @@ SHA/ref `pr-verifier.yml` currently points to.
 2. **Manually validate the PR title** against the Conventional Commits
    pattern this check is supposed to enforce before merging:
    `^(\[(scanner|agent|ci-maintainer|quality|sec-check)\] )?(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?!?: .+`
-3. **Do not re-pin the `uses:` SHA as a fix without first confirming the
-   target file exists at that ref** (`gh api
+3. **If `pr-verifier.yml` has been changed to call a reusable workflow
+   again, do not re-pin the `uses:` SHA as a fix without first confirming
+   the target file exists at that ref** (`gh api
    repos/kubestellar/infra/contents/.github/workflows/reusable-pr-verifier.yml?ref=<sha>`) —
-   this is exactly how the #567 fix silently stopped working again.
-4. This is a workflow-file-only fix (cannot be pushed by this agent's
-   `contributor`-tier token) — see #877 for the exact, ready-to-apply
-   replacement content (a self-contained check that doesn't depend on
-   `kubestellar/infra`).
+   this is exactly how the #567 fix silently stopped working again. The
+   more durable fix, applied in #923, is to keep the check self-contained
+   instead of depending on `kubestellar/infra` at all.
 
 ## Escalation
 
