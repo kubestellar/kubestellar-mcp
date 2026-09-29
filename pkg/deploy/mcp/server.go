@@ -51,11 +51,10 @@ type Server struct {
 	// newDriftDetector is a factory for creating drift detectors.
 	// Tests can override this to avoid talking to a real API server.
 	newDriftDetector func(*rest.Config) (driftDetector, error)
-	// writeMu serializes direct sendResponse/sendError writes to stdout
-	// against each other (Run's own rpcloop.Loop instance carries its own
-	// independent write mutex for the read-loop's writes). Previously this
-	// server had no write-safety guarantee at all here; see
-	// kubestellar-mcp#1017/#1018.
+	// writeMu serializes every write to stdout: direct sendResponse/
+	// sendError calls and, via Loop.SetWriteMutex in Run, the shared
+	// rpcloop.Loop's own writes. Previously this server had no
+	// write-safety guarantee at all here; see kubestellar-mcp#1017/#1018.
 	writeMu sync.Mutex
 }
 
@@ -123,6 +122,7 @@ func RunMCPServer() error {
 // before calling Run continue to work unchanged.
 func (s *Server) Run() error {
 	loop := rpcloop.NewLoop(os.Stdin, os.Stdout)
+	loop.SetWriteMutex(&s.writeMu)
 	return loop.Run(context.Background(), func(ctx context.Context, req *protocol.Request) *protocol.Response {
 		return s.handleRequest(req)
 	})

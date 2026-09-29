@@ -13,6 +13,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/rpcloop"
 )
 
 // TestRunDispatchesAllMethodCases covers every branch of handleRequest by
@@ -96,9 +98,9 @@ func TestHandleToolsCallInvalidParams(t *testing.T) {
 // TestRunReturnsCtxErrWhenContextCancelled covers the ctx.Done() branch at
 // the top of Run's select.
 func TestRunReturnsCtxErrWhenContextCancelled(t *testing.T) {
-	// Reader has no data; if Run doesn't honor ctx.Done, it would block on
-	// ReadBytes forever. Cancelling before Run enters the select makes the
-	// ctx.Done case fire immediately.
+	// Reader has no data; if Run didn't honor ctx.Done before reading it
+	// would report a clean EOF instead. Cancelling before Run starts makes
+	// the context check fire immediately.
 	var buf bytes.Buffer
 	s := &Server{
 		reader: bufio.NewReader(strings.NewReader("")),
@@ -118,8 +120,8 @@ func TestRunReturnsCtxErrWhenContextCancelled(t *testing.T) {
 // in Run when the reader returns a non-EOF error.
 func TestRunReturnsErrorOnNonEOFReadFailure(t *testing.T) {
 	sentinel := errors.New("boom-from-reader")
-	// iotest.ErrReader returns (0, sentinel) on every Read → ReadBytes wraps
-	// it as a non-EOF error.
+	// iotest.ErrReader returns (0, sentinel) on every Read → the scanner
+	// surfaces it as a non-EOF read error, which Run wraps.
 	var buf bytes.Buffer
 	s := &Server{
 		reader: bufio.NewReader(iotest.ErrReader(sentinel)),
@@ -146,4 +148,76 @@ func TestRunHandlesEOFCleanly(t *testing.T) {
 	}
 	assert.NoError(t, s.Run(context.Background()))
 	assert.Empty(t, buf.String())
+}
+
+// TestRunRejectsOversizedFrame pins the framing policy this server adopted
+// when it moved onto pkg/mcp/rpcloop (see kubestellar-mcp#1017): a single
+// request line larger than rpcloop.DefaultMaxFrameSize is refused as a read
+// failure instead of being read into memory without bound, which is what the
+// previous uncapped bufio.Reader.ReadBytes('\n') loop did.
+func TestRunRejectsOversizedFrame(t *testing.T) {
+	oversized := strings.Repeat("y", rpcloop.DefaultMaxFrameSize+1) + "\n"
+
+	var buf bytes.Buffer
+	s := &Server{
+		reader: strings.NewReader(oversized),
+		writer: &buf,
+	}
+
+	err := s.Run(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read request")
+	assert.Empty(t, buf.String(), "an oversized frame must not be dispatched")
+}
+
+// TestRunAcceptsFrameWithinMaxFrameSize guards the other side of the cap: a
+// large-but-legal request still round-trips, so the bound cannot be tightened
+// into a regression for ordinary payloads.
+func TestRunAcceptsFrameWithinMaxFrameSize(t *testing.T) {
+	large := strings.Repeat("x", 200000)
+	params, err := json.Marshal(CallToolParams{
+		Name:      "definitely_not_a_tool",
+		Arguments: map[string]interface{}{"padding": large},
+	})
+	require.NoError(t, err)
+
+	line, err := json.Marshal(Request{JSONRPC: "2.0", ID: "big-1", Method: "tools/call", Params: params})
+	require.NoError(t, err)
+
+	var buf bytes.Buffer
+	s := &Server{
+		reader: strings.NewReader(string(line) + "\n"),
+		writer: &buf,
+	}
+
+	require.NoError(t, s.Run(context.Background()))
+
+	responses := decodeResponses(t, buf.String())
+	require.Len(t, responses, 1)
+	require.NotNil(t, responses[0].Error)
+	assert.Contains(t, responses[0].Error.Message, "Unknown tool")
+}
+
+// TestRunParseErrorAndHandlerWritesShareOneWriteMutex asserts the loop's own
+// parse-error replies and the server's handler-written responses both land as
+// complete, non-interleaved frames on the same writer - the shared write
+// mutex wired up in Run via Loop.SetWriteMutex.
+func TestRunParseErrorAndHandlerWritesShareOneWriteMutex(t *testing.T) {
+	input := strings.Join([]string{
+		`{bad json}`,
+		`{"jsonrpc":"2.0","id":"ping-1","method":"ping"}`,
+		`{oops}`,
+	}, "\n") + "\n"
+
+	var buf bytes.Buffer
+	s := &Server{reader: strings.NewReader(input), writer: &buf}
+	require.NoError(t, s.Run(context.Background()))
+
+	responses := decodeResponses(t, buf.String())
+	require.Len(t, responses, 3)
+	require.NotNil(t, responses[0].Error)
+	assert.Equal(t, -32700, responses[0].Error.Code)
+	assert.Nil(t, responses[1].Error)
+	require.NotNil(t, responses[2].Error)
+	assert.Equal(t, -32700, responses[2].Error.Code)
 }
