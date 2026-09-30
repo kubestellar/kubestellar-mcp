@@ -29,23 +29,3 @@ func newTestRegistry() *handlers.Registry {
 	Register(reg)
 	return reg
 }
-
-// callTool dispatches tool through a Register-populated registry against s
-// and wraps the handler's (text, isError) return in the same
-// protocol.CallToolResult shape pkg/mcp/server sends. An unregistered tool
-// name is reported as a JSON-RPC -32602 error, matching pkg/mcp/server's
-// handleToolsCall.
-func callTool(t *testing.T, s *testServer, tool string, args map[string]interface{}) (protocol.CallToolResult, *protocol.Error) {
-	t.Helper()
-
-	handler := newTestRegistry().Find(tool)
-	if handler == nil {
-		return protocol.CallToolResult{}, &protocol.Error{Code: -32602, Message: "Unknown tool: " + tool}
-	}
-
-	text, isError := handler(context.Background(), s.deps(), args)
-	return protocol.CallToolResult{
-		Content: []protocol.ContentBlock{{Type: "text", Text: text}},
-		IsError: isError,
-	}, nil
-}
