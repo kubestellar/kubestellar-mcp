@@ -27,6 +27,8 @@ import (
 	"io"
 	"sync"
 
+	"k8s.io/klog/v2"
+
 	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/protocol"
 )
 
@@ -141,6 +143,10 @@ func (l *Loop) Run(ctx context.Context, handler Handler) error {
 
 		var req protocol.Request
 		if err := json.Unmarshal([]byte(line), &req); err != nil {
+			// err's message comes from encoding/json and never embeds the
+			// raw line content, so logging it stays bounded: it cannot
+			// leak arbitrary client-supplied payload data into logs.
+			klog.V(2).InfoS("mcp request parse error", "error", err)
 			l.send(protocol.NewError(nil, -32700, "Parse error", nil))
 			continue
 		}
@@ -150,7 +156,18 @@ func (l *Loop) Run(ctx context.Context, handler Handler) error {
 		}
 	}
 
-	return scanner.Err()
+	if err := scanner.Err(); err != nil {
+		// Run's godoc documents this as the "underlying scan error"
+		// return path (e.g. a frame at/beyond maxFrameSize, or a
+		// transport read failure). Previously this reason was only
+		// visible if a caller happened to print the returned error;
+		// logging it here means the loop's shutdown cause is always
+		// captured in structured logs, regardless of caller.
+		klog.ErrorS(err, "mcp rpc loop stopped due to a read/scan error")
+		return err
+	}
+
+	return nil
 }
 
 // send marshals and writes resp followed by a newline, serialized by l's
