@@ -19,10 +19,10 @@ import (
 func TestNewSelector(t *testing.T) {
 	exec := &Executor{}
 	sel := NewSelector(exec)
-	if sel == nil {
+	if sel == nil { //nolint:staticcheck // SA5011: t.Fatal below aborts
 		t.Fatal("NewSelector returned nil")
 	}
-	if sel.executor != exec {
+	if sel.executor != exec { //nolint:staticcheck // SA5011: t.Fatal above aborts on nil
 		t.Fatalf("NewSelector did not wire executor: got %p want %p", sel.executor, exec)
 	}
 }

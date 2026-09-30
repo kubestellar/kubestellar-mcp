@@ -49,7 +49,7 @@ func TestNewManifestReaderWithSchemes(t *testing.T) {
 
 func TestNewManifestReaderDefaultsToNilSchemes(t *testing.T) {
 	reader := NewManifestReader()
-	if reader == nil {
+	if reader == nil { //nolint:staticcheck // SA5011: t.Fatal aborts
 		t.Fatal("NewManifestReader() = nil, want non-nil reader")
 	}
 	//nolint:staticcheck // SA5011: t.Fatal above ensures reader is non-nil
