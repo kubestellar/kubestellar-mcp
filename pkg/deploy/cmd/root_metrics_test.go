@@ -38,7 +38,7 @@ func TestDeployRootCommandRunE_MetricsServerStartFailureIsReturned(t *testing.T)
 		shutdownCalled = true
 		return nil
 	}
-	runMCPServer = func() error {
+	runMCPServer = func(_ context.Context) error {
 		t.Fatalf("MCP server should not be invoked when metrics startup fails")
 		return nil
 	}
@@ -81,7 +81,7 @@ func TestDeployRootCommandRunE_StartsMetricsServerAndShutsDown(t *testing.T) {
 		return nil
 	}
 	runCalled := false
-	runMCPServer = func() error {
+	runMCPServer = func(_ context.Context) error {
 		runCalled = true
 		return nil
 	}
@@ -111,7 +111,7 @@ func TestDeployRootCommandRunE_NoMetricsAddrSkipsServer(t *testing.T) {
 		return nil, nil
 	}
 	runCalled := false
-	runMCPServer = func() error {
+	runMCPServer = func(_ context.Context) error {
 		runCalled = true
 		return nil
 	}

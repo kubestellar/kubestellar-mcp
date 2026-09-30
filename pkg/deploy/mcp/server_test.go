@@ -13,7 +13,7 @@ import (
 func TestHandleRequestLifecycleAndUnknownMethod(t *testing.T) {
 	server := newHelmTestServer(t, map[string]string{})
 
-	initResp := server.handleRequest(&protocol.Request{JSONRPC: "2.0", ID: 1, Method: "initialize"})
+	initResp := server.handleRequest(context.Background(), &protocol.Request{JSONRPC: "2.0", ID: 1, Method: "initialize"})
 	require.NotNil(t, initResp)
 	assert.Nil(t, initResp.Error)
 	result := initResp.Result.(map[string]interface{})
@@ -21,9 +21,9 @@ func TestHandleRequestLifecycleAndUnknownMethod(t *testing.T) {
 	assert.Equal(t, ServerName, serverInfo["name"])
 	assert.Equal(t, ServerVersion, serverInfo["version"])
 
-	assert.Nil(t, server.handleRequest(&protocol.Request{JSONRPC: "2.0", ID: 2, Method: "notifications/initialized"}))
+	assert.Nil(t, server.handleRequest(context.Background(), &protocol.Request{JSONRPC: "2.0", ID: 2, Method: "notifications/initialized"}))
 
-	unknownResp := server.handleRequest(&protocol.Request{JSONRPC: "2.0", ID: 3, Method: "unknown"})
+	unknownResp := server.handleRequest(context.Background(), &protocol.Request{JSONRPC: "2.0", ID: 3, Method: "unknown"})
 	require.NotNil(t, unknownResp)
 	require.NotNil(t, unknownResp.Error)
 	assert.Equal(t, -32601, unknownResp.Error.Code)
