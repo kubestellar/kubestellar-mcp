@@ -24,13 +24,20 @@ Thanks for contributing to kubestellar-mcp.
 
 ### Integration tests
 
-- The repository does not currently have checked-in integration tests. There are no `_test.go` files, no `test/` or `integration/` directories, and no separate integration-test Make target.
-- Today, `go test ./...` is still worth running because CI runs the same command and it catches package-loading and compile regressions even before dedicated tests are added.
-- If your change needs verification against a real cluster, validate it manually with a working Kubernetes context before opening a PR. At minimum, make sure `kubectl get nodes` works and that `kubectl config current-context` points at the cluster you expect.
-- If you add integration coverage, keep it separate from the default fast path by placing it in a dedicated location such as `test/integration/` (or another clearly named integration-only package) and document the required cluster setup and any extra tooling in the same PR.
-- Integration tests in this project should assume real Kubernetes access through `kubectl`/`KUBECONFIG`, because the binaries in this repo inspect and act on live cluster state.
-- CI does not currently run a dedicated integration-test job. The only automated test step in `.github/workflows/ci.yml` is `go test ./...`, so any future integration suite should be wired into CI explicitly when it is introduced.
-- Until that suite exists, describe the manual cluster-backed verification you performed in your PR when a change affects behavior that only shows up against a real cluster.
+- The repository has a `test/integration/` package (kubestellar-mcp#1063) that exercises MCP tool handlers end-to-end against a real `kube-apiserver`, using [`sigs.k8s.io/controller-runtime/pkg/envtest`](https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/envtest) to start a local `kube-apiserver` + `etcd` pair (no kubelet, no container runtime, no `kind`/Docker, no live cluster required).
+- Every file in `test/integration/` carries the `//go:build integration` build tag, so it is excluded from the default `go test ./...` / `make test` fast path and from the per-package coverage ratchet (`.github/go-package-coverage-ratchet.txt`, which only scans `pkg/`, `cmd/`, `internal/`). See `test/integration/README.md` for what is covered (currently `pkg/deploy/mcp/kubectl` apply/delete and `pkg/mcp/server/workloads` get_pods) and why `pkg/deploy/mcp/helm` is a documented gap for this harness.
+- Run it locally with:
+
+  ```sh
+  go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+  export KUBEBUILDER_ASSETS="$(setup-envtest use -p path 1.30.x)"
+  make test-integration
+  ```
+
+- `make test-integration` runs `go test -tags integration ./test/integration/...`. CI runs it via `.github/workflows/integration-test.yml` on pull requests touching `pkg/**`, `internal/**`, `test/integration/**`, `Makefile`, `go.mod`, or `go.sum`.
+- `go test ./...` (no tags) is still worth running locally because CI runs the same command as part of `.github/workflows/build-test.yml` and it catches package-loading and compile regressions even before dedicated tests are added.
+- If your change needs verification against a real cluster beyond what envtest can exercise (e.g. kubelet/Pod-lifecycle behavior, Helm chart installs), validate it manually with a working Kubernetes context before opening a PR. At minimum, make sure `kubectl get nodes` works and that `kubectl config current-context` points at the cluster you expect, and describe that manual verification in your PR.
+- New integration coverage should stay in `test/integration/` (or another clearly named, build-tag-gated integration-only package) with the required tooling documented alongside it.
 
 ## Adding or changing a tool
 
