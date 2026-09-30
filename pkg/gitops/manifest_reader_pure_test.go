@@ -14,7 +14,7 @@ import (
 func TestNewManifestReaderWithSchemesStoresAllowlist(t *testing.T) {
 	t.Run("nil allowlist yields default behavior", func(t *testing.T) {
 		r := NewManifestReaderWithSchemes(nil)
-		if r == nil {
+		if r == nil { //nolint:staticcheck // SA5011: t.Fatal aborts
 			t.Fatal("NewManifestReaderWithSchemes(nil) returned nil")
 		}
 		//nolint:staticcheck // SA5011: t.Fatal above ensures r is non-nil

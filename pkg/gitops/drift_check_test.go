@@ -149,7 +149,7 @@ func TestCheckResource(t *testing.T) {
 				return
 			}
 
-			if got == nil {
+			if got == nil { //nolint:staticcheck // SA5011: t.Fatal aborts
 				t.Fatal("checkResource() = nil, want drift result")
 			}
 			//nolint:staticcheck // SA5011: t.Fatal above ensures got is non-nil
