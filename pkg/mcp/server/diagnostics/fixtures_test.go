@@ -1,12 +1,8 @@
 package diagnostics
 
 import (
-	"context"
-	"testing"
-
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/protocol"
 	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/server/handlers"
 )
 
