@@ -29,7 +29,7 @@ func TestNewManifestReaderWithSchemes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			reader := NewManifestReaderWithSchemes(tt.schemes)
-			if reader == nil {
+			if reader == nil { //nolint:staticcheck // SA5011: false positive, staticcheck's naive check ignores that t.Fatal above aborts on a nil reader
 				t.Fatal("NewManifestReaderWithSchemes() = nil, want non-nil reader")
 			}
 			if len(reader.AllowedSchemes) != len(tt.schemes) { //nolint:staticcheck // SA5011: false positive, staticcheck's naive check ignores that t.Fatal above aborts on a nil reader
