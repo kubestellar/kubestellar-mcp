@@ -75,10 +75,45 @@ Covered packages:
   the whole install → inspect → change mode → list violations → uninstall
   lifecycle, including the "already exists" update branch and the
   not-found branches before install and after uninstall.
+- `pkg/deploy/mcp/deploy` — `scale_app`, `patch_app`,
+  `list_cluster_capabilities` (`deploy_test.go`): seeds a Deployment
+  directly through the typed clientset, then drives `deploy.HandleScaleApp`
+  (verifying the new replica count on the live object),
+  `deploy.HandlePatchApp` (verifying a strategic-merge label patch on the
+  live object), and `deploy.HandleListClusterCapabilities` (the real
+  `Nodes().List` path — envtest has no kubelet, so it reports zero nodes),
+  plus an app-not-found case. `deploy_app`'s git-manifest-syncer path is
+  left to the package's own unit tests. Wired the same way as
+  `kubectl_test.go`/`labels_test.go`.
+- `pkg/deploy/mcp/app` — `get_app_instances`, `get_app_status`
+  (`app_test.go`): seeds a Deployment with a hand-written `/status`
+  reporting full availability (envtest runs no controller-manager), then
+  drives `app.GetAppInstances` and `app.GetAppStatus` through the exported
+  handlers the `app_adapter.go` wires into the deploy server, asserting the
+  instance is found and the app aggregates as `healthy`, plus a not-found
+  case. `get_app_logs` is out of scope — pod-log streaming needs a real
+  kubelet.
+- `pkg/mcp/tools/upgrades` — `detect_cluster_type`,
+  `get_cluster_version_info`, `get_upgrade_status`,
+  `get_upgrade_prerequisites` (`upgrades_test.go`): wires the real typed +
+  dynamic clients behind `upgrades.ClusterAccess`, so each tool's OpenShift
+  `ClusterVersion` probe (a real dynamic Get that returns not-found here)
+  falls through to its vanilla-Kubernetes branch —
+  `Discovery().ServerVersion`, `Nodes().List`, and `Pods().List` all run
+  live against the apiserver. The OpenShift/OLM/Helm-only tools
+  (`check_olm_operator_upgrades`, `check_helm_release_upgrades`,
+  `trigger_openshift_upgrade`) need CRDs / Helm-release secrets and stay
+  with the package's unit tests.
 
-Still uncovered (tracked in kubestellar-mcp#1070): `pkg/deploy/mcp/kustomize`,
-plus the `can_i`/`analyze_subject_permissions`/`audit_kubeconfig`/
-`find_resource_owners` tools noted in `rbac_test.go`.
+Still uncovered (tracked in kubestellar-mcp#1070): `pkg/deploy/mcp/kustomize`
+(shells out to the `kustomize`/`kubectl` binaries with a real kubeconfig
+`--context`, so it fits a kind-based Option B suite better than the pure
+apiserver envtest harness), `pkg/deploy/mcp/gitops`
+(`sync_from_git`/`reconcile`/`preview_changes`, which read manifests from a
+git source), `pkg/deploy/mcp/helm` (see below), the OpenShift/OLM/Helm-only
+`upgrades` tools noted above, plus the
+`can_i`/`analyze_subject_permissions`/`audit_kubeconfig`/`find_resource_owners`
+tools noted in `rbac_test.go`.
 
 ### Why `pkg/deploy/mcp/helm` is out of scope for envtest
 
