@@ -47,6 +47,7 @@ func TestNewServer_Success(t *testing.T) {
 	if srv == nil {
 		t.Fatal("NewServer() returned nil server")
 	}
+	// nolint:staticcheck // SA5011: srv cannot be nil after t.Fatal above
 	if srv.manager == nil || srv.executor == nil || srv.selector == nil {
 		t.Errorf("NewServer() left required deps unset: %+v", srv)
 	}
