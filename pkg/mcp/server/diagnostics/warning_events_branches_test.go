@@ -13,7 +13,7 @@
 // _HasEvents which only exercise the happy path with a fake client and no
 // namespace / filter / error injection.
 
-package server
+package diagnostics
 
 import (
 	"context"
