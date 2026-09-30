@@ -152,6 +152,7 @@ func TestCheckResource(t *testing.T) {
 			if got == nil {
 				t.Fatal("checkResource() = nil, want drift result")
 			}
+			//nolint:staticcheck // SA5011: t.Fatal above ensures got is non-nil
 			if got.DriftType != tt.wantDriftType {
 				t.Fatalf("DriftType = %q, want %q", got.DriftType, tt.wantDriftType)
 			}

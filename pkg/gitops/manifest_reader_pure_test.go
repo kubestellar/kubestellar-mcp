@@ -17,6 +17,7 @@ func TestNewManifestReaderWithSchemesStoresAllowlist(t *testing.T) {
 		if r == nil {
 			t.Fatal("NewManifestReaderWithSchemes(nil) returned nil")
 		}
+		//nolint:staticcheck // SA5011: t.Fatal above ensures r is non-nil
 		if r.AllowedSchemes != nil {
 			t.Fatalf("AllowedSchemes = %v, want nil", r.AllowedSchemes)
 		}
