@@ -32,7 +32,7 @@ func TestNewManifestReaderWithSchemes(t *testing.T) {
 			if reader == nil {
 				t.Fatal("NewManifestReaderWithSchemes() = nil, want non-nil reader")
 			}
-			if len(reader.AllowedSchemes) != len(tt.schemes) {
+			if len(reader.AllowedSchemes) != len(tt.schemes) { //nolint:staticcheck // SA5011: false positive, staticcheck's naive check ignores that t.Fatal above aborts on a nil reader
 				t.Fatalf("AllowedSchemes len = %d, want %d", len(reader.AllowedSchemes), len(tt.schemes))
 			}
 			for k, v := range tt.schemes {

@@ -45,7 +45,7 @@ func TestNewServer_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewServer(): %v", err)
 	}
-	if srv == nil {
+	if srv == nil { //nolint:staticcheck // SA5011: false positive, staticcheck's naive check ignores that t.Fatal aborts the test before any use of srv below
 		t.Fatal("NewServer() returned nil server")
 	}
 	//nolint:staticcheck // SA5011: srv cannot be nil after t.Fatal above
