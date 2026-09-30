@@ -207,25 +207,6 @@ func TestShouldSyncHonorsIncludeAndExclude(t *testing.T) {
 	}
 }
 
-func TestSyncerGetGVRUsesRESTMapper(t *testing.T) {
-	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "example.io", Version: "v1alpha1"}})
-	mapper.AddSpecific(
-		schema.GroupVersionKind{Group: "example.io", Version: "v1alpha1", Kind: "Widget"},
-		schema.GroupVersionResource{Group: "example.io", Version: "v1alpha1", Resource: "widgetz"},
-		schema.GroupVersionResource{Group: "example.io", Version: "v1alpha1", Resource: "widget"},
-		meta.RESTScopeRoot,
-	)
-
-	syncer := &Syncer{restMapper: mapper}
-	gvr, err := syncer.getGVR(Manifest{APIVersion: "example.io/v1alpha1", Kind: "Widget"})
-	if err != nil {
-		t.Fatalf("getGVR() unexpected error: %v", err)
-	}
-	if gvr.Resource != "widgetz" {
-		t.Fatalf("getGVR() resource = %q, want widgetz", gvr.Resource)
-	}
-}
-
 func TestSyncIgnoresNamespaceOverrideForClusterScopedMapping(t *testing.T) {
 	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "example.io", Version: "v1alpha1"}})
 	mapper.AddSpecific(

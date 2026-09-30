@@ -11,7 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -242,15 +241,6 @@ func compareObjects(path string, expected, actual map[string]interface{}) []stri
 	}
 
 	return differences
-}
-
-// getGVR returns the GroupVersionResource for a manifest.
-func (d *DriftDetector) getGVR(manifest Manifest) (schema.GroupVersionResource, error) {
-	mapping, err := resolveManifestResource(manifest, d.restMapper)
-	if err != nil {
-		return schema.GroupVersionResource{}, err
-	}
-	return mapping.GVR, nil
 }
 
 // IsManifestClusterScoped resolves manifest scope via the RESTMapper when available.
