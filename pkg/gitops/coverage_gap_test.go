@@ -7,20 +7,6 @@ import (
 	"testing"
 )
 
-// TestSyncerGetGVRPropagatesResolveError covers the error branch of
-// (*Syncer).getGVR, exercised when resolveManifestResource fails —
-// which happens for a manifest whose APIVersion is not parseable by
-// schema.ParseGroupVersion (e.g. multi-slash strings). Previously only
-// the happy path was covered.
-func TestSyncerGetGVRPropagatesResolveError(t *testing.T) {
-	s := &Syncer{}
-	// "a/b/c" has two slashes — schema.ParseGroupVersion rejects it.
-	_, err := s.getGVR(Manifest{APIVersion: "a/b/c", Kind: "Widget"})
-	if err == nil {
-		t.Fatal("getGVR() with unparseable APIVersion should return error, got nil")
-	}
-}
-
 // TestDriftDetectorIsManifestClusterScopedFallsBackOnInvalidAPIVersion
 // covers the error branch of IsManifestClusterScoped: when
 // resolveManifestResource errors (invalid APIVersion), the function must

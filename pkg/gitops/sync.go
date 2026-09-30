@@ -10,7 +10,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
@@ -300,15 +299,6 @@ func (s *Syncer) shouldSync(kind string, opts SyncOptions) bool {
 	}
 
 	return true
-}
-
-// getGVR returns the GroupVersionResource for a manifest.
-func (s *Syncer) getGVR(manifest Manifest) (schema.GroupVersionResource, error) {
-	mapping, err := resolveManifestResource(manifest, s.restMapper)
-	if err != nil {
-		return schema.GroupVersionResource{}, err
-	}
-	return mapping.GVR, nil
 }
 
 func boolPtr(b bool) *bool {

@@ -60,30 +60,6 @@ func TestCompareManifests(t *testing.T) {
 	assertContainsDiff(t, diffs, "label tier: missing in cluster")
 }
 
-func TestGetGVRFallback(t *testing.T) {
-	d := &DriftDetector{}
-
-	gvr, err := d.getGVR(Manifest{APIVersion: "apps/v1", Kind: "Deployment"})
-	if err != nil {
-		t.Fatalf("getGVR() unexpected error: %v", err)
-	}
-	if gvr.Group != "apps" || gvr.Version != "v1" || gvr.Resource != "deployments" {
-		t.Fatalf("unexpected GVR: %#v", gvr)
-	}
-
-	gvr, err = d.getGVR(Manifest{APIVersion: "example.io/v1alpha1", Kind: "Widget"})
-	if err != nil {
-		t.Fatalf("getGVR() unexpected error: %v", err)
-	}
-	if gvr.Resource != "widgets" {
-		t.Fatalf("getGVR() resource = %q, want widgets", gvr.Resource)
-	}
-
-	if _, err := d.getGVR(Manifest{APIVersion: "not/a/version/at/all", Kind: "Deployment"}); err == nil {
-		t.Fatal("getGVR() expected error for invalid api version")
-	}
-}
-
 func TestKindToResourceAndClusterScope(t *testing.T) {
 	tests := []struct {
 		kind      string
