@@ -18,11 +18,11 @@ func TestNewDriftDetector(t *testing.T) {
 	if dd == nil {
 		t.Fatal("NewDriftDetector returned nil detector")
 	}
-	// nolint:staticcheck // SA5011: dd cannot be nil after t.Fatal above
+	//nolint:staticcheck // SA5011: dd cannot be nil after t.Fatal above
 	if dd.client == nil {
 		t.Error("expected non-nil kubernetes clientset")
 	}
-	// nolint:staticcheck // SA5011: dd cannot be nil after t.Fatal above
+	//nolint:staticcheck // SA5011: dd cannot be nil after t.Fatal above
 	if dd.dynClient == nil {
 		t.Error("expected non-nil dynamic client")
 	}
@@ -50,7 +50,7 @@ func TestNewSyncer(t *testing.T) {
 	if s == nil {
 		t.Fatal("NewSyncer returned nil syncer")
 	}
-	// nolint:staticcheck // SA5011: s cannot be nil after t.Fatal above
+	//nolint:staticcheck // SA5011: s cannot be nil after t.Fatal above
 	if s.dynClient == nil {
 		t.Error("expected non-nil dynamic client")
 	}

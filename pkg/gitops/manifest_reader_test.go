@@ -52,6 +52,7 @@ func TestNewManifestReaderDefaultsToNilSchemes(t *testing.T) {
 	if reader == nil {
 		t.Fatal("NewManifestReader() = nil, want non-nil reader")
 	}
+	//nolint:staticcheck // SA5011: t.Fatal above ensures reader is non-nil
 	if reader.AllowedSchemes != nil {
 		t.Fatalf("AllowedSchemes = %#v, want nil so defaults apply", reader.AllowedSchemes)
 	}
