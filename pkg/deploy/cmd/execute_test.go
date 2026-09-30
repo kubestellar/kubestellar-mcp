@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"testing"
 
@@ -30,7 +31,7 @@ func TestDeployRootCommandRunEInvokesMCPServer(t *testing.T) {
 		runMCPServer = oldRunMCPServer
 	})
 	called := false
-	runMCPServer = func() error {
+	runMCPServer = func(_ context.Context) error {
 		called = true
 		return nil
 	}

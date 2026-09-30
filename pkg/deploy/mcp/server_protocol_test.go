@@ -58,7 +58,7 @@ func TestRunProcessesMultipleRequestsAndHandlesEOF(t *testing.T) {
 	_ = stdinW.Close()
 
 	// Run the server (blocks until EOF)
-	runErr := server.Run()
+	runErr := server.Run(context.Background())
 	_ = stdoutW.Close()
 
 	assert.NoError(t, runErr)
@@ -116,7 +116,7 @@ func TestRunSkipsEmptyLines(t *testing.T) {
 	require.NoError(t, err)
 	_ = stdinW.Close()
 
-	runErr := server.Run()
+	runErr := server.Run(context.Background())
 	_ = stdoutW.Close()
 
 	assert.NoError(t, runErr)
@@ -154,7 +154,7 @@ func TestRunHandlesMalformedJSON(t *testing.T) {
 	require.NoError(t, err)
 	_ = stdinW.Close()
 
-	runErr := server.Run()
+	runErr := server.Run(context.Background())
 	_ = stdoutW.Close()
 
 	assert.NoError(t, runErr)
@@ -270,7 +270,7 @@ func TestSendErrorWithNilID(t *testing.T) {
 func TestHandleRequestWithNullID(t *testing.T) {
 	server := newHelmTestServer(t, map[string]string{})
 
-	resp := server.handleRequest(&protocol.Request{JSONRPC: "2.0", ID: nil, Method: "initialize"})
+	resp := server.handleRequest(context.Background(), &protocol.Request{JSONRPC: "2.0", ID: nil, Method: "initialize"})
 	require.NotNil(t, resp)
 	assert.Nil(t, resp.ID)
 	assert.Nil(t, resp.Error)
@@ -281,7 +281,7 @@ func TestHandleRequestWithNullID(t *testing.T) {
 func TestHandleRequestWithStringID(t *testing.T) {
 	server := newHelmTestServer(t, map[string]string{})
 
-	resp := server.handleRequest(&protocol.Request{JSONRPC: "2.0", ID: "abc-123", Method: "initialize"})
+	resp := server.handleRequest(context.Background(), &protocol.Request{JSONRPC: "2.0", ID: "abc-123", Method: "initialize"})
 	require.NotNil(t, resp)
 	assert.Equal(t, "abc-123", resp.ID)
 	assert.Nil(t, resp.Error)
@@ -292,7 +292,7 @@ func TestHandleRequestWithStringID(t *testing.T) {
 func TestHandleRequestNotificationsInitializedReturnsNil(t *testing.T) {
 	server := newHelmTestServer(t, map[string]string{})
 
-	resp := server.handleRequest(&protocol.Request{JSONRPC: "2.0", ID: 1, Method: "notifications/initialized"})
+	resp := server.handleRequest(context.Background(), &protocol.Request{JSONRPC: "2.0", ID: 1, Method: "notifications/initialized"})
 	assert.Nil(t, resp, "notifications/initialized should return nil (no response)")
 }
 
@@ -301,7 +301,7 @@ func TestHandleRequestNotificationsInitializedReturnsNil(t *testing.T) {
 func TestHandleRequestInitializedReturnsNil(t *testing.T) {
 	server := newHelmTestServer(t, map[string]string{})
 
-	resp := server.handleRequest(&protocol.Request{JSONRPC: "2.0", ID: 1, Method: "initialized"})
+	resp := server.handleRequest(context.Background(), &protocol.Request{JSONRPC: "2.0", ID: 1, Method: "initialized"})
 	assert.Nil(t, resp, "initialized should return nil (no response)")
 }
 
@@ -407,13 +407,13 @@ func TestRunLargeMessageWithinBufferLimit(t *testing.T) {
 
 	// Write in a goroutine to avoid pipe buffer deadlock — the message
 	// exceeds the OS pipe buffer (~64KB on Linux), so writing must happen
-	// concurrently with server.Run() reading from the other end.
+	// concurrently with server.Run(context.Background()) reading from the other end.
 	go func() {
 		_, _ = stdinW.WriteString(input)
 		_ = stdinW.Close()
 	}()
 
-	runErr := server.Run()
+	runErr := server.Run(context.Background())
 	_ = stdoutW.Close()
 
 	assert.NoError(t, runErr)
@@ -436,7 +436,7 @@ func TestRunLargeMessageWithinBufferLimit(t *testing.T) {
 func TestHandleInitializeResponseStructure(t *testing.T) {
 	server := newHelmTestServer(t, map[string]string{})
 
-	resp := server.handleRequest(&protocol.Request{JSONRPC: "2.0", ID: 1, Method: "initialize"})
+	resp := server.handleRequest(context.Background(), &protocol.Request{JSONRPC: "2.0", ID: 1, Method: "initialize"})
 	require.NotNil(t, resp)
 	assert.Equal(t, "2.0", resp.JSONRPC)
 	assert.Nil(t, resp.Error)
@@ -505,7 +505,7 @@ func TestHandleRequestPreservesNumericID(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			resp := server.handleRequest(&protocol.Request{JSONRPC: "2.0", ID: tc.id, Method: "initialize"})
+			resp := server.handleRequest(context.Background(), &protocol.Request{JSONRPC: "2.0", ID: tc.id, Method: "initialize"})
 			require.NotNil(t, resp)
 			assert.Equal(t, tc.id, resp.ID)
 		})

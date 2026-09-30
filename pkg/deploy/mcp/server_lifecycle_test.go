@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -96,8 +97,8 @@ func TestRunMCPServer_PropagatesConstructionError(t *testing.T) {
 	t.Setenv("KUBECONFIG", bad)
 	t.Setenv("HOME", t.TempDir())
 
-	if err := RunMCPServer(); err == nil {
-		t.Fatal("RunMCPServer() returned nil, want error from failed NewServer")
+	if err := RunMCPServer(context.Background()); err == nil {
+		t.Fatal("RunMCPServer(context.Background()) returned nil, want error from failed NewServer")
 	}
 }
 

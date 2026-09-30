@@ -17,7 +17,7 @@ import (
 var (
 	mcpServer             bool
 	metricsAddr           string
-	runMCPServer                    = mcp.RunMCPServer
+	runMCPServer          func(context.Context) error = mcp.RunMCPServer
 	newRootCommand                  = NewRootCommand
 	startMetricsServer              = metrics.StartServer
 	shutdownMetricsServer           = metrics.Shutdown
@@ -70,7 +70,7 @@ Examples:
 						_ = shutdownMetricsServer(shutdownCtx, metricsSrv)
 					}()
 				}
-				return runMCPServer()
+				return runMCPServer(cmd.Context())
 			}
 			return cmd.Help()
 		},

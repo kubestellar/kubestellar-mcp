@@ -105,13 +105,16 @@ func (s *Server) getDriftDetector(config *rest.Config) (driftDetector, error) {
 	return gitops.NewDriftDetector(config)
 }
 
-// RunMCPServer starts the MCP server on stdin/stdout
-func RunMCPServer() error {
+// RunMCPServer starts the MCP server on stdin/stdout, cancellable via ctx.
+// Cancellation on ctx propagates through the rpcloop.Loop into every
+// in-flight tool handler; passing context.Background() preserves the
+// previous "runs until stdin EOF" behaviour verbatim.
+func RunMCPServer(ctx context.Context) error {
 	server, err := NewServer()
 	if err != nil {
 		return err
 	}
-	return server.Run()
+	return server.Run(ctx)
 }
 
 // Run starts the server loop. The stdio transport (newline-delimited
@@ -119,12 +122,15 @@ func RunMCPServer() error {
 // is owned by pkg/mcp/rpcloop, shared with the sibling kubestellar-mcp
 // server's dispatch loop (see kubestellar-mcp#1017/#1018). os.Stdin/os.Stdout
 // are read at call time (not cached on Server) so tests that swap them
-// before calling Run continue to work unchanged.
-func (s *Server) Run() error {
+// before calling Run continue to work unchanged. The ctx passed in flows
+// through the loop into handleRequest → rpcloop.Dispatch → the ToolsCall
+// handler chain so a SIGINT/SIGTERM or per-caller deadline can actually
+// unblock an in-flight tool handler (kubestellar-mcp#1077).
+func (s *Server) Run(ctx context.Context) error {
 	loop := rpcloop.NewLoop(os.Stdin, os.Stdout)
 	loop.SetWriteMutex(&s.writeMu)
-	return loop.Run(context.Background(), func(ctx context.Context, req *protocol.Request) *protocol.Response {
-		return s.handleRequest(req)
+	return loop.Run(ctx, func(ctx context.Context, req *protocol.Request) *protocol.Response {
+		return s.handleRequest(ctx, req)
 	})
 }
 
@@ -132,9 +138,10 @@ func (s *Server) Run() error {
 // table (lifecycle notifications, ping, unknown-method errors) is shared with
 // the kubestellar-ops server via rpcloop.Dispatch (see kubestellar-mcp#1017);
 // this server supplies only its initialize, tools/list and tools/call
-// handlers.
-func (s *Server) handleRequest(req *protocol.Request) *protocol.Response {
-	return rpcloop.Dispatch(context.Background(), req, rpcloop.Methods{
+// handlers. ctx is threaded from Run's loop callback into Dispatch so
+// cancellation reaches handleToolCall's InstrumentToolCall (kubestellar-mcp#1077).
+func (s *Server) handleRequest(ctx context.Context, req *protocol.Request) *protocol.Response {
+	return rpcloop.Dispatch(ctx, req, rpcloop.Methods{
 		Initialize: func(_ context.Context, req *protocol.Request) *protocol.Response {
 			return s.handleInitialize(req)
 		},

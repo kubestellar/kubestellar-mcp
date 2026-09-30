@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"context"
 	"os"
 	"testing"
 )
@@ -36,7 +37,7 @@ func TestRunMCPServer_SuccessPath(t *testing.T) {
 		_ = r.Close()
 	})
 
-	if err := RunMCPServer(); err != nil {
-		t.Fatalf("RunMCPServer() on EOF stdin: %v, want nil", err)
+	if err := RunMCPServer(context.Background()); err != nil {
+		t.Fatalf("RunMCPServer(context.Background()) on EOF stdin: %v, want nil", err)
 	}
 }
