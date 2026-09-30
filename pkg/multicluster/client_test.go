@@ -83,7 +83,7 @@ func TestGetConfigCacheMissPopulatesFromGetClient(t *testing.T) {
 	if config == nil {
 		t.Fatal("GetConfig() returned nil config")
 	}
-	if config.Host != "https://alpha.example.com" {
+	if config.Host != "https://alpha.example.com" { //nolint:staticcheck // SA5011: false positive, staticcheck's naive check ignores that t.Fatal above aborts on a nil config
 		t.Fatalf("config host = %q, want https://alpha.example.com", config.Host)
 	}
 

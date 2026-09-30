@@ -15,7 +15,7 @@ func TestNewDriftDetector(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDriftDetector returned error: %v", err)
 	}
-	if dd == nil {
+	if dd == nil { //nolint:staticcheck // SA5011: false positive, staticcheck's naive check ignores that t.Fatal aborts the test before any use of dd below
 		t.Fatal("NewDriftDetector returned nil detector")
 	}
 	//nolint:staticcheck // SA5011: dd cannot be nil after t.Fatal above
@@ -47,7 +47,7 @@ func TestNewSyncer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSyncer returned error: %v", err)
 	}
-	if s == nil {
+	if s == nil { //nolint:staticcheck // SA5011: false positive, staticcheck's naive check ignores that t.Fatal aborts the test before any use of s below
 		t.Fatal("NewSyncer returned nil syncer")
 	}
 	//nolint:staticcheck // SA5011: s cannot be nil after t.Fatal above
