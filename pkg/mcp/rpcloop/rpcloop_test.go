@@ -4,15 +4,37 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"flag"
 	"strings"
 	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/klog/v2"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/protocol"
 )
+
+// captureKlog redirects klog's output to a buffer for the duration of a
+// test, mirroring pkg/mcp/server's TestServerSendMarshalError pattern:
+// klog defaults to --logtostderr=true, so that must be disabled before
+// SetOutput takes effect. The returned func restores klog's default
+// output and must be deferred by the caller.
+func captureKlog(t *testing.T) (*bytes.Buffer, func()) {
+	t.Helper()
+	var logBuf bytes.Buffer
+	fs := flag.NewFlagSet("test", flag.ContinueOnError)
+	klog.InitFlags(fs)
+	require.NoError(t, fs.Set("logtostderr", "false"))
+	// Parse-error logging is gated behind klog.V(2), matching this
+	// package's existing "tool call succeeded" verbosity (instrument.go)
+	// for high-frequency, low-severity lines; raise verbosity so tests
+	// can observe it.
+	require.NoError(t, fs.Set("v", "2"))
+	klog.SetOutput(&logBuf)
+	return &logBuf, func() { klog.SetOutput(nil) }
+}
 
 // echoHandler is a Handler that replies to every request with its ID and
 // method name, so tests can assert on dispatch without needing a real MCP
@@ -99,6 +121,45 @@ func TestLoopRunHandlesMalformedJSON(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(lines[1]), &initResp))
 	assert.Nil(t, initResp.Error)
 	assert.EqualValues(t, 99, initResp.ID)
+}
+
+// TestLoopRunLogsMalformedJSON covers the previously silent parse-error
+// branch: before this change, a malformed request produced the -32700
+// wire response but left no trace in logs, so an operator watching a
+// misbehaving/malicious client had nothing to grep for. err's message
+// here comes from encoding/json and never contains the raw line, so the
+// log line stays bounded.
+func TestLoopRunLogsMalformedJSON(t *testing.T) {
+	logBuf, restore := captureKlog(t)
+	defer restore()
+
+	var input bytes.Buffer
+	input.WriteString("{not valid json}\n")
+
+	loop := NewLoop(&input, &bytes.Buffer{})
+	require.NoError(t, loop.Run(context.Background(), echoHandler(t)))
+	klog.Flush()
+
+	assert.Contains(t, logBuf.String(), "mcp request parse error")
+}
+
+// TestLoopRunLogsScanError covers the previously silent terminal-error
+// path: an oversized frame (or any other scanner.Err()) ended Run, but
+// the reason was only visible if a caller happened to print the returned
+// error. This asserts the shutdown cause is now always captured in
+// structured logs regardless of caller.
+func TestLoopRunLogsScanError(t *testing.T) {
+	logBuf, restore := captureKlog(t)
+	defer restore()
+
+	loop := NewLoop(strings.NewReader(strings.Repeat("a", 4096)+"\n"), &bytes.Buffer{})
+	loop.SetMaxFrameSize(1024)
+
+	err := loop.Run(context.Background(), echoHandler(t))
+	require.Error(t, err)
+	klog.Flush()
+
+	assert.Contains(t, logBuf.String(), "mcp rpc loop stopped due to a read/scan error")
 }
 
 func TestLoopRunReturnsNilOnCleanEOF(t *testing.T) {
