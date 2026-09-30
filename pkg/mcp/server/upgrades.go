@@ -3,8 +3,6 @@ package server
 import (
 	"context"
 
-	corev1 "k8s.io/api/core/v1"
-
 	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/server/handlers"
 	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/tools/upgrades"
 )
@@ -13,6 +11,13 @@ import (
 // is needed between the server and the upgrades sub-package.
 var _ upgrades.ClusterAccess = (*handlers.Deps)(nil)
 
+// The upgrade domain lives in pkg/mcp/tools/upgrades (schemas, handlers and
+// tests); this file is the registration bridge that keeps detect_cluster_type,
+// get_cluster_version_info, check_helm_release_upgrades,
+// check_olm_operator_upgrades, get_upgrade_status, get_upgrade_prerequisites
+// and trigger_openshift_upgrade at the same positions in tools/list as before
+// the extraction (kubestellar-mcp#1027). The domain's types and helpers are no
+// longer re-exported here: consumers import pkg/mcp/tools/upgrades directly.
 func init() {
 	for _, td := range upgrades.Tools() {
 		td := td // capture loop variable
@@ -22,25 +27,4 @@ func init() {
 			},
 		)
 	}
-}
-
-// Re-export ClusterType constants so existing tests and consumers continue to work.
-const (
-	ClusterTypeOpenShift = upgrades.ClusterTypeOpenShift
-	ClusterTypeEKS       = upgrades.ClusterTypeEKS
-	ClusterTypeGKE       = upgrades.ClusterTypeGKE
-	ClusterTypeAKS       = upgrades.ClusterTypeAKS
-	ClusterTypeKubeadm   = upgrades.ClusterTypeKubeadm
-	ClusterTypeK3s       = upgrades.ClusterTypeK3s
-	ClusterTypeKind      = upgrades.ClusterTypeKind
-	ClusterTypeMinikube  = upgrades.ClusterTypeMinikube
-	ClusterTypeUnknown   = upgrades.ClusterTypeUnknown
-)
-
-// HelmRelease is re-exported from the upgrades sub-package.
-type HelmRelease = upgrades.HelmRelease
-
-// parseHelmSecret delegates to the upgrades package. Retained for test compatibility.
-func parseHelmSecret(secret *corev1.Secret) *HelmRelease {
-	return upgrades.ParseHelmSecret(secret)
 }
