@@ -36,8 +36,11 @@ The `main` packages stay intentionally thin and delegate almost immediately into
   - `root.go` wires global flags, natural-language query mode, and MCP mode
   - `clusters/`, `ai/`, and `upgrade/` provide subcommands
 - `pkg/mcp/server/`: the `kubestellar-ops` MCP server
-  - `server.go` defines MCP request/response types, the stdio loop, tool schemas, and dispatch
-  - `tools.go`, `diagnostics.go`, `multicluster.go`, and `upgrades.go` implement tool behavior
+  - `server.go` defines MCP request/response types, the stdio loop, and dispatch; `tool_registry.go` owns the package-level `handlers.Registry` that fixes the `tools/list` order
+  - `handlers/` is a leaf package holding `Deps`, the shared `ToolHandler`/`ToolDef` types, the argument helpers, and the `Registry`; it never imports the server or a domain sub-package, so domain packages can depend on it without an import cycle
+  - `pkg/mcp/server/{cluster,diagnostics,drift,policy,rbac,workloads}/`: one sub-package per tool domain, each owning its schemas, handlers, and tests, and each exposing a `Register(*handlers.Registry)` (or `Tools()`) entry point
+  - the remaining top-level `*_registry.go` files (plus `cluster_tools.go` and `upgrades.go`) are pure wiring: their `init()` registers a domain into the package registry in the fixed catalog order
+  - the upgrade domain lives outside this tree in `pkg/mcp/tools/upgrades/`; `upgrades.go` only bridges its tool defs into the registry
 - `pkg/cluster/`: kubeconfig-based cluster discovery and health checks
 - `pkg/gitops/`: manifest reading, drift detection, and sync logic reused by MCP handlers
 - `pkg/ai/claude/`: optional natural-language CLI query support for `kubestellar-ops query`
