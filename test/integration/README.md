@@ -43,6 +43,42 @@ Covered packages:
   (wired the same way as `kubectl_test.go`'s `newKubectlDeps`) and asserts
   the label round-trips on both the tool's own result and a direct client
   `Get`, plus a not-found case for a resource that was never created.
+- `pkg/mcp/server/diagnostics` — `find_pod_issues`,
+  `find_deployment_issues`, `check_resource_limits`,
+  `check_security_issues`, `analyze_namespace`, `get_warning_events`
+  (`diagnostics_test.go`): seeds an unhealthy Pod (CrashLoopBackOff,
+  privileged, no resource limits), a healthy control Pod, a partially
+  available Deployment, a Service, and a Warning Event — including
+  `/status` subresource writes, since envtest runs no kubelet or
+  controller-manager — then drives each tool through
+  `diagnostics.Register` + `handlers.Registry.Find` and asserts on the
+  returned output. This covers the real `type=Warning` field selector and
+  real status round-trips that the package's unit tests fake.
+- `pkg/mcp/server/cluster` — `list_clusters`, `get_cluster_health`
+  (`cluster_test.go`): writes a real kubeconfig for the envtest control
+  plane and wires the real `pkg/cluster.Discoverer` behind
+  `handlers.Deps`, so context enumeration, TLS client construction,
+  `Discovery().ServerVersion()`, and `Nodes().List()` all run live (envtest
+  has no kubelet, so health reports `0/0` nodes ready).
+- `pkg/mcp/server/drift` — `detect_drift` (`drift_test.go`): stubs only the
+  git half (the `ManifestReader`) and lets the real
+  `gitops.DriftDetector` run against envtest, so RESTMapper discovery,
+  dynamic-client GETs, and the missing/modified/synced classification are
+  exercised end-to-end against seeded ConfigMaps.
+- `pkg/mcp/server/policy` — `check_gatekeeper`,
+  `get_ownership_policy_status`, `list_ownership_violations`,
+  `install_ownership_policy`, `set_ownership_policy_mode`,
+  `uninstall_ownership_policy` (`policy_test.go`): installs open-schema
+  CRDs for `ConstraintTemplate` and the `K8sRequiredLabels` constraint
+  (Gatekeeper itself has no controller or webhook in envtest, but the tools
+  only do dynamic Get/List/Create/Update/Delete on those GVRs), then walks
+  the whole install → inspect → change mode → list violations → uninstall
+  lifecycle, including the "already exists" update branch and the
+  not-found branches before install and after uninstall.
+
+Still uncovered (tracked in kubestellar-mcp#1070): `pkg/deploy/mcp/kustomize`,
+plus the `can_i`/`analyze_subject_permissions`/`audit_kubeconfig`/
+`find_resource_owners` tools noted in `rbac_test.go`.
 
 ### Why `pkg/deploy/mcp/helm` is out of scope for envtest
 
