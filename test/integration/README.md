@@ -31,6 +31,18 @@ Covered packages:
   `get_pods` tool handler (via `workloads.Register` +
   `handlers.Registry.Find`, exactly as the real MCP protocol server
   dispatches it) and asserts the pod shows up in the tool's output.
+- `pkg/mcp/server/rbac` — `get_roles`, `get_cluster_roles`,
+  `get_role_bindings`, `get_cluster_role_bindings`, `describe_role`
+  (`rbac_test.go`): creates a Role, ClusterRole, RoleBinding, and
+  ClusterRoleBinding directly against the envtest API server, then drives
+  each tool (via `rbac.Register` + `handlers.Registry.Find`) and asserts on
+  the returned output.
+- `pkg/deploy/mcp/labels` — `add_labels`/`remove_labels`
+  (`labels_test.go`): seeds a ConfigMap directly against the envtest API
+  server, then drives `labels.HandleAddLabels`/`labels.HandleRemoveLabels`
+  (wired the same way as `kubectl_test.go`'s `newKubectlDeps`) and asserts
+  the label round-trips on both the tool's own result and a direct client
+  `Get`, plus a not-found case for a resource that was never created.
 
 ### Why `pkg/deploy/mcp/helm` is out of scope for envtest
 
