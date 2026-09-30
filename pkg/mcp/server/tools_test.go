@@ -184,7 +184,7 @@ func TestHandleToolsCallDispatch(t *testing.T) {
 
 func TestHandleToolsCallUnknownTool(t *testing.T) {
 	_, rpcErr := callTool(t, &Server{}, "missing_tool", nil)
-	if rpcErr == nil {
+	if rpcErr == nil { //nolint:staticcheck // SA5011: false positive, staticcheck's naive check ignores that t.Fatal above aborts on a nil rpcErr
 		t.Fatal("expected RPC error for unknown tool")
 	}
 	if rpcErr.Code != -32602 || !strings.Contains(rpcErr.Message, "Unknown tool") { //nolint:staticcheck // SA5011: false positive, staticcheck's naive check ignores that t.Fatal above aborts on a nil rpcErr
