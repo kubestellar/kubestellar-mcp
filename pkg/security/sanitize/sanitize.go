@@ -1,4 +1,9 @@
-package claude
+// Package sanitize provides generic Kubernetes-name validators and a
+// prompt-injection-safe string sanitizer. These utilities previously lived in
+// pkg/ai/claude but have no vendor-specific dependency; relocating them lets
+// non-AI feature packages (e.g. pkg/deploy/mcp/app) call them without pulling
+// in pkg/ai/claude. See kubestellar/kubestellar-mcp architect finding.
+package sanitize
 
 import (
 	"fmt"

@@ -3,6 +3,8 @@ package claude
 import (
 	"fmt"
 	"strings"
+
+	"github.com/kubestellar/kubestellar-mcp/pkg/security/sanitize"
 )
 
 // ClusterContext contains information about the Kubernetes cluster context
@@ -40,17 +42,17 @@ You help users with:
 	sb.WriteString("## Current Context\n")
 
 	if ctx.CurrentCluster != "" {
-		_, _ = fmt.Fprintf(&sb, "- Current cluster: %s\n", ValidateClusterName(ctx.CurrentCluster))
+		_, _ = fmt.Fprintf(&sb, "- Current cluster: %s\n", sanitize.ValidateClusterName(ctx.CurrentCluster))
 	}
 
 	if ctx.CurrentNamespace != "" {
-		_, _ = fmt.Fprintf(&sb, "- Current namespace: %s\n", SanitizeForPrompt(ctx.CurrentNamespace))
+		_, _ = fmt.Fprintf(&sb, "- Current namespace: %s\n", sanitize.SanitizeForPrompt(ctx.CurrentNamespace))
 	}
 
 	if len(ctx.Clusters) > 0 {
 		sanitizedClusters := make([]string, 0, len(ctx.Clusters))
 		for _, cluster := range ctx.Clusters {
-			sanitizedClusters = append(sanitizedClusters, ValidateClusterName(cluster))
+			sanitizedClusters = append(sanitizedClusters, sanitize.ValidateClusterName(cluster))
 		}
 		_, _ = fmt.Fprintf(&sb, "- Available clusters: %s\n", strings.Join(sanitizedClusters, ", "))
 	}
