@@ -152,6 +152,8 @@ docker stop <container_id>
 
 **Symptom:** Some clusters are unreachable; MCP tools return errors for specific clusters.
 
+> **Note:** `mcpserver_active_clusters` / `MCPServerActiveClustersDroppedToZero` only reflects `kubestellar-deploy`'s reachable-cluster count (see [`docs/slo.md`](../docs/slo.md) and [`docs/alerts/README.md`](../docs/alerts/README.md)). For `kubestellar-ops`, use the CLI checks below instead — the metric is never populated for that binary.
+
 ### Diagnosis
 
 ```bash
@@ -283,7 +285,7 @@ which are `kubestellar-ops`-specific.
 - `mcpserver_tool_calls_total{tool,cluster,status}` — call volume and success/error split per tool and cluster.
 - `mcpserver_tool_errors_total{tool,cluster,error_kind}` — error volume by tool, cluster, and a closed `error_kind` enum.
 - `mcpserver_tool_duration_seconds{tool,cluster}` — latency histogram; compare against [SLO 1/2](../docs/slo.md) targets.
-- `mcpserver_active_clusters` — reachable cluster count from the most recent discovery; a sudden drop indicates connectivity loss (see [Multi-Cluster Connectivity Loss](#multi-cluster-connectivity-loss)).
+- `mcpserver_active_clusters` — reachable cluster count from the most recent discovery; a sudden drop indicates connectivity loss (see [Multi-Cluster Connectivity Loss](#multi-cluster-connectivity-loss)). **`kubestellar-deploy`-only:** this gauge is set solely by `multicluster.Executor.executeAll` (`pkg/multicluster/executor.go`), which only `kubestellar-deploy` constructs. `kubestellar-ops` never calls `metrics.SetActiveClusters`, so on a `kubestellar-ops` target it never leaves 0 — do not use it or `MCPServerActiveClustersDroppedToZero` to monitor a `kubestellar-ops` deployment (see [`docs/slo.md`](../docs/slo.md)).
 - `mcpserver_ai_query_total{provider,status}` / `mcpserver_ai_query_duration_seconds{provider}` — AI provider query volume, outcome, and latency (see `pkg/ai/claude/client.go`); watch alongside `MCPServerHighAIQueryErrorRate` in [`docs/alerts/mcpserver-rules.yaml`](../docs/alerts/mcpserver-rules.yaml).
 
 ### Dashboard

@@ -124,19 +124,29 @@ spec:
               to inspect mcpserver_ai_query_duration_seconds{provider}
               and isolate the affected provider.
 
-        # Signals a possible discovery/connectivity regression (see
-        # runbooks/mcp-server-operations.md#multi-cluster-connectivity-loss).
+        # kubestellar-deploy ONLY - do not apply this alert to a
+        # kubestellar-ops scrape target. mcpserver_active_clusters is set
+        # exclusively by multicluster.Executor.executeAll
+        # (pkg/multicluster/executor.go), which only kubestellar-deploy
+        # constructs (pkg/deploy/mcp/server.go). kubestellar-ops never calls
+        # metrics.SetActiveClusters, so on a kubestellar-ops target this
+        # gauge sits at its zero default forever and this alert would fire
+        # permanently from startup, not on a real connectivity regression.
+        # See runbooks/mcp-server-operations.md#multi-cluster-connectivity-loss.
         - alert: MCPServerActiveClustersDroppedToZero
           expr: mcpserver_active_clusters == 0
           for: 10m
           labels:
             severity: critical
           annotations:
-            summary: "kubestellar-mcp reports zero reachable clusters"
+            summary: "kubestellar-mcp (kubestellar-deploy) reports zero reachable clusters"
             description: >-
-              mcpserver_active_clusters has been 0 for 10m. This usually
-              indicates a kubeconfig or connectivity problem; see
+              mcpserver_active_clusters has been 0 for 10m on a
+              kubestellar-deploy target. This usually indicates a
+              kubeconfig or connectivity problem; see
               runbooks/mcp-server-operations.md#multi-cluster-connectivity-loss.
+              Do not apply this rule to a kubestellar-ops target - that
+              binary never populates this metric (see comment above).
 
         # Scrape-target-down detector. All rules above depend on
         # mcpserver_* series being present; once the /metrics endpoint
