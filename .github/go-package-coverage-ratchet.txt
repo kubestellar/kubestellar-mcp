@@ -16,23 +16,23 @@
 # .github/go-coverage-ratchet.txt masked pkg/deploy/mcp at 94%.
 
 # --- Tier 1: Deploy / MCP tool surface (kubectl, helm, kustomize, gitops) ---
-pkg/deploy/mcp 95.5
-pkg/deploy/mcp/app 97.5
-pkg/deploy/mcp/deploy 93.0
-pkg/deploy/mcp/gitops 97.0
-pkg/deploy/mcp/helm 97.2
-pkg/deploy/mcp/kubectl 97.5
-pkg/deploy/mcp/kustomize 96.0
-pkg/deploy/mcp/labels 99.0
-pkg/mcp/server 90.0
+pkg/deploy/mcp 98.6
+pkg/deploy/mcp/app 98.4
+pkg/deploy/mcp/deploy 95.8
+pkg/deploy/mcp/gitops 97.5
+pkg/deploy/mcp/helm 99.1
+pkg/deploy/mcp/kubectl 98.9
+pkg/deploy/mcp/kustomize 96.4
+pkg/deploy/mcp/labels 100.0
+pkg/mcp/server 100.0
 pkg/mcp/server/cluster 100.0
-pkg/mcp/server/diagnostics 88.0
-pkg/mcp/server/drift 95.0
-pkg/mcp/server/handlers 99.0
-pkg/mcp/server/policy 90.0
-pkg/mcp/server/rbac 85.0
-pkg/mcp/server/workloads 85.0
-pkg/mcp/rpcloop 95.0
+pkg/mcp/server/diagnostics 99.1
+pkg/mcp/server/drift 100.0
+pkg/mcp/server/handlers 100.0
+pkg/mcp/server/policy 96.7
+pkg/mcp/server/rbac 92.7
+pkg/mcp/server/workloads 94.3
+pkg/mcp/rpcloop 96.8
 pkg/mcp/tools/upgrades 97.0
 
 # --- Tier 1: Core packages ---
@@ -42,7 +42,7 @@ pkg/cluster 100.0
 pkg/ai/claude 99.0
 
 # --- Tier 2: CLI / commands ---
-pkg/cmd 95.6
+pkg/cmd 96.9
 pkg/cmd/ai 95.5
 pkg/cmd/clusters 94.0
 pkg/cmd/upgrade 98.8
