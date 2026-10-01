@@ -11,6 +11,7 @@ import (
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/ai/claude"
 	"github.com/kubestellar/kubestellar-mcp/pkg/cluster"
+	"github.com/kubestellar/kubestellar-mcp/pkg/security/sanitize"
 )
 
 type claudeQueryClient interface {
@@ -129,10 +130,10 @@ func (o *queryOptions) run(ctx context.Context) error {
 				if err == nil {
 					userQuery = claude.BuildQueryPrompt(o.query, fmt.Sprintf(
 						"Current cluster: %s\nStatus: %s\nNodes: %s\nAPI Server: %s",
-						claude.ValidateClusterName(c.Name),
-						claude.SanitizeForPrompt(health.Status),
-						claude.SanitizeForPrompt(health.NodesReady),
-						claude.SanitizeForPrompt(health.APIServerStatus),
+					sanitize.ValidateClusterName(c.Name),
+					sanitize.SanitizeForPrompt(health.Status),
+					sanitize.SanitizeForPrompt(health.NodesReady),
+					sanitize.SanitizeForPrompt(health.APIServerStatus),
 					))
 				}
 				break

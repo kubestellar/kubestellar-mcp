@@ -23,12 +23,12 @@ import (
 	"time"
 
 	nsval "github.com/kubestellar/kubestellar-mcp/pkg/security/namespace"
+	"github.com/kubestellar/kubestellar-mcp/pkg/security/sanitize"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/kubestellar/kubestellar-mcp/pkg/ai/claude"
 	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 )
 
@@ -87,7 +87,7 @@ func GetAppInstances(ctx context.Context, executor Executor, args json.RawMessag
 		return nil, fmt.Errorf("invalid arguments: %w", err)
 	}
 
-	if err := claude.ValidateK8sName(params.App); err != nil {
+	if err := sanitize.ValidateK8sName(params.App); err != nil {
 		return nil, fmt.Errorf("invalid app name: %w", err)
 	}
 	if params.Namespace != "" {
@@ -123,7 +123,7 @@ func GetAppInstances(ctx context.Context, executor Executor, args json.RawMessag
 	}
 
 	response := map[string]interface{}{
-		"app":       claude.SanitizeForPrompt(params.App),
+		"app":       sanitize.SanitizeForPrompt(params.App),
 		"instances": instances,
 		"count":     len(instances),
 	}
@@ -232,7 +232,7 @@ func GetAppStatus(ctx context.Context, executor Executor, args json.RawMessage) 
 		return nil, fmt.Errorf("invalid arguments: %w", err)
 	}
 
-	if err := claude.ValidateK8sName(params.App); err != nil {
+	if err := sanitize.ValidateK8sName(params.App); err != nil {
 		return nil, fmt.Errorf("invalid app name: %w", err)
 	}
 	if params.Namespace != "" {
@@ -250,7 +250,7 @@ func GetAppStatus(ctx context.Context, executor Executor, args json.RawMessage) 
 
 	// Aggregate status
 	status := AppStatus{
-		App: claude.SanitizeForPrompt(params.App),
+		App: sanitize.SanitizeForPrompt(params.App),
 	}
 
 	for _, result := range results {
@@ -322,7 +322,7 @@ func GetAppLogs(ctx context.Context, executor Executor, args json.RawMessage) (i
 		return nil, fmt.Errorf("invalid arguments: %w", err)
 	}
 
-	if err := claude.ValidateK8sName(params.App); err != nil {
+	if err := sanitize.ValidateK8sName(params.App); err != nil {
 		return nil, fmt.Errorf("invalid app name: %w", err)
 	}
 	if params.Namespace != "" {
@@ -354,7 +354,7 @@ func GetAppLogs(ctx context.Context, executor Executor, args json.RawMessage) (i
 	}
 
 	return map[string]interface{}{
-		"app":      claude.SanitizeForPrompt(params.App),
+		"app":      sanitize.SanitizeForPrompt(params.App),
 		"logCount": len(allLogs),
 		"logs":     allLogs,
 	}, nil
