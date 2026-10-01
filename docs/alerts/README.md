@@ -37,6 +37,13 @@ Alert rules aligned with the SLOs in [`../slo.md`](../slo.md):
   SLO 5 targets.
 - `MCPServerActiveClustersDroppedToZero` — reachable-cluster count drop,
   cross-referenced with the connectivity-loss runbook section.
+  **`kubestellar-deploy`-only:** `mcpserver_active_clusters` is set solely
+  by `multicluster.Executor.executeAll` (`pkg/multicluster/executor.go`),
+  which only `kubestellar-deploy` constructs (`pkg/deploy/mcp/server.go`).
+  `kubestellar-ops` never calls `metrics.SetActiveClusters`, so applying
+  this rule to a `kubestellar-ops` scrape target makes it fire
+  permanently (the gauge never leaves its zero default), not on an actual
+  connectivity regression.
 - `MCPServerScrapeTargetDown` — the `/metrics` scrape target itself is
   unreachable (standard Prometheus `up` metric), independent of the
   `mcpserver_*` series the other rules depend on. Adjust the
