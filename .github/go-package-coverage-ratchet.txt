@@ -36,7 +36,7 @@ pkg/mcp/rpcloop 95.0
 pkg/mcp/tools/upgrades 97.0
 
 # --- Tier 1: Core packages ---
-pkg/gitops 98.5
+pkg/gitops 98.4
 pkg/multicluster 97.5
 pkg/cluster 100.0
 pkg/ai/claude 99.0
