@@ -35,6 +35,19 @@ Alert rules aligned with the SLOs in [`../slo.md`](../slo.md):
   the SLO 5 error budget.
 - `MCPServerHighAIQueryLatencyP95` — p95 AI provider query latency versus
   SLO 5 targets.
+- `MCPServerHighGitOpsSyncFailureRate` — GitOps sync resource failure rate
+  (`mcpserver_gitops_sync_total{action="failed"}`) versus a general
+  operational threshold; not yet tied to a formal SLO in
+  [`../slo.md`](../slo.md) (`kubestellar-deploy`-only — `kubestellar-ops`
+  does not call the GitOps `Syncer`).
+  **No equivalent alert exists for `mcpserver_gitops_drift_total`:**
+  drift detection reports informational drift counts (`missing`/
+  `modified`), not pass/fail outcomes like sync, and resource-check
+  failures encountered while detecting drift (API errors, RBAC denials)
+  are folded into `drift_type="missing"` with no distinct error signal —
+  see `pkg/gitops/drift.go`'s `checkResource` error path. Correlate with
+  `gitops drift check failed` log lines, not this metric, to find actual
+  check failures.
 - `MCPServerActiveClustersDroppedToZero` — reachable-cluster count drop,
   cross-referenced with the connectivity-loss runbook section.
   **`kubestellar-deploy`-only:** `mcpserver_active_clusters` is set solely
