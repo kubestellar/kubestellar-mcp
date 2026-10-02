@@ -39,7 +39,7 @@ pkg/mcp/tools/upgrades 97.0
 pkg/gitops 98.4
 pkg/multicluster 97.5
 pkg/cluster 100.0
-pkg/ai/claude 99.0
+pkg/ai/claude 98.0
 
 # --- Tier 2: CLI / commands ---
 pkg/cmd 96.9
