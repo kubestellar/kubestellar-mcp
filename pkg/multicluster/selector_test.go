@@ -67,10 +67,16 @@ func TestClusterMeetsRequirements(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "ignores invalid requested quantity",
-			cap:  ClusterCapabilities{AllocatableCPU: "1", AllocatableMemory: "1Gi"},
-			req:  WorkloadRequirements{MinCPU: "not-a-quantity", MinMemory: "still-not-valid"},
-			want: true,
+			name: "rejects unparseable requested cpu",
+			cap:  ClusterCapabilities{AllocatableCPU: "8", AllocatableMemory: "16Gi"},
+			req:  WorkloadRequirements{MinCPU: "not-a-quantity"},
+			want: false,
+		},
+		{
+			name: "rejects unparseable requested memory",
+			cap:  ClusterCapabilities{AllocatableCPU: "8", AllocatableMemory: "16Gi"},
+			req:  WorkloadRequirements{MinMemory: "still-not-valid"},
+			want: false,
 		},
 	}
 

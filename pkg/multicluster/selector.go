@@ -190,22 +190,28 @@ func (s *Selector) clusterMeetsRequirements(cap ClusterCapabilities, req Workloa
 	// Check memory requirements
 	if req.MinMemory != "" {
 		required, err := resource.ParseQuantity(req.MinMemory)
-		if err == nil {
-			available, err := resource.ParseQuantity(cap.AllocatableMemory)
-			if err != nil || available.Cmp(required) < 0 {
-				return false
-			}
+		if err != nil {
+			// An unparseable requirement can never be satisfied; do not
+			// silently match clusters against an invalid constraint.
+			return false
+		}
+		available, err := resource.ParseQuantity(cap.AllocatableMemory)
+		if err != nil || available.Cmp(required) < 0 {
+			return false
 		}
 	}
 
 	// Check CPU requirements
 	if req.MinCPU != "" {
 		required, err := resource.ParseQuantity(req.MinCPU)
-		if err == nil {
-			available, err := resource.ParseQuantity(cap.AllocatableCPU)
-			if err != nil || available.Cmp(required) < 0 {
-				return false
-			}
+		if err != nil {
+			// An unparseable requirement can never be satisfied; do not
+			// silently match clusters against an invalid constraint.
+			return false
+		}
+		available, err := resource.ParseQuantity(cap.AllocatableCPU)
+		if err != nil || available.Cmp(required) < 0 {
+			return false
 		}
 	}
 

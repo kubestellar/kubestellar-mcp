@@ -119,6 +119,9 @@ func runWatchLoop(
 	out io.Writer,
 	errOut io.Writer,
 ) error {
+	if interval <= 0 {
+		return fmt.Errorf("interval must be greater than zero, got %s", interval)
+	}
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
