@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -215,4 +216,15 @@ func TestWatchUpgrade_Loop_StatusFetchErrorContinues(t *testing.T) {
 	// Precheck (1) plus at least one loop-time error tick must have run.
 	assert.GreaterOrEqual(t, int(hits.Load()), 2,
 		"loop must poll at least once after the precheck")
+}
+
+// TestRunWatchLoopRejectsNonPositiveInterval verifies the guard added for the
+// user-facing --interval flag: time.NewTicker panics on interval <= 0, so
+// runWatchLoop must return an error instead of crashing.
+func TestRunWatchLoopRejectsNonPositiveInterval(t *testing.T) {
+	for _, interval := range []time.Duration{0, -time.Second} {
+		err := runWatchLoop(context.Background(), nil, interval, io.Discard, io.Discard)
+		require.Error(t, err, "interval %s must be rejected", interval)
+		assert.Contains(t, err.Error(), "interval must be greater than zero")
+	}
 }
