@@ -13,7 +13,6 @@ import (
 
 var validClusterNamePattern = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
 var validK8sNamePattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$`)
-var validK8sNamespacePattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?$`)
 
 // SanitizeForPrompt sanitizes user-controlled strings before injecting them
 // into AI prompts to prevent prompt injection attacks. It removes newlines,
@@ -23,7 +22,7 @@ func SanitizeForPrompt(s string) string {
 	s = strings.ReplaceAll(s, "\n", " ")
 	s = strings.ReplaceAll(s, "\r", " ")
 	s = strings.ReplaceAll(s, "\t", " ")
-	
+
 	// Remove other control characters (ASCII 0-31 except space)
 	var sb strings.Builder
 	for _, r := range s {
@@ -32,15 +31,15 @@ func SanitizeForPrompt(s string) string {
 		}
 	}
 	s = sb.String()
-	
+
 	// Collapse multiple spaces
 	s = strings.Join(strings.Fields(s), " ")
-	
+
 	// Truncate to prevent token stuffing (200 chars is reasonable for cluster/namespace names)
 	if len(s) > 200 {
 		s = s[:200] + "..."
 	}
-	
+
 	return s
 }
 
@@ -65,22 +64,6 @@ func ValidateK8sName(name string) error {
 	}
 	if !validK8sNamePattern.MatchString(name) {
 		return fmt.Errorf("name must match pattern ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$")
-	}
-	return nil
-}
-
-// ValidateK8sNamespace validates a Kubernetes namespace name following RFC 1123
-// DNS label rules: lowercase alphanumeric with hyphens, must start and end with
-// alphanumeric, max 63 characters.
-func ValidateK8sNamespace(namespace string) error {
-	if namespace == "" {
-		return nil // empty namespace is valid (means all namespaces)
-	}
-	if len(namespace) > 63 {
-		return fmt.Errorf("namespace must be 63 characters or less")
-	}
-	if !validK8sNamespacePattern.MatchString(namespace) {
-		return fmt.Errorf("namespace must match pattern ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
 	}
 	return nil
 }
