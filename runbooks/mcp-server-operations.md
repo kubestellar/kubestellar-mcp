@@ -287,6 +287,8 @@ which are `kubestellar-ops`-specific.
 - `mcpserver_tool_duration_seconds{tool,cluster}` — latency histogram; compare against [SLO 1/2](../docs/slo.md) targets.
 - `mcpserver_active_clusters` — reachable cluster count from the most recent discovery; a sudden drop indicates connectivity loss (see [Multi-Cluster Connectivity Loss](#multi-cluster-connectivity-loss)). **`kubestellar-deploy`-only:** this gauge is set solely by `multicluster.Executor.executeAll` (`pkg/multicluster/executor.go`), which only `kubestellar-deploy` constructs. `kubestellar-ops` never calls `metrics.SetActiveClusters`, so on a `kubestellar-ops` target it never leaves 0 — do not use it or `MCPServerActiveClustersDroppedToZero` to monitor a `kubestellar-ops` deployment (see [`docs/slo.md`](../docs/slo.md)).
 - `mcpserver_ai_query_total{provider,status}` / `mcpserver_ai_query_duration_seconds{provider}` — AI provider query volume, outcome, and latency (see `pkg/ai/claude/client.go`); watch alongside `MCPServerHighAIQueryErrorRate` in [`docs/alerts/mcpserver-rules.yaml`](../docs/alerts/mcpserver-rules.yaml).
+- `mcpserver_gitops_sync_total{cluster,action}` / `mcpserver_gitops_sync_duration_seconds{cluster}` — GitOps sync resource outcomes (`created`/`updated`/`unchanged`/`failed`/`skipped`) and latency per cluster (see `pkg/gitops/sync.go`); watch alongside `MCPServerHighGitOpsSyncFailureRate` in [`docs/alerts/mcpserver-rules.yaml`](../docs/alerts/mcpserver-rules.yaml).
+- `mcpserver_gitops_drift_total{cluster,drift_type}` / `mcpserver_gitops_drift_duration_seconds{cluster}` — detected drift count (`missing`/`modified`) and detection latency per cluster (see `pkg/gitops/drift.go`).
 
 ### Dashboard
 

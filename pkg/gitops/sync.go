@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -14,6 +15,8 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
+
+	"github.com/kubestellar/kubestellar-mcp/pkg/metrics"
 )
 
 // SyncAction represents what action was taken for a resource
@@ -77,6 +80,7 @@ type SyncOptions struct {
 
 // Sync applies manifests to a cluster
 func (s *Syncer) Sync(ctx context.Context, manifests []Manifest, clusterName string, opts SyncOptions) (*SyncSummary, error) {
+	start := time.Now()
 	klog.V(2).InfoS("gitops sync started", "cluster", clusterName, "manifests", len(manifests), "dryRun", opts.DryRun)
 
 	summary := &SyncSummary{
@@ -153,6 +157,14 @@ func (s *Syncer) Sync(ctx context.Context, manifests []Manifest, clusterName str
 	klog.V(2).InfoS("gitops sync completed", "cluster", clusterName,
 		"created", summary.Created, "updated", summary.Updated,
 		"unchanged", summary.Unchanged, "failed", summary.Failed, "skipped", summary.Skipped)
+
+	metrics.RecordGitOpsSync(clusterName, time.Since(start), map[string]int{
+		string(SyncActionCreated):   summary.Created,
+		string(SyncActionUpdated):   summary.Updated,
+		string(SyncActionUnchanged): summary.Unchanged,
+		string(SyncActionFailed):    summary.Failed,
+		string(SyncActionSkipped):   summary.Skipped,
+	})
 
 	return summary, nil
 }
