@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -15,6 +16,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
+
+	"github.com/kubestellar/kubestellar-mcp/pkg/metrics"
 )
 
 // DriftType indicates the type of drift detected
@@ -66,6 +69,7 @@ func NewDriftDetector(config *rest.Config) (*DriftDetector, error) {
 
 // DetectDrift compares git manifests against cluster state
 func (d *DriftDetector) DetectDrift(ctx context.Context, manifests []Manifest, clusterName string) ([]DriftResult, error) {
+	start := time.Now()
 	klog.V(2).InfoS("gitops drift detection started", "cluster", clusterName, "manifests", len(manifests))
 
 	var drifts []DriftResult
@@ -101,6 +105,12 @@ func (d *DriftDetector) DetectDrift(ctx context.Context, manifests []Manifest, c
 	}
 
 	klog.V(2).InfoS("gitops drift detection completed", "cluster", clusterName, "checked", len(expected), "drifts", len(drifts))
+
+	driftCounts := make(map[string]int, len(drifts))
+	for _, dr := range drifts {
+		driftCounts[string(dr.DriftType)]++
+	}
+	metrics.RecordGitOpsDrift(clusterName, time.Since(start), driftCounts)
 
 	return drifts, nil
 }

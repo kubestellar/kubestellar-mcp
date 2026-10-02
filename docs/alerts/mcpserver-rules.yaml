@@ -148,6 +148,28 @@ spec:
               Do not apply this rule to a kubestellar-ops target - that
               binary never populates this metric (see comment above).
 
+        # GitOps sync failure rate. mcpserver_gitops_sync_total is recorded
+        # by pkg/gitops/sync.go via metrics.RecordGitOpsSync (kubestellar-
+        # deploy only - kubestellar-ops does not call the gitops Syncer).
+        # Not yet tied to a formal SLO in ../slo.md; this is a general
+        # operational signal, same pattern as MCPServerHighToolErrorRate.
+        - alert: MCPServerHighGitOpsSyncFailureRate
+          expr: |
+            sum(rate(mcpserver_gitops_sync_total{action="failed"}[1h]))
+            /
+            sum(rate(mcpserver_gitops_sync_total[1h]))
+            > 0.05
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: "kubestellar-mcp (kubestellar-deploy) GitOps sync failure rate is elevated"
+            description: >-
+              GitOps sync resource failure rate has been above 5% for 1h.
+              Inspect mcpserver_gitops_sync_total{cluster,action="failed"}
+              to isolate the affected cluster; see
+              runbooks/mcp-server-operations.md#using-the-metrics-endpoint.
+
         # Scrape-target-down detector. All rules above depend on
         # mcpserver_* series being present; once the /metrics endpoint
         # stops being scrapable (process crashed, hung, or unreachable),

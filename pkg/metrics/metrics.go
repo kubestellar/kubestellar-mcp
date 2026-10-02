@@ -89,6 +89,38 @@ var (
 		Help:    "End-to-end latency of AI provider queries, in seconds.",
 		Buckets: prometheus.DefBuckets,
 	}, []string{"provider"})
+
+	// GitOpsSyncTotal counts GitOps sync resource outcomes by cluster and
+	// action. action is a short, closed enum (created/updated/unchanged/
+	// failed/skipped) - never a raw message.
+	GitOpsSyncTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "mcpserver_gitops_sync_total",
+		Help: "Total number of GitOps sync resource outcomes, by cluster and action.",
+	}, []string{"cluster", "action"})
+
+	// GitOpsSyncDurationSeconds observes end-to-end latency of a GitOps
+	// sync operation (all manifests synced to one cluster in one call).
+	GitOpsSyncDurationSeconds = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "mcpserver_gitops_sync_duration_seconds",
+		Help:    "End-to-end latency of GitOps sync operations, in seconds.",
+		Buckets: prometheus.DefBuckets,
+	}, []string{"cluster"})
+
+	// GitOpsDriftTotal counts detected GitOps drifts by cluster and drift
+	// type. drift_type is a short, closed enum (missing/modified).
+	GitOpsDriftTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "mcpserver_gitops_drift_total",
+		Help: "Total number of GitOps drifts detected, by cluster and drift type.",
+	}, []string{"cluster", "drift_type"})
+
+	// GitOpsDriftDurationSeconds observes end-to-end latency of a GitOps
+	// drift-detection operation (all manifests checked against one cluster
+	// in one call).
+	GitOpsDriftDurationSeconds = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "mcpserver_gitops_drift_duration_seconds",
+		Help:    "End-to-end latency of GitOps drift-detection operations, in seconds.",
+		Buckets: prometheus.DefBuckets,
+	}, []string{"cluster"})
 )
 
 func init() {
@@ -99,6 +131,10 @@ func init() {
 		ActiveClusters,
 		AIQueryTotal,
 		AIQueryDurationSeconds,
+		GitOpsSyncTotal,
+		GitOpsSyncDurationSeconds,
+		GitOpsDriftTotal,
+		GitOpsDriftDurationSeconds,
 	)
 }
 
@@ -181,6 +217,40 @@ func RecordAIQuery(provider string, duration time.Duration, err error) {
 
 	AIQueryTotal.WithLabelValues(provider, status).Inc()
 	AIQueryDurationSeconds.WithLabelValues(provider).Observe(duration.Seconds())
+}
+
+// RecordGitOpsSync records the per-action outcome counts and total duration
+// of a completed GitOps sync operation. counts keys must be one of the
+// closed SyncAction string values (created/updated/unchanged/failed/
+// skipped); zero-valued or absent actions are not recorded.
+func RecordGitOpsSync(cluster string, duration time.Duration, counts map[string]int) {
+	if cluster == "" {
+		cluster = unknownCluster
+	}
+
+	for action, n := range counts {
+		if n > 0 {
+			GitOpsSyncTotal.WithLabelValues(cluster, action).Add(float64(n))
+		}
+	}
+	GitOpsSyncDurationSeconds.WithLabelValues(cluster).Observe(duration.Seconds())
+}
+
+// RecordGitOpsDrift records the per-type drift counts and total duration of
+// a completed GitOps drift-detection operation. counts keys must be one of
+// the closed DriftType string values (missing/modified); zero-valued or
+// absent types are not recorded.
+func RecordGitOpsDrift(cluster string, duration time.Duration, counts map[string]int) {
+	if cluster == "" {
+		cluster = unknownCluster
+	}
+
+	for driftType, n := range counts {
+		if n > 0 {
+			GitOpsDriftTotal.WithLabelValues(cluster, driftType).Add(float64(n))
+		}
+	}
+	GitOpsDriftDurationSeconds.WithLabelValues(cluster).Observe(duration.Seconds())
 }
 
 // StartServer starts an HTTP server exposing the /metrics endpoint on addr

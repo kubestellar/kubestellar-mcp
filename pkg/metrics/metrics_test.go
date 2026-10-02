@@ -219,6 +219,143 @@ func jsonUnmarshalTypeError() error {
 	return json.Unmarshal([]byte(`"not-a-number"`), &v)
 }
 
+func TestRecordGitOpsSync(t *testing.T) {
+	RecordGitOpsSync("prod-east", 15*time.Millisecond, map[string]int{
+		"created":   2,
+		"updated":   0,
+		"unchanged": 1,
+		"failed":    0,
+		"skipped":   0,
+	})
+
+	families := gather(t)
+
+	foundCreated := false
+	for _, m := range families["mcpserver_gitops_sync_total"].GetMetric() {
+		if labelValue(m, "cluster") == "prod-east" && labelValue(m, "action") == "created" {
+			foundCreated = true
+			if m.GetCounter().GetValue() < 2 {
+				t.Errorf("expected counter >= 2, got %v", m.GetCounter().GetValue())
+			}
+		}
+		if labelValue(m, "cluster") == "prod-east" && labelValue(m, "action") == "updated" {
+			t.Fatal("zero-valued action must not be recorded as a series")
+		}
+	}
+	if !foundCreated {
+		t.Fatal("expected mcpserver_gitops_sync_total series for prod-east/created")
+	}
+
+	durFound := false
+	for _, m := range families["mcpserver_gitops_sync_duration_seconds"].GetMetric() {
+		if labelValue(m, "cluster") == "prod-east" {
+			durFound = true
+			if m.GetHistogram().GetSampleCount() < 1 {
+				t.Errorf("expected at least one observation, got %v", m.GetHistogram().GetSampleCount())
+			}
+		}
+	}
+	if !durFound {
+		t.Fatal("expected mcpserver_gitops_sync_duration_seconds series for prod-east")
+	}
+}
+
+func TestRecordGitOpsSyncEmptyClusterNormalizesToNone(t *testing.T) {
+	RecordGitOpsSync("", time.Millisecond, map[string]int{"created": 1})
+
+	families := gather(t)
+	for _, m := range families["mcpserver_gitops_sync_total"].GetMetric() {
+		if labelValue(m, "action") == "created" && labelValue(m, "cluster") == "" {
+			t.Fatal("cluster label must never be empty; expected normalization to 'none'")
+		}
+	}
+	found := false
+	for _, m := range families["mcpserver_gitops_sync_total"].GetMetric() {
+		if labelValue(m, "cluster") == unknownCluster && labelValue(m, "action") == "created" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("expected mcpserver_gitops_sync_total series normalized to cluster=none")
+	}
+}
+
+func TestRecordGitOpsDrift(t *testing.T) {
+	RecordGitOpsDrift("prod-east", 8*time.Millisecond, map[string]int{
+		"missing":  1,
+		"modified": 0,
+	})
+
+	families := gather(t)
+
+	foundMissing := false
+	for _, m := range families["mcpserver_gitops_drift_total"].GetMetric() {
+		if labelValue(m, "cluster") == "prod-east" && labelValue(m, "drift_type") == "missing" {
+			foundMissing = true
+			if m.GetCounter().GetValue() < 1 {
+				t.Errorf("expected counter >= 1, got %v", m.GetCounter().GetValue())
+			}
+		}
+		if labelValue(m, "cluster") == "prod-east" && labelValue(m, "drift_type") == "modified" {
+			t.Fatal("zero-valued drift type must not be recorded as a series")
+		}
+	}
+	if !foundMissing {
+		t.Fatal("expected mcpserver_gitops_drift_total series for prod-east/missing")
+	}
+
+	durFound := false
+	for _, m := range families["mcpserver_gitops_drift_duration_seconds"].GetMetric() {
+		if labelValue(m, "cluster") == "prod-east" {
+			durFound = true
+			if m.GetHistogram().GetSampleCount() < 1 {
+				t.Errorf("expected at least one observation, got %v", m.GetHistogram().GetSampleCount())
+			}
+		}
+	}
+	if !durFound {
+		t.Fatal("expected mcpserver_gitops_drift_duration_seconds series for prod-east")
+	}
+}
+
+func TestRecordGitOpsDriftEmptyClusterNormalizesToNone(t *testing.T) {
+	RecordGitOpsDrift("", time.Millisecond, map[string]int{"modified": 1})
+
+	families := gather(t)
+	found := false
+	for _, m := range families["mcpserver_gitops_drift_total"].GetMetric() {
+		if labelValue(m, "cluster") == unknownCluster && labelValue(m, "drift_type") == "modified" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("expected mcpserver_gitops_drift_total series normalized to cluster=none")
+	}
+}
+
+func TestRecordGitOpsDriftNoDrifts(t *testing.T) {
+	// Exercise the common "no drift detected" path: an empty counts map
+	// must still record a duration observation with zero counter series
+	// added.
+	RecordGitOpsDrift("clean-cluster", time.Millisecond, map[string]int{})
+
+	families := gather(t)
+	for _, m := range families["mcpserver_gitops_drift_total"].GetMetric() {
+		if labelValue(m, "cluster") == "clean-cluster" {
+			t.Fatal("expected no drift_total series when counts map is empty")
+		}
+	}
+	durFound := false
+	for _, m := range families["mcpserver_gitops_drift_duration_seconds"].GetMetric() {
+		if labelValue(m, "cluster") == "clean-cluster" {
+			durFound = true
+		}
+	}
+	if !durFound {
+		t.Fatal("expected mcpserver_gitops_drift_duration_seconds series for clean-cluster")
+	}
+}
+
 func TestStartServerRejectsEmptyAddr(t *testing.T) {
 	if _, err := StartServer(""); err == nil {
 		t.Fatal("expected error for empty addr")
