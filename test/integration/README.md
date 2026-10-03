@@ -43,6 +43,13 @@ Covered packages:
   (wired the same way as `kubectl_test.go`'s `newKubectlDeps`) and asserts
   the label round-trips on both the tool's own result and a direct client
   `Get`, plus a not-found case for a resource that was never created.
+- `pkg/deploy/mcp/kustomize` — `kustomize_apply`/`kustomize_delete`
+  (`kustomize_test.go`): seeds a namespace directly against the envtest API
+  server, writes a real kustomization fixture under the test temp dir, then
+  drives the handlers through a `handlers.Registry.Find` dispatch adapter.
+  `KUBEBUILDER_ASSETS` is put on `PATH` so the real setup-envtest `kubectl`
+  binary exercises both the `kubectl kustomize` fallback build path and the
+  `kubectl apply`/`delete` exec paths against the envtest apiserver.
 - `pkg/mcp/server/diagnostics` — `find_pod_issues`,
   `find_deployment_issues`, `check_resource_limits`,
   `check_security_issues`, `analyze_namespace`, `get_warning_events`
@@ -105,10 +112,7 @@ Covered packages:
   `trigger_openshift_upgrade`) need CRDs / Helm-release secrets and stay
   with the package's unit tests.
 
-Still uncovered (tracked in kubestellar-mcp#1070): `pkg/deploy/mcp/kustomize`
-(shells out to the `kustomize`/`kubectl` binaries with a real kubeconfig
-`--context`, so it fits a kind-based Option B suite better than the pure
-apiserver envtest harness), `pkg/deploy/mcp/gitops`
+Still uncovered (tracked in kubestellar-mcp#1070): `pkg/deploy/mcp/gitops`
 (`sync_from_git`/`reconcile`/`preview_changes`, which read manifests from a
 git source), `pkg/deploy/mcp/helm` (see below), the OpenShift/OLM/Helm-only
 `upgrades` tools noted above, plus the

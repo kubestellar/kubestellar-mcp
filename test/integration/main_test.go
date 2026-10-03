@@ -27,6 +27,10 @@ var testEnv *envtest.Environment
 var testCfg *rest.Config
 
 func TestMain(m *testing.M) {
+	if assets := os.Getenv("KUBEBUILDER_ASSETS"); assets != "" {
+		os.Setenv("PATH", assets+string(os.PathListSeparator)+os.Getenv("PATH"))
+	}
+
 	testEnv = &envtest.Environment{}
 
 	cfg, err := testEnv.Start()
