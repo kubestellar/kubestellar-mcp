@@ -42,6 +42,16 @@ var sensitiveKinds = map[string]bool{
 	"mutatingwebhookconfigurations":   true,
 	"validatingwebhookconfiguration":  true,
 	"validatingwebhookconfigurations": true,
+	// CEL-based admission control (admissionregistration.k8s.io/v1, GA
+	// since Kubernetes 1.30) — the built-in replacement for a large class
+	// of validating-webhook use cases. A binding can retarget or disable
+	// enforcement of an existing policy (e.g. by narrowing matchResources
+	// or setting validationActions to Warn-only), so it must be blocked
+	// for the same reason ValidatingWebhookConfiguration is above.
+	"validatingadmissionpolicy":         true,
+	"validatingadmissionpolicies":       true,
+	"validatingadmissionpolicybinding":  true,
+	"validatingadmissionpolicybindings": true,
 	// Cert minting
 	"certificatesigningrequest":  true,
 	"certificatesigningrequests": true,

@@ -48,6 +48,12 @@ func TestIsSensitiveKind(t *testing.T) {
 		{name: "podsecuritypolicy", kind: "podsecuritypolicy"},
 		{name: "PodSecurityPolicy mixed", kind: "PodSecurityPolicy"},
 		{name: "psp shorthand", kind: "psp"},
+		{name: "validatingadmissionpolicy", kind: "validatingadmissionpolicy"},
+		{name: "validatingadmissionpolicies plural", kind: "validatingadmissionpolicies"},
+		{name: "ValidatingAdmissionPolicy mixed", kind: "ValidatingAdmissionPolicy"},
+		{name: "validatingadmissionpolicybinding", kind: "validatingadmissionpolicybinding"},
+		{name: "validatingadmissionpolicybindings plural", kind: "validatingadmissionpolicybindings"},
+		{name: "ValidatingAdmissionPolicyBinding mixed", kind: "ValidatingAdmissionPolicyBinding"},
 	}
 
 	for _, tt := range blocked {
