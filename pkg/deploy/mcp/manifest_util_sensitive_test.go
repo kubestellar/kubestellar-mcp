@@ -17,6 +17,12 @@ func TestIsSensitiveKind(t *testing.T) {
 		kind string
 	}{
 		{name: "clusterrole", kind: "clusterrole"},
+		{name: "validatingadmissionpolicy", kind: "validatingadmissionpolicy"},
+		{name: "validatingadmissionpolicies plural", kind: "validatingadmissionpolicies"},
+		{name: "ValidatingAdmissionPolicy mixed", kind: "ValidatingAdmissionPolicy"},
+		{name: "validatingadmissionpolicybinding", kind: "validatingadmissionpolicybinding"},
+		{name: "validatingadmissionpolicybindings plural", kind: "validatingadmissionpolicybindings"},
+		{name: "ValidatingAdmissionPolicyBinding mixed", kind: "ValidatingAdmissionPolicyBinding"},
 		{name: "clusterroles plural", kind: "clusterroles"},
 		{name: "ClusterRole mixed case", kind: "ClusterRole"},
 		{name: "CLUSTERROLE upper", kind: "CLUSTERROLE"},

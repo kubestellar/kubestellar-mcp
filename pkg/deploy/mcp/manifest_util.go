@@ -14,7 +14,7 @@ import (
 // mutate on the caller's behalf. The block is scoped by the invariant that
 // creating any listed resource is equivalent to privilege escalation on the
 // target cluster/namespace — either directly (Secret/ServiceAccount/RBAC),
-// via admission-time rewrite (Mutating/ValidatingWebhookConfiguration), or via
+// via admission-time rewrite (Mutating/ValidatingWebhookConfiguration, ValidatingAdmissionPolicy/Binding), or via
 // out-of-band credential minting (CertificateSigningRequest, legacy PSP).
 //
 // Namespaced Role/RoleBinding are included because they can grant `secrets:*`
@@ -42,6 +42,11 @@ var sensitiveKinds = map[string]bool{
 	"mutatingwebhookconfigurations":   true,
 	"validatingwebhookconfiguration":  true,
 	"validatingwebhookconfigurations": true,
+	// Built-in CEL admission control (K8s 1.30+ GA)
+	"validatingadmissionpolicy":         true,
+	"validatingadmissionpolicies":       true,
+	"validatingadmissionpolicybinding":  true,
+	"validatingadmissionpolicybindings": true,
 	// Cert minting
 	"certificatesigningrequest":  true,
 	"certificatesigningrequests": true,
