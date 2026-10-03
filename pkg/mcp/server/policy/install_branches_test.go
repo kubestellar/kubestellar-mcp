@@ -102,6 +102,46 @@ func TestToolInstallOwnershipPolicy_ConstraintTemplateAlreadyExists(t *testing.T
 	}
 }
 
+// TestToolInstallOwnershipPolicy_ConstraintTemplateGetError covers the
+// getErr != nil branch added alongside the "already exists" → Get +
+// SetResourceVersion + Update path: when the subsequent Get() fails, the
+// tool bails out with "Failed to get existing ConstraintTemplate: …" instead
+// of reaching Update().
+func TestToolInstallOwnershipPolicy_ConstraintTemplateGetError(t *testing.T) {
+	existing := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": constraintTemplateAPIVersion,
+			"kind":       "ConstraintTemplate",
+			"metadata": map[string]interface{}{
+				"name": ownershipTemplateName,
+			},
+		},
+	}
+	fakeK8s := k8sfake.NewSimpleClientset()
+	fakeDyn := dynfake.NewSimpleDynamicClient(dynamicScheme, existing)
+	fakeDyn.PrependReactor("get", "constrainttemplates", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, errors.New("etcd unavailable")
+	})
+	server := &testServer{
+		discoverer:           stubDiscoverer{},
+		clientFactory:        func(string) (kubernetes.Interface, error) { return fakeK8s, nil },
+		dynamicClientFactory: func(string) (dynamic.Interface, error) { return fakeDyn, nil },
+	}
+	result, rpcErr := callTool(t, server, "install_ownership_policy", map[string]interface{}{
+		"cluster": "test",
+		"mode":    "dryrun",
+	})
+	if rpcErr != nil {
+		t.Fatalf("unexpected RPC error: %v", rpcErr)
+	}
+	if !result.IsError {
+		t.Fatalf("expected tool error on ConstraintTemplate get failure, got: %s", result.Content[0].Text)
+	}
+	if !strings.Contains(result.Content[0].Text, "Failed to get existing ConstraintTemplate: etcd unavailable") {
+		t.Errorf("unexpected error message: %s", result.Content[0].Text)
+	}
+}
+
 // TestToolInstallOwnershipPolicy_ConstraintTemplateCreateError covers the
 // non-"already exists" error branch on ConstraintTemplate Create — the tool
 // bails out with "Failed to create ConstraintTemplate: …".
