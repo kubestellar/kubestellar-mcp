@@ -132,6 +132,11 @@ violation[{"msg": msg, "details": {"missing_labels": missing}}] {
 	if err != nil {
 		if strings.Contains(err.Error(), "already exists") {
 			sb.WriteString("**ConstraintTemplate:** Already exists (updating...)\n")
+			existingCT, getErr := dynClient.Resource(ctGVR).Get(ctx, ownershipTemplateName, metav1.GetOptions{})
+			if getErr != nil {
+				return fmt.Sprintf("Failed to get existing ConstraintTemplate: %v", getErr), true
+			}
+			constraintTemplate.SetResourceVersion(existingCT.GetResourceVersion())
 			_, err = dynClient.Resource(ctGVR).Update(ctx, constraintTemplate, metav1.UpdateOptions{})
 			if err != nil {
 				return fmt.Sprintf("Failed to update ConstraintTemplate: %v", err), true
