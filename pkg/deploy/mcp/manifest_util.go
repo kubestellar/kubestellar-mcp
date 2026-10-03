@@ -14,7 +14,8 @@ import (
 // mutate on the caller's behalf. The block is scoped by the invariant that
 // creating any listed resource is equivalent to privilege escalation on the
 // target cluster/namespace — either directly (Secret/ServiceAccount/RBAC),
-// via admission-time rewrite (Mutating/ValidatingWebhookConfiguration, ValidatingAdmissionPolicy/Binding), or via
+// via admission-time rewrite (Mutating/ValidatingWebhookConfiguration,
+// Mutating/ValidatingAdmissionPolicy/Binding), or via
 // out-of-band credential minting (CertificateSigningRequest, legacy PSP).
 //
 // Namespaced Role/RoleBinding are included because they can grant `secrets:*`
@@ -47,6 +48,14 @@ var sensitiveKinds = map[string]bool{
 	"validatingadmissionpolicies":       true,
 	"validatingadmissionpolicybinding":  true,
 	"validatingadmissionpolicybindings": true,
+	// Built-in CEL admission control that can rewrite requests in-flight
+	// (KEP-3962) — strictly more dangerous than the validating variant above
+	// since a malicious policy can mutate any matching object (e.g. strip a
+	// Pod's securityContext or rewrite a ServiceAccount token mount).
+	"mutatingadmissionpolicy":         true,
+	"mutatingadmissionpolicies":       true,
+	"mutatingadmissionpolicybinding":  true,
+	"mutatingadmissionpolicybindings": true,
 	// Cert minting
 	"certificatesigningrequest":  true,
 	"certificatesigningrequests": true,
