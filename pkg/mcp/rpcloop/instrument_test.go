@@ -8,6 +8,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/klog/v2"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/metrics"
 )
@@ -67,6 +68,37 @@ func TestInstrumentToolCallEmptyClusterDoesNotPanic(t *testing.T) {
 		return ToolCallOutcome{Found: true, IsError: false}
 	})
 	assert.True(t, outcome.Found)
+}
+
+func TestInstrumentToolCallLogsTraceAndSpanID(t *testing.T) {
+	// With the default no-op TracerProvider (see the tracer var doc in
+	// instrument.go), SpanContext is invalid, so both IDs log as the fixed
+	// all-zero hex string; this test only guards that the fields are
+	// present and well-formed, not that they are non-zero (that requires a
+	// real exporter, which this package intentionally never wires).
+	logBuf, restore := captureKlog(t)
+	defer restore()
+
+	outcome := InstrumentToolCall(context.Background(), "get_clusters", "test-cluster", func(ctx context.Context) ToolCallOutcome {
+		return ToolCallOutcome{Found: true, IsError: false, Duration: time.Millisecond}
+	})
+	require.True(t, outcome.Found)
+	klog.Flush()
+
+	logged := logBuf.String()
+	assert.Contains(t, logged, "trace_id=")
+	assert.Contains(t, logged, "span_id=")
+
+	logBuf.Reset()
+	outcome = InstrumentToolCall(context.Background(), "deploy_app", "", func(ctx context.Context) ToolCallOutcome {
+		return ToolCallOutcome{Found: true, IsError: true, ErrKind: metrics.ErrorKindK8sAPI, Duration: time.Millisecond}
+	})
+	require.True(t, outcome.Found)
+	klog.Flush()
+
+	errLogged := logBuf.String()
+	assert.Contains(t, errLogged, "trace_id=")
+	assert.Contains(t, errLogged, "span_id=")
 }
 
 func TestInstrumentToolCallDefaultErrKindNormalizesToUnknown(t *testing.T) {

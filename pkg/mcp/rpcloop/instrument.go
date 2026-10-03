@@ -77,11 +77,21 @@ func InstrumentToolCall(ctx context.Context, toolName, cluster string, dispatch 
 
 	metrics.RecordToolCall(toolName, cluster, outcome.Duration, outcome.IsError, outcome.ErrKind)
 
+	// trace_id/span_id let an operator who has wired a real TracerProvider
+	// correlate these log lines with the matching exported span; with the
+	// default no-op provider (see the tracer var doc above) SpanContext is
+	// invalid and both IDs log as the fixed all-zero hex string, which is
+	// harmless and not a label (klog structured fields are not Prometheus
+	// metrics labels, so this never risks unbounded cardinality there).
+	sc := span.SpanContext()
+	traceID := sc.TraceID().String()
+	spanID := sc.SpanID().String()
+
 	if outcome.IsError {
 		span.SetStatus(codes.Error, "tool call returned an error result")
-		klog.ErrorS(nil, "tool call failed", "tool", toolName, "cluster", cluster, "duration", outcome.Duration)
+		klog.ErrorS(nil, "tool call failed", "tool", toolName, "cluster", cluster, "duration", outcome.Duration, "trace_id", traceID, "span_id", spanID)
 	} else {
-		klog.V(2).InfoS("tool call succeeded", "tool", toolName, "cluster", cluster, "duration", outcome.Duration)
+		klog.V(2).InfoS("tool call succeeded", "tool", toolName, "cluster", cluster, "duration", outcome.Duration, "trace_id", traceID, "span_id", spanID)
 	}
 
 	return outcome
