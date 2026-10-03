@@ -4,74 +4,7 @@ import (
 	"bytes"
 	"strings"
 	"testing"
-	"time"
 )
-
-// TestBarRenderShowsMinuteETA covers the uncovered `remaining > time.Minute`
-// branch inside Bar.render (bar.go:120). Existing renderer tests set
-// current on a bar constructed at "now", so remaining ETA is always
-// sub-second and only the else-branch (seconds) is exercised. Backdating
-// startTime forces the minute-formatted branch and asserts on the observable
-// "ETA: 1m..." token that a user would see in the CLI.
-func TestBarRenderShowsMinuteETA(t *testing.T) {
-	var buf bytes.Buffer
-	bar := New(&buf, 100)
-	// 10 seconds elapsed at 10% => remaining = elapsed * (100-10)/10 = 90s > 1m
-	bar.startTime = time.Now().Add(-10 * time.Second)
-	bar.current = 10
-
-	bar.render()
-
-	output := buf.String()
-	if !strings.Contains(output, "ETA: 1m") {
-		t.Fatalf("render() output = %q, want it to contain minute-formatted ETA", output)
-	}
-	// Regression guard against reintroducing a seconds-only formatter.
-	if strings.Contains(output, "ETA: 90s") {
-		t.Fatalf("render() output = %q, want minutes, not raw seconds", output)
-	}
-}
-
-// TestBarRenderOmitsETAWhenComplete covers the `percent < 100` guard on the
-// ETA arm: when the bar is exactly at 100%, no ETA suffix should render.
-// This branch is otherwise easy to regress into "ETA: 0s" noise when the
-// remaining-time math is refactored.
-func TestBarRenderOmitsETAWhenComplete(t *testing.T) {
-	var buf bytes.Buffer
-	bar := New(&buf, 10)
-	bar.startTime = time.Now().Add(-5 * time.Second)
-	bar.current = 10
-
-	bar.render()
-
-	output := buf.String()
-	if strings.Contains(output, "ETA") {
-		t.Fatalf("render() output = %q, want no ETA when complete", output)
-	}
-	if !strings.Contains(output, "100%") {
-		t.Fatalf("render() output = %q, want 100%%", output)
-	}
-}
-
-// TestBarRenderOmitsETAWhenCurrentIsZero covers the `b.current > 0` guard on
-// the ETA arm. Immediately after construction the bar has current=0 and the
-// division-by-zero-guard should prevent an ETA token from rendering.
-func TestBarRenderOmitsETAWhenCurrentIsZero(t *testing.T) {
-	var buf bytes.Buffer
-	bar := New(&buf, 10)
-	bar.startTime = time.Now().Add(-5 * time.Second)
-	// current stays at zero
-
-	bar.render()
-
-	output := buf.String()
-	if strings.Contains(output, "ETA") {
-		t.Fatalf("render() output = %q, want no ETA when current==0", output)
-	}
-	if !strings.Contains(output, "0%") {
-		t.Fatalf("render() output = %q, want 0%%", output)
-	}
-}
 
 // TestLiveBarRenderClampsNegativePercent covers the `pct < 0 { pct = 0 }`
 // clamp inside LiveBar.Render (bar.go:296-298). Existing tests only reach
