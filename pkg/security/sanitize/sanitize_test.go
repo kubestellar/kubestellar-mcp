@@ -58,6 +58,21 @@ func TestSanitizeForPrompt(t *testing.T) {
 	}
 }
 
+// TestSanitizeForPromptDelegatesToSanitizeControlChars locks in that the
+// prompt-specific name is a pure alias so the two can't silently diverge.
+func TestSanitizeForPromptDelegatesToSanitizeControlChars(t *testing.T) {
+	inputs := []string{
+		"production-cluster",
+		"cluster\nwith\r\ncontrol\tchars",
+		strings.Repeat("a", 300),
+	}
+	for _, in := range inputs {
+		if got, want := SanitizeForPrompt(in), SanitizeControlChars(in); got != want {
+			t.Errorf("SanitizeForPrompt(%q) = %q, want %q (SanitizeControlChars)", in, got, want)
+		}
+	}
+}
+
 func TestValidateClusterName(t *testing.T) {
 	tests := []struct {
 		name  string
