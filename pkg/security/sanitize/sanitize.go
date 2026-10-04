@@ -14,10 +14,13 @@ import (
 var validClusterNamePattern = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
 var validK8sNamePattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$`)
 
-// SanitizeForPrompt sanitizes user-controlled strings before injecting them
-// into AI prompts to prevent prompt injection attacks. It removes newlines,
-// control characters, and truncates long strings.
-func SanitizeForPrompt(s string) string {
+// SanitizeControlChars strips newlines, carriage returns, tabs, and other
+// control characters from a user-controlled string, collapses runs of
+// whitespace, and truncates it to 200 characters. It has no AI-specific
+// behavior; use it for any user-controlled string headed into a tool
+// response, log line, or similar sink where embedded control characters or
+// unbounded length are undesirable.
+func SanitizeControlChars(s string) string {
 	// Replace newlines and carriage returns with spaces
 	s = strings.ReplaceAll(s, "\n", " ")
 	s = strings.ReplaceAll(s, "\r", " ")
@@ -41,6 +44,16 @@ func SanitizeForPrompt(s string) string {
 	}
 
 	return s
+}
+
+// SanitizeForPrompt sanitizes user-controlled strings before injecting them
+// into AI prompts to prevent prompt injection attacks. It removes newlines,
+// control characters, and truncates long strings. This is SanitizeControlChars
+// under a prompt-specific name; call SanitizeControlChars directly for
+// non-prompt sinks (tool responses, logs, etc.) so call sites don't imply an
+// AI-prompt dependency that isn't there.
+func SanitizeForPrompt(s string) string {
+	return SanitizeControlChars(s)
 }
 
 // ValidateClusterName checks if a cluster name matches the expected pattern.

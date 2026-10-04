@@ -123,7 +123,7 @@ func GetAppInstances(ctx context.Context, executor Executor, args json.RawMessag
 	}
 
 	response := map[string]interface{}{
-		"app":       sanitize.SanitizeForPrompt(params.App),
+		"app":       sanitize.SanitizeControlChars(params.App),
 		"instances": instances,
 		"count":     len(instances),
 	}
@@ -250,7 +250,7 @@ func GetAppStatus(ctx context.Context, executor Executor, args json.RawMessage) 
 
 	// Aggregate status
 	status := AppStatus{
-		App: sanitize.SanitizeForPrompt(params.App),
+		App: sanitize.SanitizeControlChars(params.App),
 	}
 
 	for _, result := range results {
@@ -354,7 +354,7 @@ func GetAppLogs(ctx context.Context, executor Executor, args json.RawMessage) (i
 	}
 
 	return map[string]interface{}{
-		"app":      sanitize.SanitizeForPrompt(params.App),
+		"app":      sanitize.SanitizeControlChars(params.App),
 		"logCount": len(allLogs),
 		"logs":     allLogs,
 	}, nil
