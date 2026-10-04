@@ -31,7 +31,7 @@ Manage labels on resources across multiple clusters.
 - Pods, Namespaces, Nodes
 - PersistentVolumes, PersistentVolumeClaims
 
-Sensitive kinds (`Secret`, `ServiceAccount`, `ClusterRole`, `ClusterRoleBinding`) are blocked, matching `kubectl_apply` / `delete_resource`.
+Sensitive kinds (RBAC: `Role`/`RoleBinding`/`ClusterRole`/`ClusterRoleBinding`; credentials: `Secret`/`ServiceAccount`; admission control: `Mutating`/`ValidatingWebhookConfiguration`, `Mutating`/`ValidatingAdmissionPolicy`/`...Binding`; and `CertificateSigningRequest`/`PodSecurityPolicy`) are blocked — see `pkg/deploy/mcp/manifest_util.go`'s `sensitiveKinds` map, the same list shared with `kubectl_apply` / `delete_resource`.
 
 ## Implementation
 
