@@ -2,26 +2,15 @@ package deploy
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
 	nsval "github.com/kubestellar/kubestellar-mcp/pkg/security/namespace"
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes"
 )
-
-// boolPtr returns a pointer to a bool value
-func BoolPtr(b bool) *bool {
-	return &b
-}
 
 // applyManifest applies a manifest to a cluster
 func ApplyManifest(ctx context.Context, d Deps, client kubernetes.Interface, clusterName, manifest string, dryRun bool) ([]DeployResult, error) {
@@ -102,168 +91,4 @@ func ApplyManifest(ctx context.Context, d Deps, client kubernetes.Interface, clu
 	}
 
 	return results, nil
-}
-
-// applyDeployment creates or updates a deployment
-func ApplyDeployment(ctx context.Context, client kubernetes.Interface, rawObj map[string]interface{}, namespace string) (string, error) {
-	data, err := json.Marshal(rawObj)
-	if err != nil {
-		return "", err
-	}
-
-	var deployment appsv1.Deployment
-	if err := json.Unmarshal(data, &deployment); err != nil {
-		return "", err
-	}
-	if deployment.Namespace == "" {
-		deployment.Namespace = namespace
-	}
-
-	existing, getErr := client.AppsV1().Deployments(namespace).Get(ctx, deployment.Name, metav1.GetOptions{})
-	if getErr != nil && !apierrors.IsNotFound(getErr) {
-		return "", getErr
-	}
-
-	data, err = json.Marshal(deployment)
-	if err != nil {
-		return "", err
-	}
-
-	updated, err := client.AppsV1().Deployments(namespace).Patch(ctx, deployment.Name, types.ApplyPatchType, data, metav1.PatchOptions{
-		FieldManager: "kubestellar-deploy",
-		Force:        BoolPtr(true),
-	})
-	if err != nil {
-		return "", err
-	}
-	if apierrors.IsNotFound(getErr) {
-		return "created", nil
-	}
-	if existing.ResourceVersion == updated.ResourceVersion {
-		return "unchanged", nil
-	}
-	return "updated", nil
-}
-
-// applyService creates or updates a service
-func ApplyService(ctx context.Context, client kubernetes.Interface, rawObj map[string]interface{}, namespace string) (string, error) {
-	data, err := json.Marshal(rawObj)
-	if err != nil {
-		return "", err
-	}
-
-	var service corev1.Service
-	if err := json.Unmarshal(data, &service); err != nil {
-		return "", err
-	}
-	if service.Namespace == "" {
-		service.Namespace = namespace
-	}
-
-	existing, getErr := client.CoreV1().Services(namespace).Get(ctx, service.Name, metav1.GetOptions{})
-	if getErr != nil && !apierrors.IsNotFound(getErr) {
-		return "", getErr
-	}
-
-	data, err = json.Marshal(service)
-	if err != nil {
-		return "", err
-	}
-
-	updated, err := client.CoreV1().Services(namespace).Patch(ctx, service.Name, types.ApplyPatchType, data, metav1.PatchOptions{
-		FieldManager: "kubestellar-deploy",
-		Force:        BoolPtr(true),
-	})
-	if err != nil {
-		return "", err
-	}
-	if apierrors.IsNotFound(getErr) {
-		return "created", nil
-	}
-	if existing.ResourceVersion == updated.ResourceVersion {
-		return "unchanged", nil
-	}
-	return "updated", nil
-}
-
-// applyConfigMap creates or updates a configmap
-func ApplyConfigMap(ctx context.Context, client kubernetes.Interface, rawObj map[string]interface{}, namespace string) (string, error) {
-	data, err := json.Marshal(rawObj)
-	if err != nil {
-		return "", err
-	}
-
-	var cm corev1.ConfigMap
-	if err := json.Unmarshal(data, &cm); err != nil {
-		return "", err
-	}
-	if cm.Namespace == "" {
-		cm.Namespace = namespace
-	}
-
-	existing, getErr := client.CoreV1().ConfigMaps(namespace).Get(ctx, cm.Name, metav1.GetOptions{})
-	if getErr != nil && !apierrors.IsNotFound(getErr) {
-		return "", getErr
-	}
-
-	data, err = json.Marshal(cm)
-	if err != nil {
-		return "", err
-	}
-
-	updated, err := client.CoreV1().ConfigMaps(namespace).Patch(ctx, cm.Name, types.ApplyPatchType, data, metav1.PatchOptions{
-		FieldManager: "kubestellar-deploy",
-		Force:        BoolPtr(true),
-	})
-	if err != nil {
-		return "", err
-	}
-	if apierrors.IsNotFound(getErr) {
-		return "created", nil
-	}
-	if existing.ResourceVersion == updated.ResourceVersion {
-		return "unchanged", nil
-	}
-	return "updated", nil
-}
-
-// applySecret creates or updates a secret
-func ApplySecret(ctx context.Context, client kubernetes.Interface, rawObj map[string]interface{}, namespace string) (string, error) {
-	data, err := json.Marshal(rawObj)
-	if err != nil {
-		return "", err
-	}
-
-	var secret corev1.Secret
-	if err := json.Unmarshal(data, &secret); err != nil {
-		return "", err
-	}
-	if secret.Namespace == "" {
-		secret.Namespace = namespace
-	}
-
-	existing, getErr := client.CoreV1().Secrets(namespace).Get(ctx, secret.Name, metav1.GetOptions{})
-	if getErr != nil && !apierrors.IsNotFound(getErr) {
-		return "", getErr
-	}
-
-	data, err = json.Marshal(secret)
-	if err != nil {
-		return "", err
-	}
-
-	updated, err := client.CoreV1().Secrets(namespace).Patch(ctx, secret.Name, types.ApplyPatchType, data, metav1.PatchOptions{
-		FieldManager: "kubestellar-deploy",
-		Force:        BoolPtr(true),
-	})
-	if err != nil {
-		return "", err
-	}
-	if apierrors.IsNotFound(getErr) {
-		return "created", nil
-	}
-	if existing.ResourceVersion == updated.ResourceVersion {
-		return "unchanged", nil
-	}
-	return "updated", nil
 }

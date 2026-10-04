@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/protocol"
 	"io"
 	"os"
@@ -176,93 +175,6 @@ func TestRunHandlesMalformedJSON(t *testing.T) {
 	var initResp protocol.Response
 	require.NoError(t, json.Unmarshal([]byte(lines[1]), &initResp))
 	assert.Nil(t, initResp.Error)
-}
-
-// TestSendResponseWritesNewlineDelimitedJSON verifies that sendResponse
-// outputs valid JSON followed by a newline character.
-func TestSendResponseWritesNewlineDelimitedJSON(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{})
-
-	origStdout := os.Stdout
-	defer func() { os.Stdout = origStdout }()
-
-	r, w, err := os.Pipe()
-	require.NoError(t, err)
-	os.Stdout = w
-
-	resp := &protocol.Response{
-		JSONRPC: "2.0",
-		ID:      42,
-		Result:  map[string]interface{}{"hello": "world"},
-	}
-	server.sendResponse(resp)
-	_ = w.Close()
-
-	output, err := io.ReadAll(r)
-	require.NoError(t, err)
-
-	// Must end with exactly one newline
-	assert.True(t, strings.HasSuffix(string(output), "\n"))
-	trimmed := strings.TrimSuffix(string(output), "\n")
-	assert.False(t, strings.Contains(trimmed, "\n"), "should be a single line")
-
-	// Must be valid JSON
-	var decoded protocol.Response
-	require.NoError(t, json.Unmarshal(output, &decoded))
-	assert.Equal(t, "2.0", decoded.JSONRPC)
-	assert.Equal(t, float64(42), decoded.ID)
-}
-
-// TestSendErrorWritesErrorResponse verifies that sendError produces
-// a properly structured JSON-RPC error response.
-func TestSendErrorWritesErrorResponse(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{})
-
-	origStdout := os.Stdout
-	defer func() { os.Stdout = origStdout }()
-
-	r, w, err := os.Pipe()
-	require.NoError(t, err)
-	os.Stdout = w
-
-	server.sendError(7, -32700, "Parse error")
-	_ = w.Close()
-
-	output, err := io.ReadAll(r)
-	require.NoError(t, err)
-
-	var decoded protocol.Response
-	require.NoError(t, json.Unmarshal(output, &decoded))
-	assert.Equal(t, "2.0", decoded.JSONRPC)
-	assert.Equal(t, float64(7), decoded.ID)
-	require.NotNil(t, decoded.Error)
-	assert.Equal(t, -32700, decoded.Error.Code)
-	assert.Equal(t, "Parse error", decoded.Error.Message)
-}
-
-// TestSendErrorWithNilID verifies sendError works when id is nil
-// (as happens for parse errors before the id is known).
-func TestSendErrorWithNilID(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{})
-
-	origStdout := os.Stdout
-	defer func() { os.Stdout = origStdout }()
-
-	r, w, err := os.Pipe()
-	require.NoError(t, err)
-	os.Stdout = w
-
-	server.sendError(nil, -32700, "Parse error")
-	_ = w.Close()
-
-	output, err := io.ReadAll(r)
-	require.NoError(t, err)
-
-	var decoded protocol.Response
-	require.NoError(t, json.Unmarshal(output, &decoded))
-	assert.Nil(t, decoded.ID)
-	require.NotNil(t, decoded.Error)
-	assert.Equal(t, -32700, decoded.Error.Code)
 }
 
 // TestHandleRequestWithNullID verifies that a request with null id
@@ -509,38 +421,5 @@ func TestHandleRequestPreservesNumericID(t *testing.T) {
 			require.NotNil(t, resp)
 			assert.Equal(t, tc.id, resp.ID)
 		})
-	}
-}
-
-// TestSendResponseMultipleCallsProduceSeparateLines verifies that multiple
-// sendResponse calls produce separate newline-delimited JSON lines.
-func TestSendResponseMultipleCallsProduceSeparateLines(t *testing.T) {
-	server := newHelmTestServer(t, map[string]string{})
-
-	origStdout := os.Stdout
-	defer func() { os.Stdout = origStdout }()
-
-	r, w, err := os.Pipe()
-	require.NoError(t, err)
-	os.Stdout = w
-
-	for i := 1; i <= 3; i++ {
-		server.sendResponse(&protocol.Response{
-			JSONRPC: "2.0",
-			ID:      i,
-			Result:  fmt.Sprintf("result-%d", i),
-		})
-	}
-	_ = w.Close()
-
-	output, err := io.ReadAll(r)
-	require.NoError(t, err)
-
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-	assert.Len(t, lines, 3, "3 sendResponse calls should produce 3 lines")
-
-	for i, line := range lines {
-		var resp protocol.Response
-		require.NoError(t, json.Unmarshal([]byte(line), &resp), "line %d should be valid JSON", i)
 	}
 }

@@ -123,12 +123,3 @@ func TestPatchAppInCluster_ListError(t *testing.T) {
 		t.Fatal("expected list error")
 	}
 }
-
-func TestBoolPtr(t *testing.T) {
-	if got := BoolPtr(true); got == nil || !*got {
-		t.Fatalf("BoolPtr(true) = %v, want pointer to true", got)
-	}
-	if got := BoolPtr(false); got == nil || *got {
-		t.Fatalf("BoolPtr(false) = %v, want pointer to false", got)
-	}
-}
