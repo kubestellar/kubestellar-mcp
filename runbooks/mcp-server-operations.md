@@ -245,6 +245,8 @@ curl -sf http://<metrics-addr>/healthz
 
 6. If `--metrics-addr` was set for this run, check `mcpserver_tool_errors_total` and `mcpserver_tool_calls_total` (see [Using the Metrics Endpoint](#using-the-metrics-endpoint) below) to see whether failures are concentrated on a specific tool, cluster, or `error_kind` before digging into logs further.
 
+7. Each `"tool call succeeded"`/`"tool call failed"` structured log line from `InstrumentToolCall` (`pkg/mcp/rpcloop/instrument.go`) carries `trace_id`/`span_id` fields alongside `tool`, `cluster`, and `duration`. If an operator has wired a real `TracerProvider` (this package uses OpenTelemetry's default no-op provider otherwise, in which case both IDs log as the fixed all-zero hex string and carry no correlation value), use these IDs to pivot from a failing log line to its matching exported span/trace for request-scoped context before falling back to the tool/cluster/error_kind breakdown in step 6.
+
 ---
 
 ## Using the Metrics Endpoint
