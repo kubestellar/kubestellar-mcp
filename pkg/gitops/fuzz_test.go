@@ -32,9 +32,10 @@ func FuzzValidateRepoURL(f *testing.F) {
 	}
 
 	f.Fuzz(func(t *testing.T, rawURL string) {
-		// ValidateRepoURL must never panic regardless of input.
-		// Errors are acceptable; panics are not.
-		_ = ValidateRepoURL(rawURL)
+		// validateRepoURLWithSchemes (via the production allowlist) must
+		// never panic regardless of input. Errors are acceptable; panics
+		// are not.
+		_ = validateRepoURLWithSchemes(rawURL, allowedRepoSchemes)
 	})
 }
 
