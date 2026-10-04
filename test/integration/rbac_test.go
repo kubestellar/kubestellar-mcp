@@ -39,8 +39,8 @@ import (
 // short-circuit "allowed by RBAC authorizer bypass" answer that does not
 // reflect the created Role/Binding, so the assertion surface would test the
 // bypass rather than the tool's real behavior. audit_kubeconfig and
-// find_resource_owners depend on a kubeconfig / dynamic-client shape that
-// is out of scope for the envtest harness.
+// find_resource_owners have no such dependency on the authorizer and are
+// covered separately in rbac_more_test.go.
 func TestRBACRolesAndBindings(t *testing.T) {
 	ctx := context.Background()
 

@@ -124,10 +124,23 @@ Covered packages:
   out of scope here — it is already covered end-to-end via
   `pkg/mcp/server/drift` in `drift_test.go` above.
 
+- `pkg/mcp/server/rbac` — `audit_kubeconfig`, `find_resource_owners`
+  (`rbac_more_test.go`): `audit_kubeconfig` writes a real kubeconfig for the
+  envtest control plane (the same `writeIntegrationKubeconfig` helper
+  `cluster_test.go` uses) and asserts the context is reported accessible —
+  unlike `can_i`/`analyze_subject_permissions` below, this tool never calls
+  `SelfSubjectAccessReview`, so it is not affected by envtest's RBAC
+  authorizer bypass. `find_resource_owners` seeds a Deployment and a
+  directly-owned Pod (the OwnerReference is set by hand, since envtest runs
+  no controller-manager to materialize the ReplicaSet link) and asserts the
+  tool reports the owner chain on the live object.
+
 Still uncovered: `pkg/deploy/mcp/helm` (see below), the OpenShift/OLM/Helm-only
-`upgrades` tools noted above, plus the
-`can_i`/`analyze_subject_permissions`/`audit_kubeconfig`/`find_resource_owners`
-tools noted in `rbac_test.go`.
+`upgrades` tools noted above, plus `can_i`/`analyze_subject_permissions` noted
+in `rbac_test.go` — both call `SelfSubjectAccessReview`/`SubjectAccessReview`,
+which the default envtest apiserver answers with a short-circuit "allowed by
+RBAC authorizer bypass" that does not reflect the created Role/Binding, so the
+assertion surface would test the bypass rather than the tool's real behavior.
 
 ### Why `pkg/deploy/mcp/helm` is out of scope for envtest
 
