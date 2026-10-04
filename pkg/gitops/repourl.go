@@ -38,13 +38,10 @@ func isGitopsBlockedIP(ip net.IP) bool {
 		gitopsCGNATNet.Contains(ip) || gitopsCloudMetaNet.Contains(ip) || gitopsIETFNet.Contains(ip)
 }
 
-// ValidateRepoURL ensures the repository URL uses an allowed scheme
-// to prevent SSRF, local file reads, and arbitrary SSH connections.
-func ValidateRepoURL(repo string) error {
-	return validateRepoURLWithSchemes(repo, allowedRepoSchemes)
-}
-
-// validateRepoURLWithSchemes validates a repo URL against a custom scheme allowlist.
+// validateRepoURLWithSchemes validates a repo URL against a custom scheme
+// allowlist to prevent SSRF, local file reads, and arbitrary SSH
+// connections. Production callers pass allowedRepoSchemes (https-only);
+// tests may pass a wider or narrower set.
 func validateRepoURLWithSchemes(repo string, schemes map[string]bool) error {
 	if repo == "" {
 		return fmt.Errorf("repo URL is required")
