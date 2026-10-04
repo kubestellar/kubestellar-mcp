@@ -112,9 +112,19 @@ Covered packages:
   `trigger_openshift_upgrade`) need CRDs / Helm-release secrets and stay
   with the package's unit tests.
 
-Still uncovered (tracked in kubestellar-mcp#1070): `pkg/deploy/mcp/gitops`
-(`sync_from_git`/`reconcile`/`preview_changes`, which read manifests from a
-git source), `pkg/deploy/mcp/helm` (see below), the OpenShift/OLM/Helm-only
+- `pkg/deploy/mcp/gitops` — `sync_from_git`, `reconcile`, `preview_changes`
+  (`gitops_test.go`): builds a real local git repository (the same
+  `file://`-scheme clone path `pkg/gitops`'s own unit tests use, via
+  `NewManifestReaderWithSchemes`) containing a ConfigMap manifest, then
+  drives `sync_from_git` through the real `gitops.Syncer` (a dynamic-client
+  create/update round-trip against the envtest apiserver) and asserts the
+  object lands in the cluster. `reconcile` and `preview_changes` are
+  exercised against the same repo to assert the "unchanged" branch and that
+  dry-run mode never mutates the cluster. `detect_drift` on this server is
+  out of scope here — it is already covered end-to-end via
+  `pkg/mcp/server/drift` in `drift_test.go` above.
+
+Still uncovered: `pkg/deploy/mcp/helm` (see below), the OpenShift/OLM/Helm-only
 `upgrades` tools noted above, plus the
 `can_i`/`analyze_subject_permissions`/`audit_kubeconfig`/`find_resource_owners`
 tools noted in `rbac_test.go`.

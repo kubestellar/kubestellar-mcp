@@ -13,6 +13,7 @@ This changelog focuses on stable operator-facing releases. Nightly prereleases r
 - Added `commands/TEMPLATE.md` to standardize future command reference documentation.
 - Added operator documentation for multi-client MCP setup, `kubestellar-deploy` CLI usage, architecture, troubleshooting, environment variables, and integration testing.
 - Added broader unit test coverage and ratcheted the repository coverage threshold.
+- Added envtest integration coverage for `pkg/deploy/mcp/gitops`'s `sync_from_git`/`reconcile`/`preview_changes` tools, exercising the real `gitops.Syncer` apply path against a live apiserver via a local `file://` git source.
 
 ### Changed
 - Switched API discovery from static GVR maps to dynamic discovery and synced CI workflows from `kubestellar/infra`.
