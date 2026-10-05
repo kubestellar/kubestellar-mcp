@@ -8,31 +8,18 @@ import (
 	"strings"
 
 	nsval "github.com/kubestellar/kubestellar-mcp/pkg/security/namespace"
+	"github.com/kubestellar/kubestellar-mcp/pkg/security/netguard"
 )
 
-var (
-	// helmBlockedCGNATNet is RFC 6598 Carrier-Grade NAT space (100.64.0.0/10).
-	// Not covered by net.IP.IsPrivate() but often routes to internal services.
-	_, helmBlockedCGNATNet, _ = net.ParseCIDR("100.64.0.0/10")
-
-	// helmBlockedCloudMetaNet is the cloud instance metadata service (169.254.169.254/32).
-	// This is the primary SSRF target for credential theft in AWS, GCP, and Azure.
-	_, helmBlockedCloudMetaNet, _ = net.ParseCIDR("169.254.169.254/32")
-
-	// helmBlockedIETFNet is RFC 6890 IETF Protocol Assignments (192.0.0.0/24).
-	_, helmBlockedIETFNet, _ = net.ParseCIDR("192.0.0.0/24")
-
-	// helmHostResolver can be replaced in tests to avoid real DNS lookups.
-	helmHostResolver = net.LookupHost
-)
+// helmHostResolver can be replaced in tests to avoid real DNS lookups.
+var helmHostResolver = net.LookupHost
 
 // isHelmBlockedIP returns true if the resolved IP must not be contacted by the
-// Helm proxy. Blocks loopback, private, link-local, CGNAT, and cloud-metadata ranges.
+// Helm proxy. Blocks loopback, private, link-local, unspecified, CGNAT, and
+// cloud-metadata ranges. Delegates to the shared predicate in
+// pkg/security/netguard so this stays in sync with the GitOps-side check.
 func isHelmBlockedIP(ip net.IP) bool {
-	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() ||
-		helmBlockedCGNATNet.Contains(ip) ||
-		helmBlockedCloudMetaNet.Contains(ip) ||
-		helmBlockedIETFNet.Contains(ip)
+	return netguard.IsBlockedIP(ip)
 }
 
 // validateHelmChartRef ensures the chart positional argument is safe.
