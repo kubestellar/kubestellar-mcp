@@ -124,6 +124,19 @@ var (
 		Help:    "End-to-end latency of GitOps drift-detection operations, in seconds.",
 		Buckets: prometheus.DefBuckets,
 	}, []string{"cluster"})
+
+	// MulticlusterOperationTotal counts per-cluster outcomes of a
+	// multi-cluster fan-out operation (pkg/multicluster.Executor's
+	// executeAcrossClusters). cluster is bounded by the same discovered/
+	// kubeconfig-context cluster set as every other cluster label in this
+	// package; a fan-out tool call's overall mcpserver_tool_calls_total
+	// entry is recorded separately with cluster="none", so this is the
+	// only place per-cluster success/failure is observable for those
+	// calls.
+	MulticlusterOperationTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "mcpserver_multicluster_operation_total",
+		Help: "Total number of per-cluster outcomes from multi-cluster fan-out operations, by cluster and status.",
+	}, []string{"cluster", "status"})
 )
 
 func init() {
@@ -138,6 +151,7 @@ func init() {
 		GitOpsSyncDurationSeconds,
 		GitOpsDriftTotal,
 		GitOpsDriftDurationSeconds,
+		MulticlusterOperationTotal,
 	)
 }
 
@@ -199,6 +213,23 @@ func ClassifyError(err error) ErrorKind {
 // SetActiveClusters updates the active-cluster gauge.
 func SetActiveClusters(n int) {
 	ActiveClusters.Set(float64(n))
+}
+
+// RecordMulticlusterOperation records a single cluster's outcome from a
+// multi-cluster fan-out operation. cluster must come from the discovered/
+// kubeconfig-context cluster set (see package doc) to keep the label
+// bounded; it is normalized to "none" if empty, matching RecordToolCall.
+func RecordMulticlusterOperation(cluster string, err error) {
+	if cluster == "" {
+		cluster = unknownCluster
+	}
+
+	status := "success"
+	if err != nil {
+		status = "error"
+	}
+
+	MulticlusterOperationTotal.WithLabelValues(cluster, status).Inc()
 }
 
 // healthzHandler is a minimal liveness probe: it reports 200 OK as soon as
