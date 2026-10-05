@@ -3,6 +3,7 @@ package sanitize
 import (
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 func TestSanitizeForPrompt(t *testing.T) {
@@ -40,6 +41,13 @@ func TestSanitizeForPrompt(t *testing.T) {
 			name:  "long input truncation",
 			input: strings.Repeat("a", 300),
 			want:  strings.Repeat("a", 200) + "...",
+		},
+		{
+			// A multi-byte rune straddling byte 200 must not be split.
+			// 199 ASCII 'a's + "日本語..." => cut before 日 (3-byte rune).
+			name:  "utf8-safe truncation at multi-byte boundary",
+			input: strings.Repeat("a", 199) + "日本語テスト",
+			want:  strings.Repeat("a", 199) + "...",
 		},
 		{
 			name:  "multiple spaces collapsed",
@@ -158,5 +166,29 @@ func TestValidateK8sName(t *testing.T) {
 				t.Errorf("ValidateK8sName(%q) error = %v, wantError %v", tt.input, err, tt.wantError)
 			}
 		})
+	}
+}
+
+func TestSanitizeControlCharsUTF8SafeTruncation(t *testing.T) {
+	in := strings.Repeat("a", 199) + "日本語テスト"
+	got := SanitizeControlChars(in)
+	if !utf8.ValidString(got) {
+		t.Fatalf("SanitizeControlChars produced invalid UTF-8: %q", got)
+	}
+	prefix, ok := strings.CutSuffix(got, "...")
+	if !ok {
+		t.Fatalf("expected truncation suffix, got %q", got)
+	}
+	if !utf8.ValidString(prefix) {
+		t.Fatalf("truncated prefix is not valid UTF-8: %q", prefix)
+	}
+	if len(prefix) > 0 {
+		last, size := utf8.DecodeLastRuneInString(prefix)
+		if last == utf8.RuneError && size == 1 {
+			t.Fatalf("truncate prefix ends with an incomplete rune: %q", prefix)
+		}
+	}
+	if want := strings.Repeat("a", 199) + "..."; got != want {
+		t.Fatalf("got %q, want %q", got, want)
 	}
 }
