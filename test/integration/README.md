@@ -135,6 +135,27 @@ Covered packages:
   no controller-manager to materialize the ReplicaSet link) and asserts the
   tool reports the owner chain on the live object.
 
+- `pkg/cmd/clusters`, `pkg/cmd/upgrade`, `pkg/cmd/ai` — the CLI command
+  layer (`cmd_test.go`, kubestellar-mcp#1143): unlike the packages' own unit
+  tests, which inject fakes (`run_test.go`'s `fakeDiscoverer`,
+  `watch_command_test.go`'s fake `dynamic.Interface`,
+  `query_test.go`'s `stubQueryDependencies`), this drives the real exported
+  `cobra.Command` constructors — `clusters.NewClustersCommand`,
+  `upgrade.NewWatchCommand`, `ai.NewQueryCommand`, the same ones
+  `pkg/cmd/root.go` registers — through `cmd.ExecuteContext`, with
+  `genericclioptions.ConfigFlags.KubeConfig` pointed at a real kubeconfig
+  for the envtest control plane. `clusters list`/`clusters health` exercise
+  the real `pkg/cluster.Discoverer` end-to-end (clientcmd loading, live
+  `Discovery().ServerVersion()`/`Nodes().List()`); `watch-upgrade` issues a
+  real dynamic `Get` for the OpenShift `ClusterVersion` CRD and returns the
+  genuine apiserver not-found error before the watch loop starts. `ai
+  query`'s Claude API call has no local override hook reachable from the
+  CLI, so — mirroring how `pkg/deploy/mcp/helm` below is a documented
+  out-of-scope external dependency — this test only drives it up to the
+  real, deterministic `ANTHROPIC_API_KEY`-missing error from
+  `pkg/ai/claude.NewClient`, which still exercises the real cobra
+  Args/RunE wiring a user hits running `kubestellar-ops ai query "..."`.
+
 Still uncovered: `pkg/deploy/mcp/helm` (see below), the OpenShift/OLM/Helm-only
 `upgrades` tools noted above, plus `can_i`/`analyze_subject_permissions` noted
 in `rbac_test.go` — both call `SelfSubjectAccessReview`/`SubjectAccessReview`,
