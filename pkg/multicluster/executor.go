@@ -112,6 +112,7 @@ func (e *Executor) executeAcrossClusters(ctx context.Context, clusterNames []str
 
 			client, err := e.manager.GetClient(name)
 			if err != nil {
+				metrics.RecordMulticlusterOperation(name, err)
 				mu.Lock()
 				results = append(results, ClusterResult{
 					Cluster: name,
@@ -122,6 +123,7 @@ func (e *Executor) executeAcrossClusters(ctx context.Context, clusterNames []str
 			}
 
 			result, err := fn(ctx, client, name)
+			metrics.RecordMulticlusterOperation(name, err)
 			mu.Lock()
 			if err != nil {
 				results = append(results, ClusterResult{

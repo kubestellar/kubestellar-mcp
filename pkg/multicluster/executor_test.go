@@ -152,6 +152,44 @@ func TestExecutorExecuteAllAggregatesErrors(t *testing.T) {
 	}
 }
 
+// TestExecutorExecuteAllRecordsPerClusterMetrics guards the per-cluster
+// mcpserver_multicluster_operation_total outcome recorded by
+// executeAcrossClusters: a fan-out tool call's overall
+// mcpserver_tool_calls_total entry uses cluster="none" (see
+// rpcloop.InstrumentToolCall), so this metric is the only place a
+// per-cluster success/failure is observable for these calls.
+func TestExecutorExecuteAllRecordsPerClusterMetrics(t *testing.T) {
+	manager := newTestManager(t, []string{"alpha", "beta", "gamma"})
+	manager.kubeconfig = "/does/not/exist"
+	delete(manager.clients, "gamma")
+
+	before := map[string]float64{
+		"alpha-success": testutil.ToFloat64(metrics.MulticlusterOperationTotal.WithLabelValues("alpha", "success")),
+		"beta-error":    testutil.ToFloat64(metrics.MulticlusterOperationTotal.WithLabelValues("beta", "error")),
+		"gamma-error":   testutil.ToFloat64(metrics.MulticlusterOperationTotal.WithLabelValues("gamma", "error")),
+	}
+
+	executor := NewExecutor(manager)
+	if _, err := executor.Execute(context.Background(), "", func(ctx context.Context, client *kubernetes.Clientset, clusterName string) (interface{}, error) {
+		if clusterName == "beta" {
+			return nil, errors.New("beta failed")
+		}
+		return clusterName + "-ok", nil
+	}); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	if got := testutil.ToFloat64(metrics.MulticlusterOperationTotal.WithLabelValues("alpha", "success")); got != before["alpha-success"]+1 {
+		t.Errorf("alpha success count = %v, want %v", got, before["alpha-success"]+1)
+	}
+	if got := testutil.ToFloat64(metrics.MulticlusterOperationTotal.WithLabelValues("beta", "error")); got != before["beta-error"]+1 {
+		t.Errorf("beta error count = %v, want %v", got, before["beta-error"]+1)
+	}
+	if got := testutil.ToFloat64(metrics.MulticlusterOperationTotal.WithLabelValues("gamma", "error")); got != before["gamma-error"]+1 {
+		t.Errorf("gamma (GetClient failure) error count = %v, want %v", got, before["gamma-error"]+1)
+	}
+}
+
 func TestExecutorExecuteOnSelectedBoundsConcurrency(t *testing.T) {
 	manager := newTestManager(t, []string{"alpha", "beta", "gamma", "delta", "epsilon"})
 	executor := NewExecutor(manager)
