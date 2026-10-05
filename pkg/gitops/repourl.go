@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/kubestellar/kubestellar-mcp/pkg/security/netguard"
 )
 
 // allowedRepoSchemes restricts git clone to safe URL schemes.
@@ -18,24 +20,15 @@ var allowedRepoSchemes = map[string]bool{
 
 var validGitBranchPattern = regexp.MustCompile(`^[a-zA-Z0-9._/-]+$`)
 
-var (
-	// gitopsCGNATNet is RFC 6598 Carrier-Grade NAT space (100.64.0.0/10).
-	_, gitopsCGNATNet, _ = net.ParseCIDR("100.64.0.0/10")
-	// gitopsCloudMetaNet is the cloud instance metadata service (169.254.169.254/32).
-	_, gitopsCloudMetaNet, _ = net.ParseCIDR("169.254.169.254/32")
-	// gitopsIETFNet is RFC 6890 IETF Protocol Assignments (192.0.0.0/24).
-	_, gitopsIETFNet, _ = net.ParseCIDR("192.0.0.0/24")
-)
-
 // gitopsDNSTimeout bounds hostname resolution for repo URL validation.
 const gitopsDNSTimeout = 3 * time.Second
 
 // isGitopsBlockedIP returns true if ip falls into a range that must not be
-// contacted by git clone (loopback, private, link-local, CGNAT, cloud metadata).
+// contacted by git clone (loopback, private, link-local, unspecified, CGNAT,
+// cloud metadata). Delegates to the shared predicate in pkg/security/netguard
+// so this stays in sync with the Helm-side check.
 func isGitopsBlockedIP(ip net.IP) bool {
-	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() ||
-		ip.IsUnspecified() ||
-		gitopsCGNATNet.Contains(ip) || gitopsCloudMetaNet.Contains(ip) || gitopsIETFNet.Contains(ip)
+	return netguard.IsBlockedIP(ip)
 }
 
 // validateRepoURLWithSchemes validates a repo URL against a custom scheme
