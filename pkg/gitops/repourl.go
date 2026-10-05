@@ -61,7 +61,7 @@ func validateRepoURLWithSchemes(repo string, schemes map[string]bool) error {
 	if host != "" {
 		if ip := net.ParseIP(host); ip != nil {
 			if isGitopsBlockedIP(ip) {
-				return fmt.Errorf("repo URL %q resolves to blocked IP %s (private/internal address)", repo, ip)
+				return fmt.Errorf("repo URL %q resolves to blocked IP %s (private/internal address): %w", repo, ip, netguard.ErrBlockedIP)
 			}
 		} else {
 			ctx, cancel := context.WithTimeout(context.Background(), gitopsDNSTimeout)
@@ -72,7 +72,7 @@ func validateRepoURLWithSchemes(repo string, schemes map[string]bool) error {
 			}
 			for _, ipStr := range ips {
 				if ip := net.ParseIP(ipStr); ip != nil && isGitopsBlockedIP(ip) {
-					return fmt.Errorf("repo URL %q resolves to blocked IP %s (private/internal address)", repo, ip)
+					return fmt.Errorf("repo URL %q resolves to blocked IP %s (private/internal address): %w", repo, ip, netguard.ErrBlockedIP)
 				}
 			}
 		}
@@ -113,7 +113,7 @@ func revalidateRepoHost(repo string) error {
 	host := u.Hostname()
 	if ip := net.ParseIP(host); ip != nil {
 		if isGitopsBlockedIP(ip) {
-			return fmt.Errorf("resolves to blocked IP %s (private/internal address)", ip)
+			return fmt.Errorf("resolves to blocked IP %s (private/internal address): %w", ip, netguard.ErrBlockedIP)
 		}
 		return nil
 	}
@@ -125,7 +125,7 @@ func revalidateRepoHost(repo string) error {
 	}
 	for _, ipStr := range ips {
 		if ip := net.ParseIP(ipStr); ip != nil && isGitopsBlockedIP(ip) {
-			return fmt.Errorf("resolves to blocked IP %s (private/internal address)", ip)
+			return fmt.Errorf("resolves to blocked IP %s (private/internal address): %w", ip, netguard.ErrBlockedIP)
 		}
 	}
 	return nil

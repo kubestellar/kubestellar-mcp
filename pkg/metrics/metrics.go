@@ -21,6 +21,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+
+	"github.com/kubestellar/kubestellar-mcp/pkg/security/netguard"
 )
 
 // ErrorKind is a closed enum used to classify tool-call failures without
@@ -30,10 +32,11 @@ type ErrorKind string
 // Recognized error kinds. Keep this list short and closed - never derive an
 // ErrorKind from a raw error string.
 const (
-	ErrorKindMarshal ErrorKind = "marshal"
-	ErrorKindK8sAPI  ErrorKind = "k8s_api"
-	ErrorKindTimeout ErrorKind = "timeout"
-	ErrorKindUnknown ErrorKind = "unknown"
+	ErrorKindMarshal   ErrorKind = "marshal"
+	ErrorKindK8sAPI    ErrorKind = "k8s_api"
+	ErrorKindTimeout   ErrorKind = "timeout"
+	ErrorKindBlockedIP ErrorKind = "blocked_ip"
+	ErrorKindUnknown   ErrorKind = "unknown"
 )
 
 // unknownCluster is the label value used when a tool call is not scoped to
@@ -173,6 +176,10 @@ func ClassifyError(err error) ErrorKind {
 
 	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 		return ErrorKindTimeout
+	}
+
+	if errors.Is(err, netguard.ErrBlockedIP) {
+		return ErrorKindBlockedIP
 	}
 
 	var apiStatus apierrors.APIStatus
