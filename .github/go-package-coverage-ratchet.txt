@@ -54,6 +54,7 @@ cmd/kubestellar-ops 100.0
 pkg/metrics 100.0
 pkg/progress 98.4
 pkg/security/namespace 100.0
+pkg/security/netguard 90.0
 pkg/security/sanitize 100.0
 internal/version/versioncmd 100.0
 
