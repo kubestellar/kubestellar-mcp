@@ -52,7 +52,7 @@ func validateHelmChartRef(chart string) error {
 		hostname := u.Hostname()
 		if ip := net.ParseIP(hostname); ip != nil {
 			if isHelmBlockedIP(ip) {
-				return fmt.Errorf("oci chart ref %q uses a blocked IP address", chart)
+				return fmt.Errorf("oci chart ref %q uses a blocked IP address: %w", chart, netguard.ErrBlockedIP)
 			}
 			return nil
 		}
@@ -66,7 +66,7 @@ func validateHelmChartRef(chart string) error {
 				continue
 			}
 			if isHelmBlockedIP(ip) {
-				return fmt.Errorf("oci chart ref %q resolves to blocked IP %s (private/internal address)", chart, ip)
+				return fmt.Errorf("oci chart ref %q resolves to blocked IP %s (private/internal address): %w", chart, ip, netguard.ErrBlockedIP)
 			}
 		}
 	}
@@ -95,7 +95,7 @@ func validateHelmRepoURL(repo string) error {
 	// If the host is already an IP literal, check it directly (no DNS lookup needed).
 	if ip := net.ParseIP(hostname); ip != nil {
 		if isHelmBlockedIP(ip) {
-			return fmt.Errorf("helm repo URL %q uses a blocked IP address", repo)
+			return fmt.Errorf("helm repo URL %q uses a blocked IP address: %w", repo, netguard.ErrBlockedIP)
 		}
 		return nil
 	}
@@ -111,7 +111,7 @@ func validateHelmRepoURL(repo string) error {
 			continue
 		}
 		if isHelmBlockedIP(ip) {
-			return fmt.Errorf("helm repo URL %q resolves to blocked IP %s (private/internal address)", repo, ip)
+			return fmt.Errorf("helm repo URL %q resolves to blocked IP %s (private/internal address): %w", repo, ip, netguard.ErrBlockedIP)
 		}
 	}
 	return nil
@@ -154,7 +154,7 @@ func revalidateHelmHosts(chart, repo string) error {
 func resolveAndBlock(host string) error {
 	if ip := net.ParseIP(host); ip != nil {
 		if isHelmBlockedIP(ip) {
-			return fmt.Errorf("resolves to blocked IP %s", ip)
+			return fmt.Errorf("resolves to blocked IP %s: %w", ip, netguard.ErrBlockedIP)
 		}
 		return nil
 	}
@@ -164,7 +164,7 @@ func resolveAndBlock(host string) error {
 	}
 	for _, addr := range addrs {
 		if ip := net.ParseIP(addr); ip != nil && isHelmBlockedIP(ip) {
-			return fmt.Errorf("resolves to blocked IP %s", ip)
+			return fmt.Errorf("resolves to blocked IP %s: %w", ip, netguard.ErrBlockedIP)
 		}
 	}
 	return nil

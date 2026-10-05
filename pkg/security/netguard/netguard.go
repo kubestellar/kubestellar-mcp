@@ -12,7 +12,21 @@
 // reason.
 package netguard
 
-import "net"
+import (
+	"errors"
+	"net"
+)
+
+// ErrBlockedIP is the sentinel every outbound-URL validator should wrap
+// (via fmt.Errorf("...: %w", ErrBlockedIP)) when it rejects a hostname
+// because IsBlockedIP returned true. Wrapping this sentinel - instead of
+// only formatting the blocked IP into the error message - lets
+// pkg/metrics.ClassifyError recognize an SSRF-guard rejection via
+// errors.Is and record it under a dedicated, bounded error_kind label
+// (metrics.ErrorKindBlockedIP), so operators can see the rate of blocked
+// outbound-URL attempts in mcpserver_tool_errors_total without that signal
+// being folded into the generic "unknown" bucket.
+var ErrBlockedIP = errors.New("netguard: blocked IP address")
 
 // cgnatNet is RFC 6598 Carrier-Grade NAT space (100.64.0.0/10). Not covered
 // by net.IP.IsPrivate() but often routes to internal services.

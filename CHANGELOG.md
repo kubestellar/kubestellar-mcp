@@ -9,6 +9,7 @@ This changelog focuses on stable operator-facing releases. Nightly prereleases r
 
 ### Added
 - Added `trace_id`/`span_id` fields to the tool-call structured log lines in `pkg/mcp/rpcloop.InstrumentToolCall`, so an operator who wires a real `TracerProvider` can correlate these logs with the matching exported span.
+- Added a dedicated `blocked_ip` `error_kind` label value: Helm and GitOps SSRF rejections (`pkg/security/netguard.ErrBlockedIP`) are now classified by `pkg/metrics.ClassifyError` instead of falling into the generic `unknown` bucket, so `mcpserver_tool_errors_total{error_kind="blocked_ip"}` surfaces the rate of blocked outbound-URL attempts.
 - Added `--metrics-addr` and a `/metrics` endpoint to `kubestellar-deploy`, matching `kubestellar-ops`; see `docs/slo.md` and `docs/alerts/README.md` for the shared-registry scraping guidance this requires.
 - Added `commands/TEMPLATE.md` to standardize future command reference documentation.
 - Added operator documentation for multi-client MCP setup, `kubestellar-deploy` CLI usage, architecture, troubleshooting, environment variables, and integration testing.

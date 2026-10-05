@@ -14,6 +14,8 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"github.com/kubestellar/kubestellar-mcp/pkg/security/netguard"
 )
 
 // countersFor gathers metric families from the package registry, useful for
@@ -186,6 +188,16 @@ func TestClassifyError(t *testing.T) {
 			name: "json unmarshal type error",
 			err:  jsonUnmarshalTypeError(),
 			want: ErrorKindMarshal,
+		},
+		{
+			name: "blocked IP",
+			err:  netguard.ErrBlockedIP,
+			want: ErrorKindBlockedIP,
+		},
+		{
+			name: "wrapped blocked IP",
+			err:  fmt.Errorf("helm repo URL %q uses a blocked IP address: %w", "https://169.254.169.254", netguard.ErrBlockedIP),
+			want: ErrorKindBlockedIP,
 		},
 		{name: "unrecognized error", err: errors.New("boom"), want: ErrorKindUnknown},
 	}
