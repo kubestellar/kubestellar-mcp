@@ -1,6 +1,7 @@
 package helm
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -313,7 +314,7 @@ func TestRevalidateHelmHosts_DNSRebinding(t *testing.T) {
 		return []string{"169.254.169.254"}, nil
 	})
 
-	err := revalidateHelmHosts("oci://evil.example.com/chart:1.0", "")
+	err := revalidateHelmHosts(context.Background(), "oci://evil.example.com/chart:1.0", "")
 	if err == nil {
 		t.Fatal("expected error for OCI chart rebinding to cloud metadata IP, got nil")
 	}
@@ -321,7 +322,7 @@ func TestRevalidateHelmHosts_DNSRebinding(t *testing.T) {
 		t.Errorf("unexpected error message: %v", err)
 	}
 
-	err = revalidateHelmHosts("bitnami/nginx", "https://evil.example.com/repo")
+	err = revalidateHelmHosts(context.Background(), "bitnami/nginx", "https://evil.example.com/repo")
 	if err == nil {
 		t.Fatal("expected error for repo URL rebinding to cloud metadata IP, got nil")
 	}
@@ -336,14 +337,14 @@ func TestRevalidateHelmHosts_Safe(t *testing.T) {
 		return []string{"8.8.8.8"}, nil
 	})
 
-	if err := revalidateHelmHosts("oci://ghcr.io/helm-charts/nginx:1.0", ""); err != nil {
+	if err := revalidateHelmHosts(context.Background(), "oci://ghcr.io/helm-charts/nginx:1.0", ""); err != nil {
 		t.Errorf("unexpected error for safe OCI chart: %v", err)
 	}
-	if err := revalidateHelmHosts("bitnami/nginx", "https://charts.bitnami.com/bitnami"); err != nil {
+	if err := revalidateHelmHosts(context.Background(), "bitnami/nginx", "https://charts.bitnami.com/bitnami"); err != nil {
 		t.Errorf("unexpected error for safe repo URL: %v", err)
 	}
 	// Non-OCI charts without repo should pass trivially.
-	if err := revalidateHelmHosts("bitnami/nginx", ""); err != nil {
+	if err := revalidateHelmHosts(context.Background(), "bitnami/nginx", ""); err != nil {
 		t.Errorf("unexpected error for non-OCI chart without repo: %v", err)
 	}
 }

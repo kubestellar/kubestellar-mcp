@@ -135,7 +135,7 @@ func TestRevalidateHelmHosts_StripsPortFromOCIHost(t *testing.T) {
 		return []string{"93.184.216.34"}, nil
 	})
 
-	if err := revalidateHelmHosts("oci://ghcr.io:5000/org/chart:1.0", ""); err != nil {
+	if err := revalidateHelmHosts(context.Background(), "oci://ghcr.io:5000/org/chart:1.0", ""); err != nil {
 		t.Fatalf("revalidateHelmHosts() error = %v, want nil", err)
 	}
 	if len(resolved) != 1 || resolved[0] != "ghcr.io" {
@@ -152,7 +152,7 @@ func TestResolveAndBlock_DNSFailure(t *testing.T) {
 		return nil, lookupErr
 	})
 
-	err := resolveAndBlock("missing.example.com")
+	err := resolveAndBlock(context.Background(), "missing.example.com")
 	if !errors.Is(err, lookupErr) {
 		t.Fatalf("resolveAndBlock() error = %v, want wrapped %v", err, lookupErr)
 	}

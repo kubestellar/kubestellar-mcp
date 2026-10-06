@@ -91,12 +91,12 @@ func validateBranchName(branch string) error {
 }
 
 // revalidateRepoHost re-resolves the repo URL's hostname and re-applies the
-// isGitopsBlockedIP check immediately before git clone is exec'd, narrowing
-// the TOCTOU window against DNS rebinding attacks that flip a benign A record
-// to a blocked address (cloud metadata, RFC 1918, CGNAT, loopback) between
-// validateRepoURLWithSchemes and git's own network resolution. Mirrors the
-// helm-side mitigation in pkg/deploy/mcp/tools_helm.go: revalidateHelmHosts.
-// See issue #884.
+// blocked-IP check immediately before git clone is exec'd, narrowing the
+// TOCTOU window against DNS rebinding attacks that flip a benign A record to
+// a blocked address (cloud metadata, RFC 1918, CGNAT, loopback) between
+// validateRepoURLWithSchemes and git's own network resolution. Delegates to
+// netguard.ResolveAndBlock, the same bounded re-check used by the Helm-side
+// mitigation (pkg/deploy/mcp/helm: revalidateHelmHosts). See issue #884.
 func revalidateRepoHost(repo string) error {
 	if repo == "" {
 		return nil
@@ -110,23 +110,7 @@ func revalidateRepoHost(repo string) error {
 	if u.Scheme == "file" || u.Hostname() == "" {
 		return nil
 	}
-	host := u.Hostname()
-	if ip := net.ParseIP(host); ip != nil {
-		if isGitopsBlockedIP(ip) {
-			return fmt.Errorf("resolves to blocked IP %s (private/internal address): %w", ip, netguard.ErrBlockedIP)
-		}
-		return nil
-	}
 	ctx, cancel := context.WithTimeout(context.Background(), gitopsDNSTimeout)
 	defer cancel()
-	ips, err := net.DefaultResolver.LookupHost(ctx, host)
-	if err != nil {
-		return fmt.Errorf("DNS lookup failed for %q: %w", host, err)
-	}
-	for _, ipStr := range ips {
-		if ip := net.ParseIP(ipStr); ip != nil && isGitopsBlockedIP(ip) {
-			return fmt.Errorf("resolves to blocked IP %s (private/internal address): %w", ip, netguard.ErrBlockedIP)
-		}
-	}
-	return nil
+	return netguard.ResolveAndBlock(ctx, u.Hostname(), nil)
 }
