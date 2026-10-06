@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/kubestellar/kubestellar-mcp/pkg/cluster"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 )
@@ -31,15 +31,7 @@ type ClientManager struct {
 
 // NewClientManager creates a new multi-cluster client manager
 func NewClientManager(kubeconfig string) (*ClientManager, error) {
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	if kubeconfig != "" {
-		loadingRules.ExplicitPath = kubeconfig
-	}
-
-	configOverrides := &clientcmd.ConfigOverrides{}
-	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
-
-	rawConfig, err := kubeConfig.RawConfig()
+	rawConfig, err := cluster.NewClientConfig(kubeconfig, "").RawConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load kubeconfig: %w", err)
 	}
@@ -141,17 +133,7 @@ func (m *ClientManager) GetConfig(clusterName string) (*rest.Config, error) {
 
 // getConfigForContext creates a REST config for a specific context
 func (m *ClientManager) getConfigForContext(contextName string) (*rest.Config, error) {
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	if m.kubeconfig != "" {
-		loadingRules.ExplicitPath = m.kubeconfig
-	}
-
-	configOverrides := &clientcmd.ConfigOverrides{
-		CurrentContext: contextName,
-	}
-
-	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
-	config, err := kubeConfig.ClientConfig()
+	config, err := cluster.NewClientConfig(m.kubeconfig, contextName).ClientConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get config for context %s: %w", contextName, err)
 	}

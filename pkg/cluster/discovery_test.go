@@ -227,3 +227,36 @@ func newTestDir(t *testing.T) string {
 	dir := t.TempDir()
 	return dir
 }
+
+func TestNewClientConfig_ContextOverride(t *testing.T) {
+	kc := filepath.Join(t.TempDir(), "kubeconfig")
+	content := `apiVersion: v1
+kind: Config
+current-context: a
+clusters:
+- name: ca
+  cluster: {server: "https://a.example"}
+- name: cb
+  cluster: {server: "https://b.example"}
+contexts:
+- name: a
+  context: {cluster: ca, user: u}
+- name: b
+  context: {cluster: cb, user: u}
+users:
+- name: u
+  user: {token: t}
+`
+	if err := os.WriteFile(kc, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := NewClientConfig(kc, "").ClientConfig()
+	if err != nil || cfg.Host != "https://a.example" {
+		t.Fatalf("default context: host=%v err=%v", cfg, err)
+	}
+	cfg, err = NewClientConfig(kc, "b").ClientConfig()
+	if err != nil || cfg.Host != "https://b.example" {
+		t.Fatalf("override context: host=%v err=%v", cfg, err)
+	}
+}
