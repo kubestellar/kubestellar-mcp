@@ -56,17 +56,7 @@ type Deps struct {
 // the default loading rules) and, when clusterName is non-empty, overrides
 // the current context with it.
 func (d *Deps) clientConfig(clusterName string) clientcmd.ClientConfig {
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	if d.Kubeconfig != "" {
-		loadingRules.ExplicitPath = d.Kubeconfig
-	}
-
-	configOverrides := &clientcmd.ConfigOverrides{}
-	if clusterName != "" {
-		configOverrides.CurrentContext = clusterName
-	}
-
-	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
+	return cluster.NewClientConfig(d.Kubeconfig, clusterName)
 }
 
 // GetClientForCluster returns a typed clientset for clusterName.

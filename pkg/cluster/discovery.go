@@ -162,19 +162,26 @@ func (d *Discoverer) CheckHealth(cluster ClusterInfo) (*HealthInfo, error) {
 	}, nil
 }
 
+// NewClientConfig returns a non-interactive kubeconfig client config. An empty
+// kubeconfig uses the default loading rules; an empty contextName keeps the
+// kubeconfig's current context.
+func NewClientConfig(kubeconfig, contextName string) clientcmd.ClientConfig {
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	if kubeconfig != "" {
+		loadingRules.ExplicitPath = kubeconfig
+	}
+
+	configOverrides := &clientcmd.ConfigOverrides{}
+	if contextName != "" {
+		configOverrides.CurrentContext = contextName
+	}
+
+	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
+}
+
 // buildClient builds a Kubernetes client for the given context
 func (d *Discoverer) buildClient(contextName string) (*kubernetes.Clientset, error) {
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	if d.kubeconfig != "" {
-		loadingRules.ExplicitPath = d.kubeconfig
-	}
-
-	configOverrides := &clientcmd.ConfigOverrides{
-		CurrentContext: contextName,
-	}
-
-	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
-	restConfig, err := clientConfig.ClientConfig()
+	restConfig, err := NewClientConfig(d.kubeconfig, contextName).ClientConfig()
 	if err != nil {
 		return nil, err
 	}
