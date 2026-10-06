@@ -36,7 +36,13 @@ const (
 	ErrorKindK8sAPI    ErrorKind = "k8s_api"
 	ErrorKindTimeout   ErrorKind = "timeout"
 	ErrorKindBlockedIP ErrorKind = "blocked_ip"
-	ErrorKindUnknown   ErrorKind = "unknown"
+	// ErrorKindAIAPI classifies a non-2xx response from an AI provider API
+	// (e.g. rate limiting, auth failure, server error) distinctly from a
+	// local marshal/timeout failure. Callers detect this via their own
+	// provider-specific sentinel error (see pkg/ai/claude) since the
+	// sentinel cannot live in this package without an import cycle.
+	ErrorKindAIAPI   ErrorKind = "ai_api"
+	ErrorKindUnknown ErrorKind = "unknown"
 )
 
 // unknownCluster is the label value used when a tool call is not scoped to
@@ -93,6 +99,15 @@ var (
 		Buckets: prometheus.DefBuckets,
 	}, []string{"provider"})
 
+	// AIQueryErrorsTotal counts AI provider query errors, classified by the
+	// same closed error-kind enum used for mcpserver_tool_errors_total
+	// (never raw error messages), mirroring that metric's pattern for the
+	// tool-dispatch path.
+	AIQueryErrorsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "mcpserver_ai_query_errors_total",
+		Help: "Total number of AI provider query errors, by provider and error kind.",
+	}, []string{"provider", "error_kind"})
+
 	// GitOpsSyncTotal counts GitOps sync resource outcomes by cluster and
 	// action. action is a short, closed enum (created/updated/unchanged/
 	// failed/skipped) - never a raw message.
@@ -147,6 +162,7 @@ func init() {
 		ActiveClusters,
 		AIQueryTotal,
 		AIQueryDurationSeconds,
+		AIQueryErrorsTotal,
 		GitOpsSyncTotal,
 		GitOpsSyncDurationSeconds,
 		GitOpsDriftTotal,
@@ -246,11 +262,16 @@ func healthzHandler(w http.ResponseWriter, _ *http.Request) {
 
 // RecordAIQuery records a completed AI provider query. provider must be a
 // short, closed identifier (e.g. "claude") - never a raw model name or
-// error string, to keep the label bounded.
-func RecordAIQuery(provider string, duration time.Duration, err error) {
+// error string, to keep the label bounded. When err is non-nil and errKind
+// is empty, ErrorKindUnknown is recorded, mirroring RecordToolCall.
+func RecordAIQuery(provider string, duration time.Duration, err error, errKind ErrorKind) {
 	status := "success"
 	if err != nil {
 		status = "error"
+		if errKind == "" {
+			errKind = ErrorKindUnknown
+		}
+		AIQueryErrorsTotal.WithLabelValues(provider, string(errKind)).Inc()
 	}
 
 	AIQueryTotal.WithLabelValues(provider, status).Inc()

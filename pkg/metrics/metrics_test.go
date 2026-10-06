@@ -118,7 +118,7 @@ func TestSetActiveClusters(t *testing.T) {
 }
 
 func TestRecordAIQuerySuccess(t *testing.T) {
-	RecordAIQuery("claude", 40*time.Millisecond, nil)
+	RecordAIQuery("claude", 40*time.Millisecond, nil, "")
 
 	families := gather(t)
 
@@ -150,7 +150,7 @@ func TestRecordAIQuerySuccess(t *testing.T) {
 }
 
 func TestRecordAIQueryError(t *testing.T) {
-	RecordAIQuery("claude", 5*time.Millisecond, errors.New("boom"))
+	RecordAIQuery("claude", 5*time.Millisecond, errors.New("boom"), "")
 
 	families := gather(t)
 	found := false
@@ -161,6 +161,36 @@ func TestRecordAIQueryError(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("expected mcpserver_ai_query_total series for claude/error")
+	}
+}
+
+func TestRecordAIQueryErrorDefaultsToUnknownKind(t *testing.T) {
+	RecordAIQuery("claude", 5*time.Millisecond, errors.New("boom"), "")
+
+	families := gather(t)
+	found := false
+	for _, m := range families["mcpserver_ai_query_errors_total"].GetMetric() {
+		if labelValue(m, "provider") == "claude" && labelValue(m, "error_kind") == string(ErrorKindUnknown) {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("expected mcpserver_ai_query_errors_total series with error_kind=unknown")
+	}
+}
+
+func TestRecordAIQueryErrorRecordsGivenKind(t *testing.T) {
+	RecordAIQuery("claude", 5*time.Millisecond, errors.New("rate limited"), ErrorKindAIAPI)
+
+	families := gather(t)
+	found := false
+	for _, m := range families["mcpserver_ai_query_errors_total"].GetMetric() {
+		if labelValue(m, "provider") == "claude" && labelValue(m, "error_kind") == string(ErrorKindAIAPI) {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("expected mcpserver_ai_query_errors_total series with error_kind=ai_api")
 	}
 }
 

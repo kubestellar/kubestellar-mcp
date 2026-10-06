@@ -289,6 +289,7 @@ which are `kubestellar-ops`-specific.
 - `mcpserver_tool_duration_seconds{tool,cluster}` — latency histogram; compare against [SLO 1/2](../docs/slo.md) targets.
 - `mcpserver_active_clusters` — reachable cluster count from the most recent discovery; a sudden drop indicates connectivity loss (see [Multi-Cluster Connectivity Loss](#multi-cluster-connectivity-loss)). **`kubestellar-deploy`-only:** this gauge is set solely by `multicluster.Executor.executeAll` (`pkg/multicluster/executor.go`), which only `kubestellar-deploy` constructs. `kubestellar-ops` never calls `metrics.SetActiveClusters`, so on a `kubestellar-ops` target it never leaves 0 — do not use it or `MCPServerActiveClustersDroppedToZero` to monitor a `kubestellar-ops` deployment (see [`docs/slo.md`](../docs/slo.md)).
 - `mcpserver_ai_query_total{provider,status}` / `mcpserver_ai_query_duration_seconds{provider}` — AI provider query volume, outcome, and latency (see `pkg/ai/claude/client.go`); watch alongside `MCPServerHighAIQueryErrorRate` in [`docs/alerts/mcpserver-rules.yaml`](../docs/alerts/mcpserver-rules.yaml).
+- `mcpserver_ai_query_errors_total{provider,error_kind}` — AI provider query error volume, classified by the same closed `error_kind` enum as `mcpserver_tool_errors_total`, plus an AI-specific `ai_api` kind for non-2xx provider responses (see `pkg/ai/claude/client.go`); use to tell a local/timeout failure apart from a provider-side rejection before escalating.
 - `mcpserver_gitops_sync_total{cluster,action}` / `mcpserver_gitops_sync_duration_seconds{cluster}` — GitOps sync resource outcomes (`created`/`updated`/`unchanged`/`failed`/`skipped`) and latency per cluster (see `pkg/gitops/sync.go`); watch alongside `MCPServerHighGitOpsSyncFailureRate` in [`docs/alerts/mcpserver-rules.yaml`](../docs/alerts/mcpserver-rules.yaml).
 - `mcpserver_gitops_drift_total{cluster,drift_type}` / `mcpserver_gitops_drift_duration_seconds{cluster}` — detected drift count (`missing`/`modified`) and detection latency per cluster (see `pkg/gitops/drift.go`). **Caveat:** unlike `mcpserver_gitops_sync_total`, there is no `MCPServer*` alert for this metric, and resource-check errors during drift detection (API errors, RBAC denials in `checkResource`) are recorded as `drift_type="missing"` with no distinct label — do not treat a `missing` count spike as confirmed drift without also checking for `gitops drift check failed` log lines (see [`docs/alerts/README.md`](../docs/alerts/README.md)).
 
@@ -409,12 +410,16 @@ outright (error-rate alert), so check both.
 
 2. Isolate the affected provider:
    ```bash
-   curl -s http://127.0.0.1:9090/metrics | grep 'mcpserver_ai_query_total\|mcpserver_ai_query_duration_seconds'
+   curl -s http://127.0.0.1:9090/metrics | grep 'mcpserver_ai_query_total\|mcpserver_ai_query_duration_seconds\|mcpserver_ai_query_errors_total'
    ```
    Compare `mcpserver_ai_query_total{provider,status}` and
    `mcpserver_ai_query_duration_seconds{provider}` across providers — a
    spike concentrated on one `provider` label points to that provider's
-   endpoint rather than the MCP server itself.
+   endpoint rather than the MCP server itself. Check
+   `mcpserver_ai_query_errors_total{provider,error_kind}` to tell a
+   provider-side rejection (`error_kind="ai_api"`, e.g. rate limiting or
+   auth failure) apart from a local `timeout` or `marshal` failure before
+   escalating to the provider's status page.
 
 3. If latency is elevated but errors are not (latency alert only): treat
    this as a possible upstream AI provider degradation. Check the
