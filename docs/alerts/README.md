@@ -48,6 +48,13 @@ Alert rules aligned with the SLOs in [`../slo.md`](../slo.md):
   see `pkg/gitops/drift.go`'s `checkResource` error path. Correlate with
   `gitops drift check failed` log lines, not this metric, to find actual
   check failures.
+- `MCPServerHighMulticlusterOperationFailureRate` — per-cluster
+  multi-cluster fan-out operation failure rate
+  (`mcpserver_multicluster_operation_total{status="error"}`) versus a
+  general operational threshold; not yet tied to a formal SLO in
+  [`../slo.md`](../slo.md) (`kubestellar-deploy`-only — `kubestellar-ops`
+  never constructs a `multicluster.Executor`, same scoping caveat as
+  `MCPServerActiveClustersDroppedToZero` below).
 - `MCPServerActiveClustersDroppedToZero` — reachable-cluster count drop,
   cross-referenced with the connectivity-loss runbook section.
   **`kubestellar-deploy`-only:** `mcpserver_active_clusters` is set solely

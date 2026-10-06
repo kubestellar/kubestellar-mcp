@@ -20,6 +20,7 @@ Overview of MCP tool-dispatch traffic for the metrics defined in
 - `mcpserver_ai_query_errors_total` — AI provider error rate and breakdown by `error_kind`
 - `mcpserver_gitops_sync_total` — GitOps sync resource outcomes by cluster and action
 - `mcpserver_gitops_drift_total` — GitOps drift detections by cluster and drift type
+- `mcpserver_multicluster_operation_total` — per-cluster outcomes of multi-cluster fan-out operations (kubestellar-deploy only, see `pkg/multicluster/executor.go`)
 
 Import via Grafana's "Import dashboard" flow (paste JSON or upload the file)
 and select a Prometheus datasource that scrapes the MCP server's `/metrics`
