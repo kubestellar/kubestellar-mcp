@@ -30,6 +30,12 @@ var (
 	// without needing to be maintained by hand.
 	metricNameRE = regexp.MustCompile(`Name:\s*"(mcpserver_[a-zA-Z0-9_]+)"`)
 
+	// counterTotalRE pulls just the "_total" counter names, the subset of
+	// metrics.go's registrations that count discrete outcomes (as opposed
+	// to a duration histogram) and are therefore the ones an alert rule
+	// would reasonably fire on.
+	counterTotalRE = regexp.MustCompile(`Name:\s*"(mcpserver_[a-zA-Z0-9_]*_total)"`)
+
 	// tokenRE finds every mcpserver_* identifier referenced by an alert
 	// expr, including PromQL selectors and label matchers.
 	tokenRE = regexp.MustCompile(`\bmcpserver_[a-zA-Z0-9_]*\b`)
@@ -39,6 +45,56 @@ var (
 	// is referencing the histogram defined with base name "<name>".
 	histogramSuffixes = []string{"_bucket", "_sum", "_count"}
 )
+
+// metricsWithoutAlertCoverage lists mcpserver_*_total counters that are
+// intentionally not yet referenced by any alert rule in
+// docs/alerts/mcpserver-rules.yaml. Every entry must cite the issue tracking
+// its follow-up alert. TestEveryCounterHasAlertCoverage fails on any
+// unlisted, unreferenced counter so a newly-added outcome metric can't
+// silently ship with no alerting coverage the way kubestellar-mcp#1159
+// found had already happened for both of these.
+var metricsWithoutAlertCoverage = map[string]string{
+	"mcpserver_gitops_drift_total":           "kubestellar-mcp#1159",
+	"mcpserver_multicluster_operation_total": "kubestellar-mcp#1159",
+}
+
+// readAlertRules loads and parses docs/alerts/mcpserver-rules.yaml, shared
+// by both tests in this file.
+func readAlertRules(t *testing.T) alertRulesFile {
+	t.Helper()
+	rulesPath := filepath.Join("..", "..", "docs", "alerts", "mcpserver-rules.yaml")
+	raw, err := os.ReadFile(rulesPath)
+	if err != nil {
+		t.Fatalf("reading %s: %v", rulesPath, err)
+	}
+
+	var rules alertRulesFile
+	if err := yaml.Unmarshal(raw, &rules); err != nil {
+		t.Fatalf("parsing %s: %v", rulesPath, err)
+	}
+	return rules
+}
+
+// alertReferencedBaseMetrics returns the set of base metric names (histogram
+// suffixes stripped) referenced by at least one alert expr.
+func alertReferencedBaseMetrics(rules alertRulesFile) map[string]bool {
+	referenced := map[string]bool{}
+	for _, g := range rules.Spec.Groups {
+		for _, r := range g.Rules {
+			for _, tok := range tokenRE.FindAllString(r.Expr, -1) {
+				base := tok
+				for _, suf := range histogramSuffixes {
+					base = strings.TrimSuffix(base, suf)
+				}
+				if base == "" || base == "mcpserver_" {
+					continue // bare prefix match, not a real series name
+				}
+				referenced[base] = true
+			}
+		}
+	}
+	return referenced
+}
 
 // TestAlertRulesReferenceRegisteredMetrics guards
 // docs/alerts/mcpserver-rules.yaml against drifting from this package: every
@@ -62,16 +118,7 @@ func TestAlertRulesReferenceRegisteredMetrics(t *testing.T) {
 		t.Fatal("no mcpserver_* metric definitions found in metrics.go - regex is likely broken")
 	}
 
-	rulesPath := filepath.Join("..", "..", "docs", "alerts", "mcpserver-rules.yaml")
-	raw, err := os.ReadFile(rulesPath)
-	if err != nil {
-		t.Fatalf("reading %s: %v", rulesPath, err)
-	}
-
-	var rules alertRulesFile
-	if err := yaml.Unmarshal(raw, &rules); err != nil {
-		t.Fatalf("parsing %s: %v", rulesPath, err)
-	}
+	rules := readAlertRules(t)
 
 	seen := 0
 	for _, g := range rules.Spec.Groups {
@@ -93,5 +140,39 @@ func TestAlertRulesReferenceRegisteredMetrics(t *testing.T) {
 	}
 	if seen == 0 {
 		t.Fatal("no mcpserver_* tokens found in any alert expr - YAML parsing or regex is likely broken")
+	}
+}
+
+// TestEveryCounterHasAlertCoverage guards the opposite direction of
+// TestAlertRulesReferenceRegisteredMetrics: every mcpserver_*_total counter
+// registered in metrics.go must be referenced by at least one alert expr in
+// docs/alerts/mcpserver-rules.yaml, unless it is listed (with a tracking
+// issue) in metricsWithoutAlertCoverage above. Without this, a new outcome
+// counter can ship with no operator-facing alert and nothing in CI notices -
+// see kubestellar-mcp#1159, which found this had already happened twice.
+func TestEveryCounterHasAlertCoverage(t *testing.T) {
+	src, err := os.ReadFile("metrics.go")
+	if err != nil {
+		t.Fatalf("reading metrics.go: %v", err)
+	}
+	counters := counterTotalRE.FindAllStringSubmatch(string(src), -1)
+	if len(counters) == 0 {
+		t.Fatal("no mcpserver_*_total counters found in metrics.go - regex is likely broken")
+	}
+
+	referenced := alertReferencedBaseMetrics(readAlertRules(t))
+
+	for _, m := range counters {
+		name := m[1]
+		if referenced[name] {
+			if issue, exempt := metricsWithoutAlertCoverage[name]; exempt {
+				t.Errorf("%s is referenced by an alert rule now - remove its stale exemption (tracked by %s) from metricsWithoutAlertCoverage", name, issue)
+			}
+			continue
+		}
+		if _, exempt := metricsWithoutAlertCoverage[name]; exempt {
+			continue
+		}
+		t.Errorf("%s has no alert rule in docs/alerts/mcpserver-rules.yaml and no exemption in metricsWithoutAlertCoverage; add an alert rule or an explicitly-tracked exemption", name)
 	}
 }
