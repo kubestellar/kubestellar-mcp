@@ -117,6 +117,47 @@ func TestSetActiveClusters(t *testing.T) {
 	}
 }
 
+func TestRecordMulticlusterOperationSuccess(t *testing.T) {
+	RecordMulticlusterOperation("prod-east", nil)
+
+	families := gather(t)
+	found := false
+	for _, m := range families["mcpserver_multicluster_operation_total"].GetMetric() {
+		if labelValue(m, "cluster") == "prod-east" && labelValue(m, "status") == "success" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("expected mcpserver_multicluster_operation_total series with cluster=prod-east, status=success")
+	}
+}
+
+func TestRecordMulticlusterOperationError(t *testing.T) {
+	RecordMulticlusterOperation("prod-west", errors.New("boom"))
+
+	families := gather(t)
+	found := false
+	for _, m := range families["mcpserver_multicluster_operation_total"].GetMetric() {
+		if labelValue(m, "cluster") == "prod-west" && labelValue(m, "status") == "error" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("expected mcpserver_multicluster_operation_total series with cluster=prod-west, status=error")
+	}
+}
+
+func TestRecordMulticlusterOperationEmptyClusterNormalizesToNone(t *testing.T) {
+	RecordMulticlusterOperation("", nil)
+
+	families := gather(t)
+	for _, m := range families["mcpserver_multicluster_operation_total"].GetMetric() {
+		if labelValue(m, "status") == "success" && labelValue(m, "cluster") == "" {
+			t.Fatal("cluster label must never be empty; expected normalization to 'none'")
+		}
+	}
+}
+
 func TestRecordAIQuerySuccess(t *testing.T) {
 	RecordAIQuery("claude", 40*time.Millisecond, nil, "")
 
