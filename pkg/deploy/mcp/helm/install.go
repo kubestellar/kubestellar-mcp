@@ -104,7 +104,7 @@ func (s *Server) helmInstall(ctx context.Context, cluster, releaseName, chart, n
 	// (which resolve during input validation) and the helm subprocess (which
 	// resolves independently). If DNS has rebind to a blocked IP between
 	// validation and now, abort. See #275.
-	if err := revalidateHelmHosts(chart, repo); err != nil {
+	if err := revalidateHelmHosts(ctx, chart, repo); err != nil {
 		return HelmResult{
 			Cluster:     cluster,
 			ReleaseName: releaseName,

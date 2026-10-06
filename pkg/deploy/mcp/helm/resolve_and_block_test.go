@@ -1,6 +1,7 @@
 package helm
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
@@ -36,7 +37,7 @@ func TestResolveAndBlock_LiteralBlockedIPReturnsError(t *testing.T) {
 				t.Fatalf("resolver must not be called for literal IP, got %q", host)
 				return nil, nil
 			})
-			err := resolveAndBlock(ip)
+			err := resolveAndBlock(context.Background(), ip)
 			if err == nil {
 				t.Fatalf("expected error for blocked literal IP %q, got nil", ip)
 			}
@@ -52,7 +53,7 @@ func TestResolveAndBlock_LiteralPublicIPIsAllowed(t *testing.T) {
 		t.Fatalf("resolver must not be called for literal IP, got %q", host)
 		return nil, nil
 	})
-	if err := resolveAndBlock("93.184.216.34"); err != nil {
+	if err := resolveAndBlock(context.Background(), "93.184.216.34"); err != nil {
 		t.Fatalf("expected nil for public literal IP, got %v", err)
 	}
 }
@@ -61,7 +62,7 @@ func TestResolveAndBlock_DNSLookupFailurePropagates(t *testing.T) {
 	setHelmMockResolver(t, func(host string) ([]string, error) {
 		return nil, errStubDNS{}
 	})
-	err := resolveAndBlock("no-such-host.invalid")
+	err := resolveAndBlock(context.Background(), "no-such-host.invalid")
 	if err == nil {
 		t.Fatal("expected DNS lookup failure error, got nil")
 	}
@@ -76,7 +77,7 @@ func TestResolveAndBlock_HostnameResolvesToBlockedIP(t *testing.T) {
 	setHelmMockResolver(t, func(host string) ([]string, error) {
 		return []string{"93.184.216.34", "169.254.169.254"}, nil
 	})
-	err := resolveAndBlock("evil.example.com")
+	err := resolveAndBlock(context.Background(), "evil.example.com")
 	if err == nil {
 		t.Fatal("expected blocked-IP error, got nil")
 	}
@@ -89,7 +90,7 @@ func TestResolveAndBlock_HostnameResolvesToOnlyPublicIPs(t *testing.T) {
 	setHelmMockResolver(t, func(host string) ([]string, error) {
 		return []string{"93.184.216.34", "8.8.8.8"}, nil
 	})
-	if err := resolveAndBlock("cdn.example.com"); err != nil {
+	if err := resolveAndBlock(context.Background(), "cdn.example.com"); err != nil {
 		t.Fatalf("expected nil for all-public resolution, got %v", err)
 	}
 }
@@ -101,7 +102,7 @@ func TestResolveAndBlock_UnparseableResolverOutputIsSkipped(t *testing.T) {
 	setHelmMockResolver(t, func(host string) ([]string, error) {
 		return []string{"not-an-ip", "also-garbage"}, nil
 	})
-	if err := resolveAndBlock("weird.example.com"); err != nil {
+	if err := resolveAndBlock(context.Background(), "weird.example.com"); err != nil {
 		t.Fatalf("expected nil when resolver output is unparseable, got %v", err)
 	}
 }

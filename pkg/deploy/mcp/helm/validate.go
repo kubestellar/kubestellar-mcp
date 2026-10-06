@@ -1,6 +1,7 @@
 package helm
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/url"
@@ -122,7 +123,11 @@ func validateHelmRepoURL(repo string) error {
 // between the initial validation (validateHelmChartRef/validateHelmRepoURL)
 // and helm's own DNS resolution. If a DNS rebinding attack switched the
 // record to a blocked IP after validation, this check catches it (#275).
-func revalidateHelmHosts(chart, repo string) error {
+//
+// ctx bounds the re-check itself: if it carries no deadline,
+// netguard.ResolveAndBlock applies netguard.DefaultDNSTimeout so a hung DNS
+// server cannot stall the exec indefinitely.
+func revalidateHelmHosts(ctx context.Context, chart, repo string) error {
 	// Re-check OCI chart hostname if applicable.
 	if strings.HasPrefix(chart, "oci://") {
 		ref := strings.TrimPrefix(chart, "oci://")
@@ -132,7 +137,7 @@ func revalidateHelmHosts(chart, repo string) error {
 			host = h
 		}
 		if host != "" {
-			if err := resolveAndBlock(host); err != nil {
+			if err := resolveAndBlock(ctx, host); err != nil {
 				return fmt.Errorf("chart host %q: %w", host, err)
 			}
 		}
@@ -141,7 +146,7 @@ func revalidateHelmHosts(chart, repo string) error {
 	if repo != "" {
 		u, err := url.Parse(repo)
 		if err == nil && u.Hostname() != "" {
-			if err := resolveAndBlock(u.Hostname()); err != nil {
+			if err := resolveAndBlock(ctx, u.Hostname()); err != nil {
 				return fmt.Errorf("repo host %q: %w", u.Hostname(), err)
 			}
 		}
@@ -150,24 +155,13 @@ func revalidateHelmHosts(chart, repo string) error {
 }
 
 // resolveAndBlock resolves a hostname and returns an error if any resulting IP
-// is in a blocked range.
-func resolveAndBlock(host string) error {
-	if ip := net.ParseIP(host); ip != nil {
-		if isHelmBlockedIP(ip) {
-			return fmt.Errorf("resolves to blocked IP %s: %w", ip, netguard.ErrBlockedIP)
-		}
-		return nil
-	}
-	addrs, err := helmHostResolver(host)
-	if err != nil {
-		return fmt.Errorf("DNS lookup failed: %w", err)
-	}
-	for _, addr := range addrs {
-		if ip := net.ParseIP(addr); ip != nil && isHelmBlockedIP(ip) {
-			return fmt.Errorf("resolves to blocked IP %s: %w", ip, netguard.ErrBlockedIP)
-		}
-	}
-	return nil
+// is in a blocked range. Delegates to the shared, bounded implementation in
+// pkg/security/netguard, adapting helmHostResolver (replaceable in tests via
+// SetHostResolver) into the context-aware netguard.Resolver shape.
+func resolveAndBlock(ctx context.Context, host string) error {
+	return netguard.ResolveAndBlock(ctx, host, func(_ context.Context, h string) ([]string, error) {
+		return helmHostResolver(h)
+	})
 }
 
 // validHelmIdentifierPattern enforces Kubernetes DNS label format for Helm
@@ -247,17 +241,17 @@ func ValidateClusters(clusters []string) error {
 	return validateHelmClusters(clusters)
 }
 
-// ResolveAndBlock is the exported form of resolveAndBlock, retained for root
-// package test compatibility (pkg/deploy/mcp/resolve_and_block_test.go),
-// which exercises this SSRF gate directly.
+// ResolveAndBlock is the exported form of resolveAndBlock, retained for
+// external test compatibility (resolve_and_block_test.go, exports_test.go
+// in this package), which exercise this SSRF gate directly.
 func ResolveAndBlock(host string) error {
-	return resolveAndBlock(host)
+	return resolveAndBlock(context.Background(), host)
 }
 
 // SetHostResolver replaces the DNS resolver used by validateHelmRepoURL,
 // validateHelmChartRef, and resolveAndBlock, returning a function that
-// restores the previous resolver. Retained for root package test
-// compatibility (pkg/deploy/mcp/resolve_and_block_test.go).
+// restores the previous resolver. Retained for external test compatibility
+// (resolve_and_block_test.go, exports_test.go in this package).
 func SetHostResolver(resolve func(host string) (addrs []string, err error)) (restore func()) {
 	orig := helmHostResolver
 	helmHostResolver = resolve
