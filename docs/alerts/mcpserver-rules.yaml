@@ -170,6 +170,33 @@ spec:
               to isolate the affected cluster; see
               runbooks/mcp-server-operations.md#using-the-metrics-endpoint.
 
+        # Multi-cluster fan-out failure rate. mcpserver_multicluster_operation_total
+        # is recorded by pkg/multicluster/executor.go via
+        # metrics.RecordMulticlusterOperation (kubestellar-deploy only -
+        # kubestellar-ops never constructs a multicluster.Executor, same
+        # scoping caveat as MCPServerActiveClustersDroppedToZero above).
+        # Not yet tied to a formal SLO in ../slo.md; this is a general
+        # operational signal, same pattern as MCPServerHighGitOpsSyncFailureRate.
+        - alert: MCPServerHighMulticlusterOperationFailureRate
+          expr: |
+            sum(rate(mcpserver_multicluster_operation_total{status="error"}[1h]))
+            /
+            sum(rate(mcpserver_multicluster_operation_total[1h]))
+            > 0.05
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: "kubestellar-mcp (kubestellar-deploy) multi-cluster operation failure rate is elevated"
+            description: >-
+              Per-cluster multi-cluster fan-out operation failure rate has
+              been above 5% for 1h. Inspect
+              mcpserver_multicluster_operation_total{cluster,status="error"}
+              to isolate the affected cluster; see
+              runbooks/mcp-server-operations.md#using-the-metrics-endpoint.
+              Do not apply this rule to a kubestellar-ops target - that
+              binary never populates this metric (see comment above).
+
         # Scrape-target-down detector. All rules above depend on
         # mcpserver_* series being present; once the /metrics endpoint
         # stops being scrapable (process crashed, hung, or unreachable),

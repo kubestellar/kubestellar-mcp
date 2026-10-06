@@ -54,9 +54,8 @@ var (
 // silently ship with no alerting coverage the way kubestellar-mcp#1159
 // found had already happened for both of these.
 var metricsWithoutAlertCoverage = map[string]string{
-	"mcpserver_gitops_drift_total":           "kubestellar-mcp#1159",
-	"mcpserver_multicluster_operation_total": "kubestellar-mcp#1159",
-	"mcpserver_ai_query_errors_total":        "kubestellar-mcp#1163",
+	"mcpserver_gitops_drift_total":    "kubestellar-mcp#1159",
+	"mcpserver_ai_query_errors_total": "kubestellar-mcp#1163",
 }
 
 // readAlertRules loads and parses docs/alerts/mcpserver-rules.yaml, shared
