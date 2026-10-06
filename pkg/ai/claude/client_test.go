@@ -3,6 +3,7 @@ package claude
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -134,6 +135,9 @@ func TestQueryHandlesAPIErrors(t *testing.T) {
 			_, err := client.Query(context.Background(), "system", "question")
 			if err == nil || !strings.Contains(err.Error(), tt.want) {
 				t.Fatalf("Query() error = %v, want substring %q", err, tt.want)
+			}
+			if !errors.Is(err, ErrAPIResponse) {
+				t.Fatalf("Query() error = %v, want errors.Is(err, ErrAPIResponse)", err)
 			}
 		})
 	}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,6 +15,14 @@ import (
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/metrics"
 )
+
+// ErrAPIResponse is a sentinel wrapped into the error returned when the
+// Claude API responds with a non-200 status (e.g. rate limiting, auth
+// failure, server error). sendRequest checks for it with errors.Is to
+// classify these failures as metrics.ErrorKindAIAPI without matching on
+// raw status codes or message text, keeping the metrics error_kind label
+// bounded.
+var ErrAPIResponse = errors.New("ai provider api error")
 
 const (
 	DefaultBaseURL = "https://api.anthropic.com/v1"
@@ -157,7 +166,11 @@ func (c *Client) sendRequest(ctx context.Context, req Request) (result string, e
 	start := time.Now()
 	defer func() {
 		duration := time.Since(start)
-		metrics.RecordAIQuery(providerName, duration, err)
+		errKind := metrics.ClassifyError(err)
+		if errKind == metrics.ErrorKindUnknown && errors.Is(err, ErrAPIResponse) {
+			errKind = metrics.ErrorKindAIAPI
+		}
+		metrics.RecordAIQuery(providerName, duration, err, errKind)
 
 		// Structured, bounded lifecycle logging: provider is a fixed
 		// constant (never the user-configurable model string) and no raw
@@ -201,9 +214,9 @@ func (c *Client) sendRequest(ctx context.Context, req Request) (result string, e
 	if resp.StatusCode != http.StatusOK {
 		var errResp ErrorResponse
 		if err := json.Unmarshal(respBody, &errResp); err != nil {
-			return "", fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(respBody))
+			return "", fmt.Errorf("API error (status %d): %s: %w", resp.StatusCode, string(respBody), ErrAPIResponse)
 		}
-		return "", fmt.Errorf("API error: %s - %s", errResp.Error.Type, errResp.Error.Message)
+		return "", fmt.Errorf("API error: %s - %s: %w", errResp.Error.Type, errResp.Error.Message, ErrAPIResponse)
 	}
 
 	var apiResp Response

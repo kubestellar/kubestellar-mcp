@@ -187,6 +187,22 @@
           "legendFormat": "{{cluster}} - {{drift_type}}"
         }
       ]
+    },
+    {
+      "id": 10,
+      "title": "AI provider errors by kind (rate)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 36 },
+      "targets": [
+        {
+          "expr": "sum by (provider, error_kind) (rate(mcpserver_ai_query_errors_total[5m]))",
+          "legendFormat": "{{provider}} - {{error_kind}}"
+        }
+      ]
     }
   ]
 }
