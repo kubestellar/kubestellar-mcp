@@ -7,6 +7,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/kubestellar/kubestellar-mcp/pkg/openshift"
 )
 
 // ClusterAccess abstracts the Kubernetes client factories required by upgrade
@@ -29,27 +31,16 @@ const (
 	ClusterTypeUnknown   = "unknown"
 )
 
-// GVRs for upgrade-related CRDs
+// GVRs for upgrade-related CRDs. The OpenShift ones are shared with
+// pkg/cmd/upgrade via pkg/openshift so both consumers stay in sync.
 var (
-	clusterVersionGVR = schema.GroupVersionResource{
-		Group:    "config.openshift.io",
-		Version:  "v1",
-		Resource: "clusterversions",
-	}
-	clusterOperatorGVR = schema.GroupVersionResource{
-		Group:    "config.openshift.io",
-		Version:  "v1",
-		Resource: "clusteroperators",
-	}
-	subscriptionGVR = schema.GroupVersionResource{
+	clusterVersionGVR    = openshift.ClusterVersionGVR
+	clusterOperatorGVR   = openshift.ClusterOperatorGVR
+	machineConfigPoolGVR = openshift.MachineConfigPoolGVR
+	subscriptionGVR      = schema.GroupVersionResource{
 		Group:    "operators.coreos.com",
 		Version:  "v1alpha1",
 		Resource: "subscriptions",
-	}
-	machineConfigPoolGVR = schema.GroupVersionResource{
-		Group:    "machineconfiguration.openshift.io",
-		Version:  "v1",
-		Resource: "machineconfigpools",
 	}
 )
 

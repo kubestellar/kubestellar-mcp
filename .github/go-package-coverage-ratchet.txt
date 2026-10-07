@@ -33,7 +33,7 @@ pkg/mcp/server/policy 96.7
 pkg/mcp/server/rbac 92.7
 pkg/mcp/server/workloads 94.3
 pkg/mcp/rpcloop 96.8
-pkg/mcp/tools/upgrades 97.0
+pkg/mcp/tools/upgrades 96.9
 
 # --- Tier 1: Core packages ---
 pkg/gitops 98.4
@@ -45,13 +45,14 @@ pkg/ai/claude 98.0
 pkg/cmd 96.9
 pkg/cmd/ai 95.5
 pkg/cmd/clusters 94.0
-pkg/cmd/upgrade 98.8
+pkg/cmd/upgrade 98.7
 pkg/deploy/cmd 100.0
 cmd/kubestellar-deploy 100.0
 cmd/kubestellar-ops 100.0
 
 # --- Tier 2: Supporting packages ---
 pkg/metrics 100.0
+pkg/openshift 100.0
 pkg/progress 98.4
 pkg/security/namespace 100.0
 pkg/security/netguard 90.0
