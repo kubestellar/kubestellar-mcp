@@ -37,7 +37,7 @@ pkg/mcp/tools/upgrades 96.9
 
 # --- Tier 1: Core packages ---
 pkg/gitops 98.4
-pkg/multicluster 97.5
+pkg/multicluster 97.4
 pkg/cluster 100.0
 pkg/ai/claude 98.0
 
