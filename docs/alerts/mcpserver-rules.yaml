@@ -82,12 +82,16 @@ spec:
 
         # AI provider query error rate (SLO 5 — AI Provider Query
         # Availability, ../slo.md). mcpserver_ai_query_total/
-        # mcpserver_ai_query_duration_seconds are recorded by
-        # pkg/ai/claude/client.go via metrics.RecordAIQuery; this mirrors
-        # the SLO 1 30-day error-budget threshold.
+        # mcpserver_ai_query_errors_total/mcpserver_ai_query_duration_seconds
+        # are recorded by pkg/ai/claude/client.go via metrics.RecordAIQuery;
+        # this mirrors the SLO 1 30-day error-budget threshold and, like
+        # MCPServerHighToolErrorRate's use of mcpserver_tool_errors_total,
+        # uses the dedicated errors_total counter (not total{status="error"})
+        # as the numerator so this alert also satisfies
+        # TestEveryCounterHasAlertCoverage for mcpserver_ai_query_errors_total.
         - alert: MCPServerHighAIQueryErrorRate
           expr: |
-            sum(rate(mcpserver_ai_query_total{status="error"}[1h]))
+            sum(rate(mcpserver_ai_query_errors_total[1h]))
             /
             sum(rate(mcpserver_ai_query_total[1h]))
             > 0.05
@@ -100,8 +104,8 @@ spec:
               AI provider query error rate has been above 5% for 1h, which
               exceeds the SLO 5 30-day error budget in ../slo.md. See
               runbooks/mcp-server-operations.md#using-the-metrics-endpoint
-              to inspect mcpserver_ai_query_total{provider,status} and
-              isolate the affected provider.
+              to inspect mcpserver_ai_query_errors_total{provider,error_kind}
+              and isolate the affected provider/error kind.
 
         # SLO 5 latency companion — mirrors MCPServerHighToolLatencyP95,
         # backed by AIQueryDurationSeconds (pkg/metrics/metrics.go),
