@@ -10,6 +10,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/kubestellar/kubestellar-mcp/pkg/openshift"
 )
 
 // TriggerOpenShiftUpgrade triggers an OpenShift cluster upgrade.
@@ -185,26 +187,7 @@ func writeOpenShiftUpgradeStatus(ctx context.Context, dynClient dynamic.Interfac
 // writeClusterVersionProgress reports whether the ClusterVersion is currently
 // progressing through an upgrade.
 func writeClusterVersionProgress(cv *unstructured.Unstructured, sb *strings.Builder) {
-	conditions, _, _ := unstructured.NestedSlice(cv.Object, "status", "conditions")
-	isProgressing := false
-	progressMessage := ""
-
-	for _, cond := range conditions {
-		condMap, ok := cond.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		condType, _, _ := unstructured.NestedString(condMap, "type")
-		condStatus, _, _ := unstructured.NestedString(condMap, "status")
-		message, _, _ := unstructured.NestedString(condMap, "message")
-
-		if condType == "Progressing" {
-			if condStatus == "True" {
-				isProgressing = true
-				progressMessage = message
-			}
-		}
-	}
+	isProgressing, progressMessage := openshift.FindProgressingCondition(cv)
 
 	if isProgressing {
 		sb.WriteString("**Status:** Upgrade in progress\n")

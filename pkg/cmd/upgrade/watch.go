@@ -12,30 +12,20 @@ import (
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"github.com/kubestellar/kubestellar-mcp/pkg/openshift"
 	"github.com/kubestellar/kubestellar-mcp/pkg/progress"
 )
 
+// OpenShift GVRs are shared with pkg/mcp/tools/upgrades via pkg/openshift so
+// both consumers stay in sync.
 var (
-	clusterVersionGVR = schema.GroupVersionResource{
-		Group:    "config.openshift.io",
-		Version:  "v1",
-		Resource: "clusterversions",
-	}
-	clusterOperatorGVR = schema.GroupVersionResource{
-		Group:    "config.openshift.io",
-		Version:  "v1",
-		Resource: "clusteroperators",
-	}
-	machineConfigPoolGVR = schema.GroupVersionResource{
-		Group:    "machineconfiguration.openshift.io",
-		Version:  "v1",
-		Resource: "machineconfigpools",
-	}
+	clusterVersionGVR    = openshift.ClusterVersionGVR
+	clusterOperatorGVR   = openshift.ClusterOperatorGVR
+	machineConfigPoolGVR = openshift.MachineConfigPoolGVR
 )
 
 // NewWatchCommand creates the watch-upgrade command
@@ -188,17 +178,7 @@ func getUpgradeStatus(ctx context.Context, dynClient dynamic.Interface) (progres
 	desiredVersion := getNestedString(cv, "status", "desired", "version")
 
 	// Get the Progressing condition message - this contains all the progress info
-	conditions, _, _ := unstructured.NestedSlice(cv.Object, "status", "conditions")
-	progressMsg := ""
-	for _, cond := range conditions {
-		if c, ok := cond.(map[string]interface{}); ok {
-			condType, _, _ := unstructured.NestedString(c, "type")
-			if condType == "Progressing" {
-				progressMsg, _, _ = unstructured.NestedString(c, "message")
-				break
-			}
-		}
-	}
+	_, progressMsg := openshift.FindProgressingCondition(cv)
 
 	// Check if complete
 	if strings.Contains(progressMsg, fmt.Sprintf("Cluster version is %s", desiredVersion)) {
