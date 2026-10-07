@@ -48,14 +48,24 @@ var (
 
 // metricsWithoutAlertCoverage lists mcpserver_*_total counters that are
 // intentionally not yet referenced by any alert rule in
-// docs/alerts/mcpserver-rules.yaml. Every entry must cite the issue tracking
-// its follow-up alert. TestEveryCounterHasAlertCoverage fails on any
-// unlisted, unreferenced counter so a newly-added outcome metric can't
-// silently ship with no alerting coverage the way kubestellar-mcp#1159
-// found had already happened for both of these.
+// docs/alerts/mcpserver-rules.yaml. Every entry must cite an *open* issue
+// tracking its follow-up alert. TestEveryCounterHasAlertCoverage fails on
+// any unlisted, unreferenced counter so a newly-added outcome metric can't
+// silently ship with no alerting coverage - see kubestellar-mcp#1159, which
+// found this had already happened twice.
+//
+// Both entries below were previously cited to #1159 and #1163
+// respectively, but each of those issues was closed (#1159 by #1162/#1172,
+// #1163 by a scanner sweep) without landing the real alert rule its own
+// "Follow-up" section called for - the citations pointed at closed issues
+// with no open tracker for the still-missing alerts. kubestellar-mcp#1178
+// is the replacement open tracker for both until real alert rules land (or
+// a maintainer decides, per docs/alerts/README.md, that one or both metrics
+// will never get one and this entry should be documented as permanent
+// rather than cite an issue at all).
 var metricsWithoutAlertCoverage = map[string]string{
-	"mcpserver_gitops_drift_total":    "kubestellar-mcp#1159",
-	"mcpserver_ai_query_errors_total": "kubestellar-mcp#1163",
+	"mcpserver_gitops_drift_total":    "kubestellar-mcp#1178",
+	"mcpserver_ai_query_errors_total": "kubestellar-mcp#1178",
 }
 
 // readAlertRules loads and parses docs/alerts/mcpserver-rules.yaml, shared
