@@ -14,8 +14,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/tools/clientcmd"
 
+	"github.com/kubestellar/kubestellar-mcp/pkg/cluster"
 	"github.com/kubestellar/kubestellar-mcp/pkg/openshift"
 	"github.com/kubestellar/kubestellar-mcp/pkg/progress"
 )
@@ -64,18 +64,15 @@ Examples:
 
 func watchUpgrade(ctx context.Context, configFlags *genericclioptions.ConfigFlags, interval time.Duration) error {
 	// Build client config
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	if configFlags.KubeConfig != nil && *configFlags.KubeConfig != "" {
-		loadingRules.ExplicitPath = *configFlags.KubeConfig
+	var kubeconfigPath, contextName string
+	if configFlags.KubeConfig != nil {
+		kubeconfigPath = *configFlags.KubeConfig
+	}
+	if configFlags.Context != nil {
+		contextName = *configFlags.Context
 	}
 
-	configOverrides := &clientcmd.ConfigOverrides{}
-	if configFlags.Context != nil && *configFlags.Context != "" {
-		configOverrides.CurrentContext = *configFlags.Context
-	}
-
-	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
-	config, err := kubeConfig.ClientConfig()
+	config, err := cluster.NewClientConfig(kubeconfigPath, contextName).ClientConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load kubeconfig: %w", err)
 	}
