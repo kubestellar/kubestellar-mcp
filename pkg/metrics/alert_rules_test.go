@@ -47,25 +47,36 @@ var (
 )
 
 // metricsWithoutAlertCoverage lists mcpserver_*_total counters that are
-// intentionally not yet referenced by any alert rule in
-// docs/alerts/mcpserver-rules.yaml. Every entry must cite an *open* issue
-// tracking its follow-up alert. TestEveryCounterHasAlertCoverage fails on
-// any unlisted, unreferenced counter so a newly-added outcome metric can't
-// silently ship with no alerting coverage - see kubestellar-mcp#1159, which
-// found this had already happened twice.
+// intentionally not referenced by any alert rule in
+// docs/alerts/mcpserver-rules.yaml. Every entry must either cite an *open*
+// issue tracking its follow-up alert, or (if a maintainer has decided no
+// alert rule will ever fit the metric's semantics) read "permanent: " plus
+// a pointer to the docs/alerts/README.md section explaining why.
+// TestEveryCounterHasAlertCoverage fails on any unlisted, unreferenced
+// counter so a newly-added outcome metric can't silently ship with no
+// alerting coverage - see kubestellar-mcp#1159, which found this had
+// already happened twice.
 //
-// Both entries below were previously cited to #1159 and #1163
-// respectively, but each of those issues was closed (#1159 by #1162/#1172,
-// #1163 by a scanner sweep) without landing the real alert rule its own
-// "Follow-up" section called for - the citations pointed at closed issues
-// with no open tracker for the still-missing alerts. kubestellar-mcp#1178
-// is the replacement open tracker for both until real alert rules land (or
-// a maintainer decides, per docs/alerts/README.md, that one or both metrics
-// will never get one and this entry should be documented as permanent
-// rather than cite an issue at all).
+// mcpserver_ai_query_errors_total previously had a "needs an alert, tracked
+// by an issue" entry here, but that citation chain (#1163 -> #1178) kept
+// dead-ending at closed issues with no real alert landed. It now has real
+// coverage: MCPServerHighAIQueryErrorRate's numerator was switched from
+// mcpserver_ai_query_total{status="error"} to mcpserver_ai_query_errors_total
+// (both are incremented 1:1 per error by metrics.RecordAIQuery, so this is
+// not a behavior change), mirroring MCPServerHighToolErrorRate's use of
+// mcpserver_tool_errors_total - see docs/alerts/mcpserver-rules.yaml. It no
+// longer needs an entry in this map at all.
 var metricsWithoutAlertCoverage = map[string]string{
-	"mcpserver_gitops_drift_total":    "kubestellar-mcp#1178",
-	"mcpserver_ai_query_errors_total": "kubestellar-mcp#1178",
+	// mcpserver_gitops_drift_total: permanent, by design - drift detection
+	// reports informational missing/modified counts, not pass/fail
+	// outcomes like sync, and check failures are folded into
+	// drift_type="missing" with no distinct error signal (see
+	// pkg/gitops/drift.go's checkResource error path). See
+	// docs/alerts/README.md's "No equivalent alert exists for
+	// mcpserver_gitops_drift_total" note for the full rationale. This
+	// entry has no issue to repoint if closed, so it can't go stale the
+	// way the #1159/#1163/#1178 citation chain did.
+	"mcpserver_gitops_drift_total": "permanent: see docs/alerts/README.md",
 }
 
 // readAlertRules loads and parses docs/alerts/mcpserver-rules.yaml, shared

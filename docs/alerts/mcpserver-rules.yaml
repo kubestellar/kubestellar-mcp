@@ -81,13 +81,17 @@ spec:
               issues.
 
         # AI provider query error rate (SLO 5 — AI Provider Query
-        # Availability, ../slo.md). mcpserver_ai_query_total/
-        # mcpserver_ai_query_duration_seconds are recorded by
-        # pkg/ai/claude/client.go via metrics.RecordAIQuery; this mirrors
-        # the SLO 1 30-day error-budget threshold.
+        # Availability, ../slo.md). mcpserver_ai_query_errors_total/
+        # mcpserver_ai_query_total/mcpserver_ai_query_duration_seconds are
+        # recorded 1:1 by pkg/ai/claude/client.go via metrics.RecordAIQuery
+        # (every error increments both mcpserver_ai_query_errors_total and
+        # mcpserver_ai_query_total{status="error"}); this mirrors the
+        # mcpserver_tool_errors_total/mcpserver_tool_calls_total numerator
+        # pattern used by MCPServerHighToolErrorRate above, and gives
+        # mcpserver_ai_query_errors_total real alert coverage.
         - alert: MCPServerHighAIQueryErrorRate
           expr: |
-            sum(rate(mcpserver_ai_query_total{status="error"}[1h]))
+            sum(rate(mcpserver_ai_query_errors_total[1h]))
             /
             sum(rate(mcpserver_ai_query_total[1h]))
             > 0.05
