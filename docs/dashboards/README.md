@@ -19,7 +19,9 @@ Overview of MCP tool-dispatch traffic for the metrics defined in
 - `mcpserver_ai_query_duration_seconds` — AI provider query p50/p95/p99 latency
 - `mcpserver_ai_query_errors_total` — AI provider error rate and breakdown by `error_kind`
 - `mcpserver_gitops_sync_total` — GitOps sync resource outcomes by cluster and action
+- `mcpserver_gitops_sync_duration_seconds` — GitOps sync p50/p95/p99 latency
 - `mcpserver_gitops_drift_total` — GitOps drift detections by cluster and drift type
+- `mcpserver_gitops_drift_duration_seconds` — GitOps drift-detection p50/p95/p99 latency
 - `mcpserver_multicluster_operation_total` — per-cluster outcomes of multi-cluster fan-out operations (kubestellar-deploy only, see `pkg/multicluster/executor.go`)
 
 Import via Grafana's "Import dashboard" flow (paste JSON or upload the file)
