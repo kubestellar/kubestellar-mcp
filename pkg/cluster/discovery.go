@@ -8,6 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/clientcmd/api"
 )
 
 const healthCheckTimeout = 10 * time.Second
@@ -41,6 +42,49 @@ func NewDiscoverer(kubeconfig string) *Discoverer {
 	return &Discoverer{
 		kubeconfig: kubeconfig,
 	}
+}
+
+// RawClusterEntry is one context resolved by DiscoverRawClusterEntries from a
+// raw kubeconfig api.Config.
+type RawClusterEntry struct {
+	ContextName string
+	Server      string
+	Current     bool
+}
+
+// DiscoverRawClusterEntries walks rawConfig.Contexts and resolves each
+// context's referenced Cluster entry. It is the single place that owns this
+// walk: pkg/cluster.Discoverer and pkg/multicluster.ClientManager both
+// discover clusters from a raw kubeconfig api.Config and previously
+// duplicated this loop, with the two copies silently drifting on how a
+// context whose Cluster entry is missing (e.g. from partial edits or merged
+// kubeconfig fragments) gets handled.
+//
+// Such a context is always skipped rather than surfaced as an error, since
+// one orphaned context should not prevent discovery of the remaining, valid
+// ones. onSkipped, if non-nil, is invoked with the context name and the
+// missing cluster reference so a caller can log or otherwise surface the
+// condition; a caller that passes nil keeps a silent skip.
+func DiscoverRawClusterEntries(rawConfig api.Config, onSkipped func(contextName, clusterRef string)) []RawClusterEntry {
+	var entries []RawClusterEntry
+
+	for contextName, ctx := range rawConfig.Contexts {
+		clusterConfig, ok := rawConfig.Clusters[ctx.Cluster]
+		if !ok {
+			if onSkipped != nil {
+				onSkipped(contextName, ctx.Cluster)
+			}
+			continue
+		}
+
+		entries = append(entries, RawClusterEntry{
+			ContextName: contextName,
+			Server:      clusterConfig.Server,
+			Current:     contextName == rawConfig.CurrentContext,
+		})
+	}
+
+	return entries
 }
 
 // DiscoverClusters discovers clusters from the specified source
@@ -86,18 +130,13 @@ func (d *Discoverer) discoverFromKubeconfig() ([]ClusterInfo, error) {
 
 	var clusters []ClusterInfo
 
-	for contextName, ctx := range config.Contexts {
-		clusterConfig, ok := config.Clusters[ctx.Cluster]
-		if !ok {
-			continue
-		}
-
+	for _, entry := range DiscoverRawClusterEntries(*config, nil) {
 		clusters = append(clusters, ClusterInfo{
-			Name:    contextName,
+			Name:    entry.ContextName,
 			Source:  "kubeconfig",
-			Server:  clusterConfig.Server,
-			Context: contextName,
-			Current: contextName == config.CurrentContext,
+			Server:  entry.Server,
+			Context: entry.ContextName,
+			Current: entry.Current,
 			Status:  "Unknown",
 		})
 	}

@@ -57,17 +57,15 @@ func NewClientManager(kubeconfig string) (*ClientManager, error) {
 func (m *ClientManager) DiscoverClusters() ([]ClusterInfo, error) {
 	var clusters []ClusterInfo
 
-	for contextName, context := range m.rawConfig.Contexts {
-		cluster, exists := m.rawConfig.Clusters[context.Cluster]
-		if !exists {
-			klog.Warningf("skipping context %q: referenced cluster %q not found in kubeconfig", contextName, context.Cluster)
-			continue
-		}
+	entries := cluster.DiscoverRawClusterEntries(m.rawConfig, func(contextName, clusterRef string) {
+		klog.Warningf("skipping context %q: referenced cluster %q not found in kubeconfig", contextName, clusterRef)
+	})
 
+	for _, entry := range entries {
 		clusters = append(clusters, ClusterInfo{
-			Name:    contextName,
-			Server:  cluster.Server,
-			Current: contextName == m.currentContext,
+			Name:    entry.ContextName,
+			Server:  entry.Server,
+			Current: entry.Current,
 			Labels:  make(map[string]string),
 		})
 	}
