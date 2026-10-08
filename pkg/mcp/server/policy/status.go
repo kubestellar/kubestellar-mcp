@@ -198,8 +198,8 @@ func toolListOwnershipViolations(ctx context.Context, d *handlers.Deps, args map
 		}
 		// Truncate message for table
 		msg := v.Message
-		if len(msg) > 50 {
-			msg = msg[:47] + "..."
+		if len(msg) > 100 {
+			msg = msg[:97] + "..."
 		}
 		_, _ = fmt.Fprintf(&sb, "| %s | %s | %s | %s |\n", v.Namespace, v.Kind, v.Name, msg)
 		shown++

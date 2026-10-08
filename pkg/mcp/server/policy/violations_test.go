@@ -98,9 +98,9 @@ func TestToolListOwnershipViolations_NoViolations(t *testing.T) {
 }
 
 func TestToolListOwnershipViolations_ManyViolationsWithLimit(t *testing.T) {
-	// 4 violations across 2 namespaces + one with a very long message (>50 chars)
+	// 4 violations across 2 namespaces + one with a very long message (>100 chars)
 	// to hit the message-truncation branch.
-	longMsg := "you must provide labels: " + strings.Repeat("x", 100)
+	longMsg := "you must provide labels: " + strings.Repeat("x", 150)
 	violations := []map[string]interface{}{
 		{"kind": "Deployment", "name": "web", "namespace": "app-a", "message": "missing labels: owner, team"},
 		{"kind": "Service", "name": "svc", "namespace": "app-a", "message": longMsg},
