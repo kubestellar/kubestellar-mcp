@@ -27,20 +27,23 @@ import (
 // (get_roles_branches_test.go, analyze_branches_test.go, etc.).
 //
 // Covered tools:
-//   - get_roles                 (rbac.go:22)
-//   - get_cluster_roles         (rbac.go:62)
-//   - get_role_bindings         (rbac.go:100)
-//   - get_cluster_role_bindings (rbac.go:142)
-//   - describe_role             (rbac.go:355, both Role and ClusterRole
-//                                branches)
+//   - get_roles                   (rbac.go:22)
+//   - get_cluster_roles           (rbac.go:62)
+//   - get_role_bindings           (rbac.go:100)
+//   - get_cluster_role_bindings   (rbac.go:142)
+//   - analyze_subject_permissions (rbac.go:258)
+//   - describe_role               (rbac.go:355, both Role and ClusterRole
+//     branches)
 //
-// can_i and analyze_subject_permissions are not exercised here: SelfSubject/
-// SubjectAccessReview against the default envtest apiserver returns a
-// short-circuit "allowed by RBAC authorizer bypass" answer that does not
-// reflect the created Role/Binding, so the assertion surface would test the
-// bypass rather than the tool's real behavior. audit_kubeconfig and
-// find_resource_owners have no such dependency on the authorizer and are
-// covered separately in rbac_more_test.go.
+// can_i is not exercised here: it issues a SelfSubjectAccessReview, and the
+// envtest client authenticates as system:masters (full-access admin), so the
+// authorizer short-circuits to "allowed" regardless of the created
+// Role/Binding — the assertion surface would test that bypass rather than
+// the tool's real behavior. analyze_subject_permissions has no such
+// dependency: it only Lists/matches RoleBindings and ClusterRoleBindings
+// (rbac.go:280-325), so it is covered below like the other list tools.
+// audit_kubeconfig and find_resource_owners have no dependency on the
+// authorizer either and are covered separately in rbac_more_test.go.
 func TestRBACRolesAndBindings(t *testing.T) {
 	ctx := context.Background()
 
@@ -202,6 +205,47 @@ func TestRBACRolesAndBindings(t *testing.T) {
 		}
 		if !strings.Contains(output, clusterRoleBindingName) {
 			t.Fatalf("get_cluster_role_bindings output does not mention clusterrolebinding %q: %s", clusterRoleBindingName, output)
+		}
+	})
+
+	t.Run("analyze_subject_permissions", func(t *testing.T) {
+		handler := reg.Find("analyze_subject_permissions")
+		if handler == nil {
+			t.Fatal("analyze_subject_permissions tool not found in registry after rbac.Register")
+		}
+		output, isError := handler(ctx, deps, map[string]interface{}{
+			"subject_kind":      "ServiceAccount",
+			"subject_name":      subjectName,
+			"subject_namespace": namespace,
+		})
+		if isError {
+			t.Fatalf("analyze_subject_permissions returned an error result: %s", output)
+		}
+		if !strings.Contains(output, clusterRoleName) {
+			t.Fatalf("analyze_subject_permissions output does not mention cluster-wide role %q: %s", clusterRoleName, output)
+		}
+		if !strings.Contains(output, roleName) {
+			t.Fatalf("analyze_subject_permissions output does not mention namespace-scoped role %q: %s", roleName, output)
+		}
+		if !strings.Contains(output, namespace) {
+			t.Fatalf("analyze_subject_permissions output does not mention namespace %q: %s", namespace, output)
+		}
+	})
+
+	t.Run("analyze_subject_permissions_no_match", func(t *testing.T) {
+		handler := reg.Find("analyze_subject_permissions")
+		if handler == nil {
+			t.Fatal("analyze_subject_permissions tool not found in registry after rbac.Register")
+		}
+		output, isError := handler(ctx, deps, map[string]interface{}{
+			"subject_kind": "ServiceAccount",
+			"subject_name": "mcp-integration-sa-does-not-exist",
+		})
+		if isError {
+			t.Fatalf("analyze_subject_permissions returned an error result: %s", output)
+		}
+		if !strings.Contains(output, "No RBAC bindings found for this subject.") {
+			t.Fatalf("analyze_subject_permissions did not report no-match for an unbound subject: %s", output)
 		}
 	})
 
