@@ -32,11 +32,15 @@ Covered packages:
   `handlers.Registry.Find`, exactly as the real MCP protocol server
   dispatches it) and asserts the pod shows up in the tool's output.
 - `pkg/mcp/server/rbac` — `get_roles`, `get_cluster_roles`,
-  `get_role_bindings`, `get_cluster_role_bindings`, `describe_role`
-  (`rbac_test.go`): creates a Role, ClusterRole, RoleBinding, and
-  ClusterRoleBinding directly against the envtest API server, then drives
-  each tool (via `rbac.Register` + `handlers.Registry.Find`) and asserts on
-  the returned output.
+  `get_role_bindings`, `get_cluster_role_bindings`,
+  `analyze_subject_permissions`, `describe_role` (`rbac_test.go`): creates a
+  Role, ClusterRole, RoleBinding, and ClusterRoleBinding directly against the
+  envtest API server, then drives each tool (via `rbac.Register` +
+  `handlers.Registry.Find`) and asserts on the returned output.
+  `analyze_subject_permissions` only Lists/matches RoleBindings and
+  ClusterRoleBindings — unlike `can_i` below, it never calls
+  `SelfSubjectAccessReview`, so it is not affected by envtest's RBAC
+  authorizer bypass.
 - `pkg/deploy/mcp/labels` — `add_labels`/`remove_labels`
   (`labels_test.go`): seeds a ConfigMap directly against the envtest API
   server, then drives `labels.HandleAddLabels`/`labels.HandleRemoveLabels`
@@ -128,12 +132,12 @@ Covered packages:
   (`rbac_more_test.go`): `audit_kubeconfig` writes a real kubeconfig for the
   envtest control plane (the same `writeIntegrationKubeconfig` helper
   `cluster_test.go` uses) and asserts the context is reported accessible —
-  unlike `can_i`/`analyze_subject_permissions` below, this tool never calls
-  `SelfSubjectAccessReview`, so it is not affected by envtest's RBAC
-  authorizer bypass. `find_resource_owners` seeds a Deployment and a
-  directly-owned Pod (the OwnerReference is set by hand, since envtest runs
-  no controller-manager to materialize the ReplicaSet link) and asserts the
-  tool reports the owner chain on the live object.
+  unlike `can_i` below, this tool never calls `SelfSubjectAccessReview`, so
+  it is not affected by envtest's RBAC authorizer bypass. `find_resource_owners`
+  seeds a Deployment and a directly-owned Pod (the OwnerReference is set by
+  hand, since envtest runs no controller-manager to materialize the
+  ReplicaSet link) and asserts the tool reports the owner chain on the live
+  object.
 
 - `pkg/cmd/clusters`, `pkg/cmd/upgrade`, `pkg/cmd/ai` — the CLI command
   layer (`cmd_test.go`, kubestellar-mcp#1143): unlike the packages' own unit
@@ -157,11 +161,11 @@ Covered packages:
   Args/RunE wiring a user hits running `kubestellar-ops ai query "..."`.
 
 Still uncovered: `pkg/deploy/mcp/helm` (see below), the OpenShift/OLM/Helm-only
-`upgrades` tools noted above, plus `can_i`/`analyze_subject_permissions` noted
-in `rbac_test.go` — both call `SelfSubjectAccessReview`/`SubjectAccessReview`,
-which the default envtest apiserver answers with a short-circuit "allowed by
-RBAC authorizer bypass" that does not reflect the created Role/Binding, so the
-assertion surface would test the bypass rather than the tool's real behavior.
+`upgrades` tools noted above, plus `can_i` noted in `rbac_test.go` — it calls
+`SelfSubjectAccessReview`, which the default envtest apiserver answers with a
+short-circuit "allowed by RBAC authorizer bypass" that does not reflect the
+created Role/Binding, so the assertion surface would test the bypass rather
+than the tool's real behavior.
 
 ### Why `pkg/deploy/mcp/helm` is out of scope for envtest
 
