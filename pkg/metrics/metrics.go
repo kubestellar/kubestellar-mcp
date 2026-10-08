@@ -152,6 +152,20 @@ var (
 		Name: "mcpserver_multicluster_operation_total",
 		Help: "Total number of per-cluster outcomes from multi-cluster fan-out operations, by cluster and status.",
 	}, []string{"cluster", "status"})
+
+	// DiscoveryLatencySeconds observes the time from a server's "initialize"
+	// request receipt to its first "tools/list" response - the SLO 2
+	// (Cluster Discovery Latency, docs/slo.md) SLI directly, unlike
+	// ToolDurationSeconds which aggregates every tool call and only
+	// approximates SLO 2 as a reference threshold. Recorded once per
+	// connection by pkg/mcp/rpcloop.DiscoveryTimer; a client that calls
+	// "tools/list" again later in the same session does not produce a
+	// second observation.
+	DiscoveryLatencySeconds = prometheus.NewHistogram(prometheus.HistogramOpts{
+		Name:    "mcpserver_discovery_latency_seconds",
+		Help:    "Time from an MCP 'initialize' request to the first 'tools/list' response, in seconds.",
+		Buckets: prometheus.DefBuckets,
+	})
 )
 
 func init() {
@@ -168,6 +182,7 @@ func init() {
 		GitOpsDriftTotal,
 		GitOpsDriftDurationSeconds,
 		MulticlusterOperationTotal,
+		DiscoveryLatencySeconds,
 	)
 }
 
@@ -310,6 +325,14 @@ func RecordGitOpsDrift(cluster string, duration time.Duration, counts map[string
 		}
 	}
 	GitOpsDriftDurationSeconds.WithLabelValues(cluster).Observe(duration.Seconds())
+}
+
+// RecordDiscoveryLatency observes the SLO 2 discovery-latency SLI: the time
+// from a connection's "initialize" request to its first "tools/list"
+// response. Callers (pkg/mcp/rpcloop.DiscoveryTimer) are responsible for
+// ensuring this is only invoked once per connection.
+func RecordDiscoveryLatency(duration time.Duration) {
+	DiscoveryLatencySeconds.Observe(duration.Seconds())
 }
 
 // StartServer starts an HTTP server exposing the /metrics endpoint on addr

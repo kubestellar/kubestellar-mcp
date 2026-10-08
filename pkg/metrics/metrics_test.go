@@ -439,6 +439,17 @@ func TestRecordGitOpsDriftNoDrifts(t *testing.T) {
 	}
 }
 
+func TestRecordDiscoveryLatency(t *testing.T) {
+	before := gather(t)["mcpserver_discovery_latency_seconds"].GetMetric()[0].GetHistogram().GetSampleCount()
+
+	RecordDiscoveryLatency(120 * time.Millisecond)
+
+	after := gather(t)["mcpserver_discovery_latency_seconds"].GetMetric()[0].GetHistogram().GetSampleCount()
+	if after != before+1 {
+		t.Fatalf("expected sample count to increase by 1, got %d -> %d", before, after)
+	}
+}
+
 func TestStartServerRejectsEmptyAddr(t *testing.T) {
 	if _, err := StartServer(""); err == nil {
 		t.Fatal("expected error for empty addr")

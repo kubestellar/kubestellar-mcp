@@ -31,6 +31,11 @@ Alert rules aligned with the SLOs in [`../slo.md`](../slo.md):
 - `MCPServerHighToolLatencyP95` — p95 tool latency (all tool calls) using
   SLO 2's p95 target as a reference threshold; it is a general latency
   proxy, not a direct measurement of SLO 2's discovery-latency SLI.
+- `MCPServerHighDiscoveryLatencyP95` — p95 discovery-handshake latency
+  (`mcpserver_discovery_latency_seconds`, recorded once per connection by
+  `pkg/mcp/rpcloop.DiscoveryTimer` from `initialize` receipt to the first
+  `tools/list` response) versus SLO 2's p95 target — this is a direct
+  measurement of SLO 2's SLI, unlike `MCPServerHighToolLatencyP95` above.
 - `MCPServerHighAIQueryErrorRate` — AI provider query error rate
   (`mcpserver_ai_query_errors_total` over `mcpserver_ai_query_total`)
   versus the SLO 5 error budget.
