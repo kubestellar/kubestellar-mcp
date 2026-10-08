@@ -49,7 +49,7 @@ File an issue or comment here to influence what gets prioritized.
 
 ### Tooling expansion
 - [ ] Domain-split `pkg/mcp/server/tools.go` (65KB → focused files) — architect PR #177
-- [ ] Add Prometheus metrics to ops server reconciliation path
+- [x] Add Prometheus metrics to ops server reconciliation path — `kubestellar-deploy`'s GitOps `reconcile`/`sync_from_git` path records `mcpserver_gitops_sync_total`/`mcpserver_gitops_sync_duration_seconds` (`pkg/gitops/sync.go`), and `detect_drift` records `mcpserver_gitops_drift_total`/`mcpserver_gitops_drift_duration_seconds` (`pkg/gitops/drift.go`)
 - [ ] Improve error messages for RBAC analysis on locked-down clusters
 
 ---
@@ -71,8 +71,8 @@ File an issue or comment here to influence what gets prioritized.
 - Related: kubestellar/kubestellar#3790
 
 ### Observability
-- Structured logging for all MCP tool calls (audit trail)
-- Expose Prometheus metrics from the MCP servers themselves
+- [x] Structured logging for all MCP tool calls (audit trail) — `pkg/mcp/rpcloop.InstrumentToolCall` emits a `klog.InfoS`/`klog.ErrorS` line per dispatched tool call (tool, cluster, duration, trace/span IDs), shared by both `kubestellar-ops` and `kubestellar-deploy`
+- [x] Expose Prometheus metrics from the MCP servers themselves — both binaries support an opt-in `--metrics-addr` flag serving `/metrics` (`pkg/metrics`, `pkg/deploy/cmd/root.go`); see `docs/dashboards/` and `docs/alerts/` for the importable Grafana dashboard and alert rules
 
 ---
 
