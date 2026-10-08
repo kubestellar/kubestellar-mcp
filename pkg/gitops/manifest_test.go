@@ -135,3 +135,28 @@ func TestResetTempDirRemovesPreviousDirectory(t *testing.T) {
 		t.Fatalf("tempDir = %q, want empty", reader.tempDir)
 	}
 }
+
+// TestCleanupRemovesTempDirAndNeverPanics exercises the Cleanup() wrapper
+// itself (not just resetTempDir()), since Cleanup previously discarded
+// resetTempDir's error with a bare `_ = err` and had no coverage calling it
+// directly. A failing removal must be logged, not panicked on - Cleanup is
+// always invoked via `defer` at every call site (see pkg/deploy/mcp/gitops,
+// pkg/mcp/server/drift), so it can never return an error of its own.
+func TestCleanupRemovesTempDirAndNeverPanics(t *testing.T) {
+	dir := t.TempDir()
+
+	reader := NewManifestReader()
+	reader.tempDir = dir
+	reader.Cleanup()
+
+	if _, err := os.Stat(dir); !os.IsNotExist(err) {
+		t.Fatalf("os.Stat() error = %v, want not exists", err)
+	}
+	if reader.tempDir != "" {
+		t.Fatalf("tempDir = %q, want empty", reader.tempDir)
+	}
+
+	// Calling Cleanup() again with an already-empty tempDir must be a
+	// no-op (resetTempDir's early return) and must not panic.
+	reader.Cleanup()
+}

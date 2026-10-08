@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/klog/v2"
 )
 
 // ManifestSource represents where to get manifests from
@@ -255,10 +256,17 @@ func (r *ManifestReader) resetTempDir() error {
 	return nil
 }
 
-// Cleanup removes temporary files
+// Cleanup removes temporary files. A failure here means a clone's temp
+// directory (which may hold GitOps manifests fetched from the configured
+// repo) is leaked on disk - it was previously silently discarded with no
+// signal at all, unlike every other error path in this package, which logs
+// via klog (see sync.go/drift.go). Logging it here closes that gap without
+// changing Cleanup's void signature, since all call sites
+// (pkg/deploy/mcp/gitops/gitops.go, pkg/mcp/server/drift/drift.go) invoke
+// it via `defer reader.Cleanup()` and do not expect an error return.
 func (r *ManifestReader) Cleanup() {
 	if err := r.resetTempDir(); err != nil {
-		_ = err
+		klog.ErrorS(err, "gitops manifest reader cleanup failed", "tempDir", r.tempDir)
 	}
 }
 
