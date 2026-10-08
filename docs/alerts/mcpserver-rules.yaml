@@ -201,6 +201,30 @@ spec:
               Do not apply this rule to a kubestellar-ops target - that
               binary never populates this metric (see comment above).
 
+        # Blocked-IP (SSRF-guard) attempt detector. mcpserver_tool_errors_total
+        # {error_kind="blocked_ip"} is recorded whenever a tool call fails
+        # outbound-URL validation against pkg/security/netguard (see
+        # pkg/deploy/mcp/helm/validate.go and pkg/gitops/repourl.go) -
+        # i.e. a Helm chart/repo or GitOps repo URL resolved to a private/
+        # internal address. This is a security signal, not a reliability
+        # one: a handful of blocked attempts can be invisible to
+        # MCPServerHighToolErrorRate's 5%/10% ratio thresholds if overall
+        # call volume is high, so it gets its own count-based alert rather
+        # than relying on the generic error-rate rules above.
+        - alert: MCPServerBlockedIPAttempts
+          expr: increase(mcpserver_tool_errors_total{error_kind="blocked_ip"}[15m]) > 0
+          labels:
+            severity: warning
+          annotations:
+            summary: "kubestellar-mcp rejected an outbound request to a blocked IP address"
+            description: >-
+              At least one tool call was rejected by the netguard
+              SSRF-guard (private/internal address) in the last 15m. This
+              can be a misconfigured Helm/GitOps repo URL or a genuine
+              probing attempt; see
+              runbooks/mcp-server-operations.md#diagnosing-blocked-ip-ssrf-guard-attempts
+              to isolate the offending tool/cluster/URL.
+
         # Scrape-target-down detector. All rules above depend on
         # mcpserver_* series being present; once the /metrics endpoint
         # stops being scrapable (process crashed, hung, or unreachable),
