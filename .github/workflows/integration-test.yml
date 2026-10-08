@@ -38,3 +38,35 @@ jobs:
 
       - name: Run integration tests
         run: make test-integration
+
+      - name: Summarize integration coverage
+        if: always()
+        run: |
+          if [ ! -f integration-coverage.out ]; then
+            {
+              echo "## Integration coverage"
+              echo ""
+              echo "No integration coverage profile was produced."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          COVERAGE=$(go tool cover -func=integration-coverage.out | awk '/^total:/ {print $3}')
+          {
+            echo "## Integration coverage"
+            echo ""
+            echo "| Metric | Value |"
+            echo "| --- | --- |"
+            echo "| Profile | integration-coverage.out |"
+            echo "| Total coverage | ${COVERAGE} |"
+            echo ""
+            echo "Integration coverage is uploaded as a separate artifact. The unit-test ratchet in build-test.yml remains unit-only so its existing floor semantics do not change."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload integration coverage
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: integration-coverage
+          path: integration-coverage.out
+          if-no-files-found: ignore
