@@ -19,10 +19,11 @@
 9. [Diagnosing a Scrape Target Outage](#diagnosing-a-scrape-target-outage)
 10. [Diagnosing High Tool Error Rate or Latency](#diagnosing-high-tool-error-rate-or-latency)
 11. [Diagnosing High AI Provider Query Error Rate or Latency](#diagnosing-high-ai-provider-query-error-rate-or-latency)
-12. [Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage, Release)](#detecting-a-failed-scheduled-workflow-security-scans-stale-triage-release)
-13. [Detecting a Broken PR-Gating Check (pull_request_target startup_failure)](#detecting-a-broken-pr-gating-check-pull_request_target-startup_failure)
-14. [Escalation](#escalation)
-15. [Release Rollback](release-rollback.md) (separate runbook, for a bad automated nightly/weekly release)
+12. [Diagnosing Blocked-IP (SSRF Guard) Attempts](#diagnosing-blocked-ip-ssrf-guard-attempts)
+13. [Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage, Release)](#detecting-a-failed-scheduled-workflow-security-scans-stale-triage-release)
+14. [Detecting a Broken PR-Gating Check (pull_request_target startup_failure)](#detecting-a-broken-pr-gating-check-pull_request_target-startup_failure)
+15. [Escalation](#escalation)
+16. [Release Rollback](release-rollback.md) (separate runbook, for a bad automated nightly/weekly release)
 
 ---
 
@@ -435,6 +436,54 @@ outright (error-rate alert), so check both.
    the AI provider integration itself are excluded from this SLO, but still
    merit follow-up via [Multi-Cluster Connectivity Loss](#multi-cluster-connectivity-loss)
    if relevant.
+
+---
+
+## Diagnosing Blocked-IP (SSRF Guard) Attempts
+
+**Symptom:** The `MCPServerBlockedIPAttempts` alert in
+[`docs/alerts/mcpserver-rules.yaml`](../docs/alerts/mcpserver-rules.yaml)
+has fired. At least one tool call was rejected by
+`pkg/security/netguard` because a Helm chart/repo or GitOps repo URL
+resolved to a private/internal address.
+
+### Steps
+
+1. Enable the metrics endpoint if it is not already running for this
+   deployment (see [Using the Metrics Endpoint](#using-the-metrics-endpoint)
+   above).
+
+2. Isolate the affected tool and cluster:
+   ```bash
+   curl -s http://127.0.0.1:9090/metrics | grep 'mcpserver_tool_errors_total{.*error_kind="blocked_ip"'
+   ```
+   `mcpserver_tool_errors_total{tool,cluster,error_kind="blocked_ip"}`
+   identifies which tool (and, if scoped, cluster) triggered the guard.
+
+3. Find the specific rejected URL in the structured tool-call-failed log
+   line (see [Diagnosing Silent Failures](#diagnosing-silent-failures) for
+   how to capture logs): `klog.ErrorS(nil, "tool call failed", "tool",
+   ...)` does not include the URL itself (the metric label set is bounded
+   and never carries raw URLs), so check the originating request's
+   arguments or, for GitOps/Helm deploy tools, the deployment manifest
+   that supplied the chart/repo reference.
+
+4. Determine intent:
+   - **Misconfiguration** — an internal Git/Helm mirror or registry was
+     referenced by its private address. Either route it through an
+     allowed public endpoint or have an operator explicitly accept the
+     risk out-of-band; the guard in `pkg/security/netguard` has no
+     allowlist override.
+   - **Possible probing** — the resolved URL has no plausible operator
+     origin (e.g. link-local or cloud metadata addresses such as
+     `169.254.169.254`). Treat as a potential SSRF attempt: check which
+     MCP client/credential issued the request and whether other blocked
+     attempts cluster around the same caller.
+
+5. This alert fires on any non-zero count in a 15m window (not a ratio),
+   so a single occurrence does not necessarily indicate an ongoing
+   problem — confirm via step 2 whether attempts are repeating before
+   escalating.
 
 ---
 

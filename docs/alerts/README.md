@@ -65,6 +65,13 @@ Alert rules aligned with the SLOs in [`../slo.md`](../slo.md):
   this rule to a `kubestellar-ops` scrape target makes it fire
   permanently (the gauge never leaves its zero default), not on an actual
   connectivity regression.
+- `MCPServerBlockedIPAttempts` — at least one tool call was rejected by the
+  netguard SSRF guard in the last 15m
+  (`mcpserver_tool_errors_total{error_kind="blocked_ip"}`). This is a
+  security signal rather than a reliability one, so it fires on any
+  non-zero count instead of a ratio threshold — a few blocked attempts can
+  otherwise be invisible to `MCPServerHighToolErrorRate`'s 5%/10% ratio
+  when overall call volume is high.
 - `MCPServerScrapeTargetDown` — the `/metrics` scrape target itself is
   unreachable (standard Prometheus `up` metric), independent of the
   `mcpserver_*` series the other rules depend on. Adjust the
