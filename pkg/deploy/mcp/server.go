@@ -56,6 +56,9 @@ type Server struct {
 	// server had no write-safety guarantee at all here; see
 	// kubestellar-mcp#1017/#1018.
 	writeMu sync.Mutex
+	// discoveryTimer measures SLO 2 (Cluster Discovery Latency, docs/slo.md)
+	// from this server's handleInitialize to its first handleListTools.
+	discoveryTimer rpcloop.DiscoveryTimer
 }
 
 // NewServer creates a new MCP server
@@ -143,10 +146,13 @@ func (s *Server) Run(ctx context.Context) error {
 func (s *Server) handleRequest(ctx context.Context, req *protocol.Request) *protocol.Response {
 	return rpcloop.Dispatch(ctx, req, rpcloop.Methods{
 		Initialize: func(_ context.Context, req *protocol.Request) *protocol.Response {
+			s.discoveryTimer.Initialize()
 			return s.handleInitialize(req)
 		},
 		ToolsList: func(_ context.Context, req *protocol.Request) *protocol.Response {
-			return s.handleListTools(req)
+			resp := s.handleListTools(req)
+			s.discoveryTimer.ToolsList()
+			return resp
 		},
 		ToolsCall: s.handleToolCall,
 	})

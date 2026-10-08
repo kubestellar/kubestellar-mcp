@@ -23,6 +23,7 @@ Overview of MCP tool-dispatch traffic for the metrics defined in
 - `mcpserver_gitops_drift_total` — GitOps drift detections by cluster and drift type
 - `mcpserver_gitops_drift_duration_seconds` — GitOps drift-detection p50/p95/p99 latency
 - `mcpserver_multicluster_operation_total` — per-cluster outcomes of multi-cluster fan-out operations (kubestellar-deploy only, see `pkg/multicluster/executor.go`)
+- `mcpserver_discovery_latency_seconds` — SLO 2 cluster discovery p50/p95/p99 latency (`initialize` receipt to first `tools/list` response)
 
 Import via Grafana's "Import dashboard" flow (paste JSON or upload the file)
 and select a Prometheus datasource that scrapes the MCP server's `/metrics`
