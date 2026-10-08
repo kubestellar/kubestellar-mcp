@@ -6,14 +6,20 @@ on:
     paths:
       - "docs/dashboards/**"
       - "docs/alerts/**"
+      - "runbooks/**"
       - "Makefile"
+      - "scripts/check-runbook-anchors.py"
+      - "scripts/__tests__/check-runbook-anchors.test.sh"
       - ".github/workflows/dashboard-alert-lint.yml"
   pull_request:
     branches: [main]
     paths:
       - "docs/dashboards/**"
       - "docs/alerts/**"
+      - "runbooks/**"
       - "Makefile"
+      - "scripts/check-runbook-anchors.py"
+      - "scripts/__tests__/check-runbook-anchors.test.sh"
       - ".github/workflows/dashboard-alert-lint.yml"
 
 concurrency:
