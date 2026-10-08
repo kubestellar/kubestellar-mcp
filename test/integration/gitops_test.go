@@ -173,6 +173,12 @@ data:
 		})
 		require.NoError(t, err)
 
+		// The initial Create is recorded as an Update-operation managed-fields entry;
+		// the first server-side apply by kubestellar-deploy converts it to an Apply
+		// entry, which bumps resourceVersion. Settle ownership before asserting.
+		_, err = reconcile(ctx, reconcileArgs)
+		require.NoError(t, err, "reconcile (settle field ownership)")
+
 		result, err := reconcile(ctx, reconcileArgs)
 		require.NoError(t, err, "reconcile")
 		syncResult, ok := result.(*gitops.SyncResult)
