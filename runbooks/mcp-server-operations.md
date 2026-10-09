@@ -20,7 +20,7 @@
 10. [Diagnosing High Tool Error Rate or Latency](#diagnosing-high-tool-error-rate-or-latency)
 11. [Diagnosing High AI Provider Query Error Rate or Latency](#diagnosing-high-ai-provider-query-error-rate-or-latency)
 12. [Diagnosing Blocked-IP (SSRF Guard) Attempts](#diagnosing-blocked-ip-ssrf-guard-attempts)
-13. [Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage, Release)](#detecting-a-failed-scheduled-workflow-security-scans-stale-triage-release)
+13. [Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage, Release, Build/Test)](#detecting-a-failed-scheduled-workflow-security-scans-stale-triage-release-buildtest)
 14. [Detecting a Broken PR-Gating Check (pull_request_target startup_failure)](#detecting-a-broken-pr-gating-check-pull_request_target-startup_failure)
 15. [Escalation](#escalation)
 16. [Release Rollback](release-rollback.md) (separate runbook, for a bad automated nightly/weekly release)
@@ -487,20 +487,27 @@ resolved to a private/internal address.
 
 ---
 
-## Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage, Release)
+## Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage, Release, Build/Test)
 
 **Symptom:** No symptom is surfaced automatically — this is the problem. `codeql.yml`
 (weekly, Monday 04:00 UTC), `scorecard.yml` (weekly, Monday 06:00 UTC),
-`stale.yml` (daily, midnight UTC), and `release.yml` (nightly 05:00 UTC and
-weekly Sunday 05:00 UTC) all run unattended on a cron schedule in addition to
-their other triggers, and (as of [#865](https://github.com/kubestellar/kubestellar-mcp/issues/865))
+`stale.yml` (daily, midnight UTC), `release.yml` (nightly 05:00 UTC and
+weekly Sunday 05:00 UTC), and `build-test.yml` (daily, 06:00 UTC) all run
+unattended on a cron schedule in addition to their other triggers, and (as of
+[#865](https://github.com/kubestellar/kubestellar-mcp/issues/865))
 `release.yml`'s `notify` job now has an `if: failure()`-equivalent step that
 opens a `release-alert`-labeled issue on a failed *scheduled* run; `codeql.yml`
-and `scorecard.yml` (tracked in [#730](https://github.com/kubestellar/kubestellar-mcp/issues/730))
-and `stale.yml` (tracked in [#753](https://github.com/kubestellar/kubestellar-mcp/issues/753))
-still lack an equivalent alert step. For those two, a failed scheduled run
+and `scorecard.yml` (tracked in [#730](https://github.com/kubestellar/kubestellar-mcp/issues/730)),
+`stale.yml` (tracked in [#753](https://github.com/kubestellar/kubestellar-mcp/issues/753)),
+and `build-test.yml` (tracked in [#1214](https://github.com/kubestellar/kubestellar-mcp/issues/1214))
+still lack an equivalent alert step. For those, a failed scheduled run
 is still visible only as a red X in the Actions tab, so a failure can go
-unnoticed indefinitely unless someone is watching.
+unnoticed indefinitely unless someone is watching. `build-test.yml`'s daily
+run is a particularly important case: per `docs/slo.md` "Alerting Guidance",
+it is the only automated check that re-validates SLO 2 (Cluster Discovery
+Latency) and SLO 4 (Tool-Call Accuracy) against environmental drift during
+windows with no commits — a silent failure there means that drift-detection
+signal goes dark with no one aware of it.
 
 ### Interim manual safeguards (until an automated alert exists)
 
@@ -544,6 +551,19 @@ unnoticed indefinitely unless someone is watching.
    silently means those never fire either. Follow
    [`runbooks/release-rollback.md`](release-rollback.md) if a *bad* (not
    failed) release shipped instead.
+7. **Check `build-test.yml`'s unattended daily run directly:**
+   ```bash
+   gh run list --repo kubestellar/kubestellar-mcp --workflow build-test.yml --limit 5
+   ```
+   A `failure` conclusion on the most recent scheduled (non-`push`,
+   non-`pull_request`, non-`workflow_dispatch`) run means `go build -v ./...`
+   and/or the integration test suite failed outside any code change — e.g. a
+   Go toolchain update, a transitive dependency regression, or a flaky
+   `envtest` binary. Per `docs/slo.md` "Alerting Guidance", this run is the
+   only mechanism re-validating SLO 2 (Cluster Discovery Latency) and SLO 4
+   (Tool-Call Accuracy) against environmental drift during windows with no
+   commits; a silently-failing daily run means that drift-detection signal
+   is dark until someone notices via `gh run list` or the Actions tab.
 
 ## Detecting a Broken PR-Gating Check (`pull_request_target` startup_failure)
 
