@@ -4,8 +4,6 @@ import (
 	"testing"
 	"time"
 
-	dto "github.com/prometheus/client_model/go"
-
 	"github.com/kubestellar/kubestellar-mcp/pkg/metrics"
 )
 
@@ -17,7 +15,7 @@ func sampleCount(t *testing.T) uint64 {
 	}
 	for _, f := range families {
 		if f.GetName() == "mcpserver_discovery_latency_seconds" {
-			var ms []*dto.Metric = f.GetMetric()
+			ms := f.GetMetric()
 			if len(ms) != 1 {
 				t.Fatalf("expected exactly one mcpserver_discovery_latency_seconds series, got %d", len(ms))
 			}
