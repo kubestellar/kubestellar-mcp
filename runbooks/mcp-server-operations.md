@@ -19,11 +19,12 @@
 9. [Diagnosing a Scrape Target Outage](#diagnosing-a-scrape-target-outage)
 10. [Diagnosing High Tool Error Rate or Latency](#diagnosing-high-tool-error-rate-or-latency)
 11. [Diagnosing High AI Provider Query Error Rate or Latency](#diagnosing-high-ai-provider-query-error-rate-or-latency)
-12. [Diagnosing Blocked-IP (SSRF Guard) Attempts](#diagnosing-blocked-ip-ssrf-guard-attempts)
-13. [Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage, Release, Build/Test)](#detecting-a-failed-scheduled-workflow-security-scans-stale-triage-release-buildtest)
-14. [Detecting a Broken PR-Gating Check (pull_request_target startup_failure)](#detecting-a-broken-pr-gating-check-pull_request_target-startup_failure)
-15. [Escalation](#escalation)
-16. [Release Rollback](release-rollback.md) (separate runbook, for a bad automated nightly/weekly release)
+12. [Diagnosing High GitOps Sync or Drift-Detection Latency](#diagnosing-high-gitops-sync-or-drift-detection-latency)
+13. [Diagnosing Blocked-IP (SSRF Guard) Attempts](#diagnosing-blocked-ip-ssrf-guard-attempts)
+14. [Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage, Release, Build/Test)](#detecting-a-failed-scheduled-workflow-security-scans-stale-triage-release-buildtest)
+15. [Detecting a Broken PR-Gating Check (pull_request_target startup_failure)](#detecting-a-broken-pr-gating-check-pull_request_target-startup_failure)
+16. [Escalation](#escalation)
+17. [Release Rollback](release-rollback.md) (separate runbook, for a bad automated nightly/weekly release)
 
 ---
 
@@ -291,8 +292,8 @@ which are `kubestellar-ops`-specific.
 - `mcpserver_active_clusters` — reachable cluster count from the most recent discovery; a sudden drop indicates connectivity loss (see [Multi-Cluster Connectivity Loss](#multi-cluster-connectivity-loss)). **`kubestellar-deploy`-only:** this gauge is set solely by `multicluster.Executor.executeAll` (`pkg/multicluster/executor.go`), which only `kubestellar-deploy` constructs. `kubestellar-ops` never calls `metrics.SetActiveClusters`, so on a `kubestellar-ops` target it never leaves 0 — do not use it or `MCPServerActiveClustersDroppedToZero` to monitor a `kubestellar-ops` deployment (see [`docs/slo.md`](../docs/slo.md)).
 - `mcpserver_ai_query_total{provider,status}` / `mcpserver_ai_query_duration_seconds{provider}` — AI provider query volume, outcome, and latency (see `pkg/ai/claude/client.go`); watch alongside `MCPServerHighAIQueryErrorRate` in [`docs/alerts/mcpserver-rules.yaml`](../docs/alerts/mcpserver-rules.yaml).
 - `mcpserver_ai_query_errors_total{provider,error_kind}` — AI provider query error volume, classified by the same closed `error_kind` enum as `mcpserver_tool_errors_total`, plus an AI-specific `ai_api` kind for non-2xx provider responses (see `pkg/ai/claude/client.go`); use to tell a local/timeout failure apart from a provider-side rejection before escalating.
-- `mcpserver_gitops_sync_total{cluster,action}` / `mcpserver_gitops_sync_duration_seconds{cluster}` — GitOps sync resource outcomes (`created`/`updated`/`unchanged`/`failed`/`skipped`) and latency per cluster (see `pkg/gitops/sync.go`); watch alongside `MCPServerHighGitOpsSyncFailureRate` in [`docs/alerts/mcpserver-rules.yaml`](../docs/alerts/mcpserver-rules.yaml).
-- `mcpserver_gitops_drift_total{cluster,drift_type}` / `mcpserver_gitops_drift_duration_seconds{cluster}` — detected drift count (`missing`/`modified`) and detection latency per cluster (see `pkg/gitops/drift.go`). **Caveat:** unlike `mcpserver_gitops_sync_total`, there is no `MCPServer*` alert for this metric, and resource-check errors during drift detection (API errors, RBAC denials in `checkResource`) are recorded as `drift_type="missing"` with no distinct label — do not treat a `missing` count spike as confirmed drift without also checking for `gitops drift check failed` log lines (see [`docs/alerts/README.md`](../docs/alerts/README.md)).
+- `mcpserver_gitops_sync_total{cluster,action}` / `mcpserver_gitops_sync_duration_seconds{cluster}` — GitOps sync resource outcomes (`created`/`updated`/`unchanged`/`failed`/`skipped`) and latency per cluster (see `pkg/gitops/sync.go`); watch alongside `MCPServerHighGitOpsSyncFailureRate` and `MCPServerHighGitOpsSyncLatencyP95` in [`docs/alerts/mcpserver-rules.yaml`](../docs/alerts/mcpserver-rules.yaml) — see [Diagnosing High GitOps Sync or Drift-Detection Latency](#diagnosing-high-gitops-sync-or-drift-detection-latency) if the latter fires.
+- `mcpserver_gitops_drift_total{cluster,drift_type}` / `mcpserver_gitops_drift_duration_seconds{cluster}` — detected drift count (`missing`/`modified`) and detection latency per cluster (see `pkg/gitops/drift.go`). **Caveat:** unlike `mcpserver_gitops_sync_total`, there is no count/rate `MCPServer*` alert for `mcpserver_gitops_drift_total` itself (though `MCPServerHighGitOpsDriftLatencyP95` does cover its latency — see [Diagnosing High GitOps Sync or Drift-Detection Latency](#diagnosing-high-gitops-sync-or-drift-detection-latency)), and resource-check errors during drift detection (API errors, RBAC denials in `checkResource`) are recorded as `drift_type="missing"` with no distinct label — do not treat a `missing` count spike as confirmed drift without also checking for `gitops drift check failed` log lines (see [`docs/alerts/README.md`](../docs/alerts/README.md)).
 
 ### Dashboard
 
@@ -436,6 +437,54 @@ outright (error-rate alert), so check both.
    the AI provider integration itself are excluded from this SLO, but still
    merit follow-up via [Multi-Cluster Connectivity Loss](#multi-cluster-connectivity-loss)
    if relevant.
+
+---
+
+## Diagnosing High GitOps Sync or Drift-Detection Latency
+
+**Symptom:** The `MCPServerHighGitOpsSyncLatencyP95` or
+`MCPServerHighGitOpsDriftLatencyP95` alert in
+[`docs/alerts/mcpserver-rules.yaml`](../docs/alerts/mcpserver-rules.yaml)
+has fired. Both are `kubestellar-deploy`-only — `kubestellar-ops` never
+calls the GitOps `Syncer` or drift detector.
+
+### Steps
+
+1. Enable the metrics endpoint if it is not already running for this
+   deployment (see [Using the Metrics Endpoint](#using-the-metrics-endpoint)
+   above).
+
+2. Isolate the affected cluster:
+   ```bash
+   curl -s http://127.0.0.1:9090/metrics | grep 'mcpserver_gitops_sync_duration_seconds\|mcpserver_gitops_drift_duration_seconds'
+   ```
+   Compare `mcpserver_gitops_sync_duration_seconds{cluster}` and
+   `mcpserver_gitops_drift_duration_seconds{cluster}` across clusters — a
+   spike concentrated on one `cluster` label usually points to that
+   cluster's API server rather than the MCP server itself.
+
+3. If latency is concentrated on one cluster: check that cluster's API
+   server responsiveness directly (`kubectl --context <context-name> get
+   --raw='/readyz?verbose'`) and follow
+   [Multi-Cluster Connectivity Loss](#multi-cluster-connectivity-loss) if
+   it is unreachable or degraded.
+
+4. For sync latency specifically: a stalled sync can still eventually
+   succeed, so `MCPServerHighGitOpsSyncFailureRate` may not have fired —
+   treat this alert as an independent early-warning signal, not just a
+   precursor to failures.
+
+5. For drift-detection latency: cross-reference `gitops drift check
+   failed` log lines (see
+   [`docs/alerts/README.md`](../docs/alerts/README.md)'s note on
+   `mcpserver_gitops_drift_total`) — a slow drift check against a
+   degraded cluster can also surface as elevated `missing` counts from
+   `checkResource` errors, not just elevated latency.
+
+6. If latency spans multiple clusters: check for a recent
+   `kubestellar-deploy` binary/image upgrade, and follow
+   [Diagnosing Silent Failures](#diagnosing-silent-failures) for
+   panic/log inspection.
 
 ---
 
