@@ -20,11 +20,12 @@
 10. [Diagnosing High Tool Error Rate or Latency](#diagnosing-high-tool-error-rate-or-latency)
 11. [Diagnosing High AI Provider Query Error Rate or Latency](#diagnosing-high-ai-provider-query-error-rate-or-latency)
 12. [Diagnosing High GitOps Sync or Drift-Detection Latency](#diagnosing-high-gitops-sync-or-drift-detection-latency)
-13. [Diagnosing Blocked-IP (SSRF Guard) Attempts](#diagnosing-blocked-ip-ssrf-guard-attempts)
-14. [Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage, Release, Build/Test)](#detecting-a-failed-scheduled-workflow-security-scans-stale-triage-release-buildtest)
-15. [Detecting a Broken PR-Gating Check (pull_request_target startup_failure)](#detecting-a-broken-pr-gating-check-pull_request_target-startup_failure)
-16. [Escalation](#escalation)
-17. [Release Rollback](release-rollback.md) (separate runbook, for a bad automated nightly/weekly release)
+13. [Diagnosing High GitOps Sync Failure Rate or Multi-Cluster Fan-Out Failures/Latency](#diagnosing-high-gitops-sync-failure-rate-or-multi-cluster-fan-out-failureslatency)
+14. [Diagnosing Blocked-IP (SSRF Guard) Attempts](#diagnosing-blocked-ip-ssrf-guard-attempts)
+15. [Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage, Release, Build/Test)](#detecting-a-failed-scheduled-workflow-security-scans-stale-triage-release-buildtest)
+16. [Detecting a Broken PR-Gating Check (pull_request_target startup_failure)](#detecting-a-broken-pr-gating-check-pull_request_target-startup_failure)
+17. [Escalation](#escalation)
+18. [Release Rollback](release-rollback.md) (separate runbook, for a bad automated nightly/weekly release)
 
 ---
 
@@ -482,6 +483,56 @@ calls the GitOps `Syncer` or drift detector.
    `checkResource` errors, not just elevated latency.
 
 6. If latency spans multiple clusters: check for a recent
+   `kubestellar-deploy` binary/image upgrade, and follow
+   [Diagnosing Silent Failures](#diagnosing-silent-failures) for
+   panic/log inspection.
+
+---
+
+## Diagnosing High GitOps Sync Failure Rate or Multi-Cluster Fan-Out Failures/Latency
+
+**Symptom:** The `MCPServerHighGitOpsSyncFailureRate`,
+`MCPServerHighMulticlusterOperationFailureRate`, or
+`MCPServerHighMulticlusterOperationLatencyP95` alert in
+[`docs/alerts/mcpserver-rules.yaml`](../docs/alerts/mcpserver-rules.yaml)
+has fired. All three are `kubestellar-deploy`-only — `kubestellar-ops`
+never calls the GitOps `Syncer` or constructs a `multicluster.Executor`.
+
+### Steps
+
+1. Enable the metrics endpoint if it is not already running for this
+   deployment (see [Using the Metrics Endpoint](#using-the-metrics-endpoint)
+   above).
+
+2. Isolate the affected cluster:
+   ```bash
+   curl -s http://127.0.0.1:9090/metrics | grep 'mcpserver_gitops_sync_total\|mcpserver_multicluster_operation_total\|mcpserver_multicluster_operation_duration_seconds'
+   ```
+   Compare `mcpserver_gitops_sync_total{cluster,action="failed"}` and
+   `mcpserver_multicluster_operation_total{cluster,status="error"}` across
+   clusters — a spike concentrated on one `cluster` label usually points
+   to that cluster's API server rather than the MCP server itself.
+
+3. For `MCPServerHighGitOpsSyncFailureRate`: a failed sync still records
+   per-resource outcomes, so check which resources failed via
+   `kubectl --context <context-name> get events` on the target cluster
+   before assuming the MCP server itself is at fault.
+
+4. For `MCPServerHighMulticlusterOperationFailureRate`: this reflects a
+   per-cluster failure within a fan-out call — other clusters in the same
+   call can still succeed. Treat a failure concentrated on one `cluster`
+   label as that cluster's problem, not a systemic one.
+
+5. For `MCPServerHighMulticlusterOperationLatencyP95`: a slow/degraded
+   cluster in a fan-out call can stall and still eventually record
+   `status="success"`, so this can fire independently of
+   `MCPServerHighMulticlusterOperationFailureRate` — treat it as an
+   early-warning signal, not just a precursor to failures.
+
+6. If the affected cluster is unreachable or degraded, follow
+   [Multi-Cluster Connectivity Loss](#multi-cluster-connectivity-loss).
+
+7. If failures/latency span multiple clusters: check for a recent
    `kubestellar-deploy` binary/image upgrade, and follow
    [Diagnosing Silent Failures](#diagnosing-silent-failures) for
    panic/log inspection.

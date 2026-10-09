@@ -125,7 +125,7 @@ spec:
             description: >-
               AI provider query error rate has been above 5% for 1h, which
               exceeds the SLO 5 30-day error budget in ../slo.md. See
-              runbooks/mcp-server-operations.md#using-the-metrics-endpoint
+              runbooks/mcp-server-operations.md#diagnosing-high-ai-provider-query-error-rate-or-latency
               to inspect mcpserver_ai_query_errors_total{provider,error_kind}
               and isolate the affected provider/error kind.
 
@@ -175,7 +175,7 @@ spec:
               MCPServerHighGitOpsSyncFailureRate). Inspect
               mcpserver_gitops_sync_duration_seconds{cluster} to isolate
               the affected cluster; see
-              runbooks/mcp-server-operations.md#using-the-metrics-endpoint.
+              runbooks/mcp-server-operations.md#diagnosing-high-gitops-sync-or-drift-detection-latency.
               Do not apply this rule to a kubestellar-ops target - that
               binary never calls the GitOps Syncer.
 
@@ -203,7 +203,7 @@ spec:
               API server. Inspect
               mcpserver_gitops_drift_duration_seconds{cluster} to isolate
               the affected cluster; see
-              runbooks/mcp-server-operations.md#using-the-metrics-endpoint.
+              runbooks/mcp-server-operations.md#diagnosing-high-gitops-sync-or-drift-detection-latency.
               Do not apply this rule to a kubestellar-ops target - that
               binary never calls the GitOps drift detector.
 
@@ -251,7 +251,7 @@ spec:
               GitOps sync resource failure rate has been above 5% for 1h.
               Inspect mcpserver_gitops_sync_total{cluster,action="failed"}
               to isolate the affected cluster; see
-              runbooks/mcp-server-operations.md#using-the-metrics-endpoint.
+              runbooks/mcp-server-operations.md#diagnosing-high-gitops-sync-failure-rate-or-multi-cluster-fan-out-failureslatency.
 
         # Multi-cluster fan-out failure rate. mcpserver_multicluster_operation_total
         # is recorded by pkg/multicluster/executor.go via
@@ -276,7 +276,7 @@ spec:
               been above 5% for 1h. Inspect
               mcpserver_multicluster_operation_total{cluster,status="error"}
               to isolate the affected cluster; see
-              runbooks/mcp-server-operations.md#using-the-metrics-endpoint.
+              runbooks/mcp-server-operations.md#diagnosing-high-gitops-sync-failure-rate-or-multi-cluster-fan-out-failureslatency.
               Do not apply this rule to a kubestellar-ops target - that
               binary never populates this metric (see comment above).
 
@@ -304,7 +304,7 @@ spec:
               Inspect
               mcpserver_multicluster_operation_duration_seconds{cluster}
               to isolate the affected cluster; see
-              runbooks/mcp-server-operations.md#using-the-metrics-endpoint.
+              runbooks/mcp-server-operations.md#diagnosing-high-gitops-sync-failure-rate-or-multi-cluster-fan-out-failureslatency.
               Do not apply this rule to a kubestellar-ops target - that
               binary never populates this metric (see comment above).
 
