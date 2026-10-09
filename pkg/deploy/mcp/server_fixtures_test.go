@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/testsupport"
 	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
 	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 	"k8s.io/client-go/tools/clientcmd"
@@ -62,10 +63,5 @@ func newHelmTestServer(t *testing.T, contexts map[string]string) *Server {
 
 // mustMarshalJSON builds tool call arguments for the root package's tests.
 func mustMarshalJSON(t *testing.T, v interface{}) json.RawMessage {
-	t.Helper()
-	data, err := json.Marshal(v)
-	if err != nil {
-		t.Fatalf("json.Marshal() error = %v", err)
-	}
-	return data
+	return testsupport.MustMarshalJSON(t, v)
 }

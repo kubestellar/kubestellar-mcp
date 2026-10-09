@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/testsupport"
 	upstreamgitops "github.com/kubestellar/kubestellar-mcp/pkg/gitops"
 	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 	"github.com/stretchr/testify/require"
@@ -67,12 +68,7 @@ func newTestServer(t *testing.T, contexts map[string]string) *Server {
 }
 
 func mustMarshalJSON(t *testing.T, v interface{}) json.RawMessage {
-	t.Helper()
-	data, err := json.Marshal(v)
-	if err != nil {
-		t.Fatalf("json.Marshal() error = %v", err)
-	}
-	return data
+	return testsupport.MustMarshalJSON(t, v)
 }
 
 func setGitOpsTempDir(t *testing.T) {

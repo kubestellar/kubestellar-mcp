@@ -22,18 +22,14 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
+	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/testsupport"
 	"github.com/kubestellar/kubestellar-mcp/pkg/gitops"
 	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 	nsval "github.com/kubestellar/kubestellar-mcp/pkg/security/namespace"
 )
 
 func mustMarshalJSON(t *testing.T, v interface{}) json.RawMessage {
-	t.Helper()
-	data, err := json.Marshal(v)
-	if err != nil {
-		t.Fatalf("json.Marshal: %v", err)
-	}
-	return data
+	return testsupport.MustMarshalJSON(t, v)
 }
 
 func itoa(n int) string { return strconv.Itoa(n) }

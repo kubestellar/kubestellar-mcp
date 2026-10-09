@@ -12,6 +12,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/testsupport"
 	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
@@ -21,12 +22,7 @@ import (
 )
 
 func mustMarshalJSON(t *testing.T, v interface{}) json.RawMessage {
-	t.Helper()
-	data, err := json.Marshal(v)
-	if err != nil {
-		t.Fatalf("json.Marshal: %v", err)
-	}
-	return data
+	return testsupport.MustMarshalJSON(t, v)
 }
 
 type fakeDeps struct {
