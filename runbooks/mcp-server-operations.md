@@ -542,23 +542,28 @@ resolved to a private/internal address.
 (weekly, Monday 04:00 UTC), `scorecard.yml` (weekly, Monday 06:00 UTC),
 `stale.yml` (daily, midnight UTC), `release.yml` (nightly 05:00 UTC and
 weekly Sunday 05:00 UTC), and `build-test.yml` (daily, 06:00 UTC) all run
-unattended on a cron schedule in addition to their other triggers, and (as of
-[#865](https://github.com/kubestellar/kubestellar-mcp/issues/865))
-`release.yml`'s `notify` job now has an `if: failure()`-equivalent step that
-opens a `release-alert`-labeled issue on a failed *scheduled* run; `codeql.yml`
-and `scorecard.yml` (tracked in [#730](https://github.com/kubestellar/kubestellar-mcp/issues/730)),
-`stale.yml` (tracked in [#753](https://github.com/kubestellar/kubestellar-mcp/issues/753)),
-and `build-test.yml` (tracked in [#1214](https://github.com/kubestellar/kubestellar-mcp/issues/1214))
-still lack an equivalent alert step. For those, a failed scheduled run
-is still visible only as a red X in the Actions tab, so a failure can go
-unnoticed indefinitely unless someone is watching. `build-test.yml`'s daily
-run is a particularly important case: per `docs/slo.md` "Alerting Guidance",
-it is the only automated check that re-validates SLO 2 (Cluster Discovery
-Latency) and SLO 4 (Tool-Call Accuracy) against environmental drift during
-windows with no commits — a silent failure there means that drift-detection
-signal goes dark with no one aware of it.
+unattended on a cron schedule in addition to their other triggers, and
+`release.yml`'s `notify` job (as of
+[#865](https://github.com/kubestellar/kubestellar-mcp/issues/865)) and
+`build-test.yml`'s `notify` job (as of
+[#1216](https://github.com/kubestellar/kubestellar-mcp/pull/1216), closing
+[#1214](https://github.com/kubestellar/kubestellar-mcp/issues/1214)) now
+have an `if: failure()`-equivalent step that opens an alert-labeled issue
+on a failed *scheduled* run; `codeql.yml` and `scorecard.yml` (tracked in
+[#730](https://github.com/kubestellar/kubestellar-mcp/issues/730)) and
+`stale.yml` (tracked in
+[#753](https://github.com/kubestellar/kubestellar-mcp/issues/753)) still
+lack an equivalent alert step. For those, a failed scheduled run is still
+visible only as a red X in the Actions tab, so a failure can go unnoticed
+indefinitely unless someone is watching. `build-test.yml`'s daily run was
+a particularly important case before #1216: per `docs/slo.md` "Alerting
+Guidance", it is the only automated check that re-validates SLO 2
+(Cluster Discovery Latency) and SLO 4 (Tool-Call Accuracy) against
+environmental drift during windows with no commits — a silent failure
+there would mean that drift-detection signal goes dark with no one aware
+of it.
 
-### Interim manual safeguards (until an automated alert exists)
+### Interim manual safeguards (for `codeql.yml`, `scorecard.yml`, and `stale.yml`, until an automated alert exists)
 
 1. **Enable per-repo/per-user "Failed workflows only" notifications:** GitHub
    Settings → Notifications → Actions → "Only notify for failed workflows".
@@ -589,30 +594,32 @@ signal goes dark with no one aware of it.
    run status more frequently, and re-run manually via `workflow_dispatch`
    once the underlying failure is fixed rather than waiting for the next
    midnight cron.
-6. **Check `release.yml`'s unattended runs directly:**
+6. **`release.yml`'s scheduled runs are now auto-alerted** (see
+   [`runbooks/release-rollback.md`](release-rollback.md) §0), but manual
+   `workflow_dispatch` runs are not, so still check those directly:
    ```bash
    gh run list --repo kubestellar/kubestellar-mcp --workflow release.yml --limit 5
    ```
-   A `failure` conclusion on the most recent scheduled (non-`workflow_dispatch`)
-   run means the nightly/weekly release did not ship. This is the fastest-moving
-   gap of the four: `ghcr-publish.yml` and the Homebrew tap publish step are
-   downstream of a successful `release.yml` run, so a `release.yml` failure
-   silently means those never fire either. Follow
+   `ghcr-publish.yml` and the Homebrew tap publish step are downstream of a
+   successful `release.yml` run, so a `release.yml` failure silently means
+   those never fire either. Follow
    [`runbooks/release-rollback.md`](release-rollback.md) if a *bad* (not
    failed) release shipped instead.
-7. **Check `build-test.yml`'s unattended daily run directly:**
+7. **`build-test.yml`'s daily scheduled run is now auto-alerted** (since
+   [#1216](https://github.com/kubestellar/kubestellar-mcp/pull/1216)): its
+   `notify` job opens a `build-test-alert`-labeled issue when
+   `github.event_name == 'schedule'` and any of `build`,
+   `validate-server-json`, or `lint` fail, mirroring `release.yml`'s
+   pattern. Manual `workflow_dispatch` runs still need a direct check:
    ```bash
    gh run list --repo kubestellar/kubestellar-mcp --workflow build-test.yml --limit 5
    ```
-   A `failure` conclusion on the most recent scheduled (non-`push`,
-   non-`pull_request`, non-`workflow_dispatch`) run means `go build -v ./...`
-   and/or the integration test suite failed outside any code change — e.g. a
-   Go toolchain update, a transitive dependency regression, or a flaky
-   `envtest` binary. Per `docs/slo.md` "Alerting Guidance", this run is the
-   only mechanism re-validating SLO 2 (Cluster Discovery Latency) and SLO 4
-   (Tool-Call Accuracy) against environmental drift during windows with no
-   commits; a silently-failing daily run means that drift-detection signal
-   is dark until someone notices via `gh run list` or the Actions tab.
+   A `failure` conclusion means `go build -v ./...` and/or the integration
+   test suite failed outside any code change — e.g. a Go toolchain update, a
+   transitive dependency regression, or a flaky `envtest` binary. Per
+   `docs/slo.md` "Alerting Guidance", this run is the only mechanism
+   re-validating SLO 2 (Cluster Discovery Latency) and SLO 4 (Tool-Call
+   Accuracy) against environmental drift during windows with no commits.
 
 ## Detecting a Broken PR-Gating Check (`pull_request_target` startup_failure)
 
