@@ -78,6 +78,17 @@ Alert rules aligned with the SLOs in [`../slo.md`](../slo.md):
   [`../slo.md`](../slo.md) (`kubestellar-deploy`-only — `kubestellar-ops`
   never constructs a `multicluster.Executor`, same scoping caveat as
   `MCPServerActiveClustersDroppedToZero` below).
+  **No latency alert exists for multi-cluster fan-out operations,
+  unlike `MCPServerHighGitOpsSyncLatencyP95` / `MCPServerHighGitOpsDriftLatencyP95`
+  above:** `pkg/multicluster.Executor.executeAcrossClusters` never times
+  the per-cluster operation it runs, so there is no
+  `mcpserver_multicluster_operation_duration_seconds` metric to alert on
+  (see `pkg/metrics.RecordMulticlusterOperation` — outcome only, no
+  duration parameter). A single slow/degraded cluster in a fan-out call
+  (app-centric deploy, Helm install/rollback, Kustomize apply) can stall
+  well past an operator's patience and still eventually record
+  `status="success"`, with no alert surfacing it — tracked in
+  kubestellar-mcp#1223.
 - `MCPServerActiveClustersDroppedToZero` — reachable-cluster count drop,
   cross-referenced with the connectivity-loss runbook section.
   **`kubestellar-deploy`-only:** `mcpserver_active_clusters` is set solely
