@@ -280,6 +280,34 @@ spec:
               Do not apply this rule to a kubestellar-ops target - that
               binary never populates this metric (see comment above).
 
+        # Multi-cluster fan-out latency. mcpserver_multicluster_operation_duration_seconds
+        # is recorded by pkg/multicluster/executor.go via
+        # metrics.RecordMulticlusterOperationDuration (kubestellar-deploy
+        # only, same scoping caveat as above). A slow cluster can still
+        # eventually succeed and never trip
+        # MCPServerHighMulticlusterOperationFailureRate, so this gives an
+        # independent latency signal - same pattern as
+        # MCPServerHighGitOpsSyncLatencyP95.
+        - alert: MCPServerHighMulticlusterOperationLatencyP95
+          expr: |
+            histogram_quantile(0.95, sum by (le) (rate(mcpserver_multicluster_operation_duration_seconds_bucket[15m]))) > 10
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "kubestellar-mcp (kubestellar-deploy) p95 multi-cluster operation latency is elevated"
+            description: >-
+              p95 per-cluster multi-cluster fan-out operation latency has
+              exceeded 10s for 15m. This can indicate a slow/degraded
+              cluster API server even when operations still succeed (no
+              signal from MCPServerHighMulticlusterOperationFailureRate).
+              Inspect
+              mcpserver_multicluster_operation_duration_seconds{cluster}
+              to isolate the affected cluster; see
+              runbooks/mcp-server-operations.md#using-the-metrics-endpoint.
+              Do not apply this rule to a kubestellar-ops target - that
+              binary never populates this metric (see comment above).
+
         # Blocked-IP (SSRF-guard) attempt detector. mcpserver_tool_errors_total
         # {error_kind="blocked_ip"} is recorded whenever a tool call fails
         # outbound-URL validation against pkg/security/netguard (see

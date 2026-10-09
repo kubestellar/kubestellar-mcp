@@ -158,6 +158,42 @@ func TestRecordMulticlusterOperationEmptyClusterNormalizesToNone(t *testing.T) {
 	}
 }
 
+func TestRecordMulticlusterOperationDuration(t *testing.T) {
+	RecordMulticlusterOperationDuration("prod-east", 25*time.Millisecond)
+
+	families := gather(t)
+	found := false
+	for _, m := range families["mcpserver_multicluster_operation_duration_seconds"].GetMetric() {
+		if labelValue(m, "cluster") == "prod-east" {
+			found = true
+			if m.GetHistogram().GetSampleCount() < 1 {
+				t.Errorf("expected at least one observation, got %v", m.GetHistogram().GetSampleCount())
+			}
+		}
+	}
+	if !found {
+		t.Fatal("expected mcpserver_multicluster_operation_duration_seconds series for prod-east")
+	}
+}
+
+func TestRecordMulticlusterOperationDurationEmptyClusterNormalizesToNone(t *testing.T) {
+	RecordMulticlusterOperationDuration("", time.Millisecond)
+
+	families := gather(t)
+	found := false
+	for _, m := range families["mcpserver_multicluster_operation_duration_seconds"].GetMetric() {
+		if labelValue(m, "cluster") == "" {
+			t.Fatal("cluster label must never be empty; expected normalization to 'none'")
+		}
+		if labelValue(m, "cluster") == unknownCluster {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("expected mcpserver_multicluster_operation_duration_seconds series with cluster=none")
+	}
+}
+
 func TestRecordAIQuerySuccess(t *testing.T) {
 	RecordAIQuery("claude", 40*time.Millisecond, nil, "")
 
