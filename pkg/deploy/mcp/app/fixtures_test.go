@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kubestellar/kubestellar-mcp/pkg/deploy/mcp/testsupport"
 	"github.com/kubestellar/kubestellar-mcp/pkg/multicluster"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -18,12 +19,7 @@ import (
 )
 
 func mustMarshalJSON(t *testing.T, v interface{}) json.RawMessage {
-	t.Helper()
-	data, err := json.Marshal(v)
-	if err != nil {
-		t.Fatalf("json.Marshal: %v", err)
-	}
-	return data
+	return testsupport.MustMarshalJSON(t, v)
 }
 
 func decodeAppStatusResult(t *testing.T, res interface{}) AppStatus {
