@@ -54,6 +54,23 @@ Alert rules aligned with the SLOs in [`../slo.md`](../slo.md):
   see `pkg/gitops/drift.go`'s `checkResource` error path. Correlate with
   `gitops drift check failed` log lines, not this metric, to find actual
   check failures.
+- `MCPServerHighGitOpsSyncLatencyP95` — p95 GitOps sync operation latency
+  (`mcpserver_gitops_sync_duration_seconds`) versus a general operational
+  threshold (10s); not yet tied to a formal SLO in
+  [`../slo.md`](../slo.md) (`kubestellar-deploy`-only, same scope as
+  `MCPServerHighGitOpsSyncFailureRate` above). A sync can stall against a
+  slow/degraded cluster API server and still eventually succeed, which
+  the failure-rate alert would miss, so this gives an independent
+  latency signal mirroring `MCPServerHighToolLatencyP95` /
+  `MCPServerHighAIQueryLatencyP95`'s pattern.
+- `MCPServerHighGitOpsDriftLatencyP95` — p95 GitOps drift-detection
+  operation latency (`mcpserver_gitops_drift_duration_seconds`) versus a
+  general operational threshold (10s); not yet tied to a formal SLO in
+  [`../slo.md`](../slo.md) (`kubestellar-deploy`-only). Unlike
+  `mcpserver_gitops_drift_total` (see the "No equivalent alert" note
+  above), duration reflects actual operation health rather than drift's
+  informational missing/modified counts, so a latency threshold still
+  fits here.
 - `MCPServerHighMulticlusterOperationFailureRate` — per-cluster
   multi-cluster fan-out operation failure rate
   (`mcpserver_multicluster_operation_total{status="error"}`) versus a
