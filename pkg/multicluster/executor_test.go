@@ -190,6 +190,42 @@ func TestExecutorExecuteAllRecordsPerClusterMetrics(t *testing.T) {
 	}
 }
 
+func TestExecutorExecuteAllRecordsPerClusterDuration(t *testing.T) {
+	manager := newTestManager(t, []string{"dur-alpha"})
+	executor := NewExecutor(manager)
+
+	count := func() uint64 {
+		families, err := metrics.Registry.Gather()
+		if err != nil {
+			t.Fatalf("Gather() error = %v", err)
+		}
+		for _, f := range families {
+			if f.GetName() != "mcpserver_multicluster_operation_duration_seconds" {
+				continue
+			}
+			for _, m := range f.GetMetric() {
+				for _, l := range m.GetLabel() {
+					if l.GetName() == "cluster" && l.GetValue() == "dur-alpha" {
+						return m.GetHistogram().GetSampleCount()
+					}
+				}
+			}
+		}
+		return 0
+	}
+	before := count()
+
+	if _, err := executor.ExecuteOnSelected(context.Background(), []string{"dur-alpha"}, func(ctx context.Context, client *kubernetes.Clientset, clusterName string) (interface{}, error) {
+		return "ok", nil
+	}); err != nil {
+		t.Fatalf("ExecuteOnSelected() error = %v", err)
+	}
+
+	if got := count(); got != before+1 {
+		t.Errorf("duration sample count = %v, want %v", got, before+1)
+	}
+}
+
 func TestExecutorExecuteOnSelectedBoundsConcurrency(t *testing.T) {
 	manager := newTestManager(t, []string{"alpha", "beta", "gamma", "delta", "epsilon"})
 	executor := NewExecutor(manager)

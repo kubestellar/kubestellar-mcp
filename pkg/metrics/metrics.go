@@ -153,6 +153,17 @@ var (
 		Help: "Total number of per-cluster outcomes from multi-cluster fan-out operations, by cluster and status.",
 	}, []string{"cluster", "status"})
 
+	// MulticlusterOperationDurationSeconds observes per-cluster latency of
+	// the operation run by a multi-cluster fan-out (the fn call in
+	// pkg/multicluster.Executor's executeAcrossClusters). Same cluster
+	// label bounds as MulticlusterOperationTotal. Surfaces slow-but-
+	// eventually-successful clusters that the outcome counter cannot.
+	MulticlusterOperationDurationSeconds = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "mcpserver_multicluster_operation_duration_seconds",
+		Help:    "Per-cluster latency of multi-cluster fan-out operations, in seconds.",
+		Buckets: prometheus.DefBuckets,
+	}, []string{"cluster"})
+
 	// DiscoveryLatencySeconds observes the time from a server's "initialize"
 	// request receipt to its first "tools/list" response - the SLO 2
 	// (Cluster Discovery Latency, docs/slo.md) SLI directly, unlike
@@ -182,6 +193,7 @@ func init() {
 		GitOpsDriftTotal,
 		GitOpsDriftDurationSeconds,
 		MulticlusterOperationTotal,
+		MulticlusterOperationDurationSeconds,
 		DiscoveryLatencySeconds,
 	)
 }
@@ -261,6 +273,17 @@ func RecordMulticlusterOperation(cluster string, err error) {
 	}
 
 	MulticlusterOperationTotal.WithLabelValues(cluster, status).Inc()
+}
+
+// RecordMulticlusterOperationDuration records how long a single cluster's
+// operation took within a multi-cluster fan-out. cluster is normalized to
+// "none" if empty, matching RecordMulticlusterOperation.
+func RecordMulticlusterOperationDuration(cluster string, duration time.Duration) {
+	if cluster == "" {
+		cluster = unknownCluster
+	}
+
+	MulticlusterOperationDurationSeconds.WithLabelValues(cluster).Observe(duration.Seconds())
 }
 
 // healthzHandler is a minimal liveness probe: it reports 200 OK as soon as

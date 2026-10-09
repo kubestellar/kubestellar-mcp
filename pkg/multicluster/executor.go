@@ -3,6 +3,7 @@ package multicluster
 import (
 	"context"
 	"sync"
+	"time"
 
 	"k8s.io/client-go/kubernetes"
 
@@ -122,7 +123,9 @@ func (e *Executor) executeAcrossClusters(ctx context.Context, clusterNames []str
 				return
 			}
 
+			start := time.Now()
 			result, err := fn(ctx, client, name)
+			metrics.RecordMulticlusterOperationDuration(name, time.Since(start))
 			metrics.RecordMulticlusterOperation(name, err)
 			mu.Lock()
 			if err != nil {
