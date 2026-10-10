@@ -671,6 +671,24 @@ of it.
    `docs/slo.md` "Alerting Guidance", this run is the only mechanism
    re-validating SLO 2 (Cluster Discovery Latency) and SLO 4 (Tool-Call
    Accuracy) against environmental drift during windows with no commits.
+8. **The `notify` jobs in `build-test.yml` and `release.yml` are themselves
+   currently unmonitored** (tracked in
+   [#1245](https://github.com/kubestellar/kubestellar-mcp/issues/1245)): if a
+   `notify` job's own `github-script` step errors — a token-permission
+   change, an Actions API change, a typo introduced in a future edit — it can
+   fail silently and the scheduled-run-failure alert for that workflow stops
+   firing with no one aware, the same "no symptom surfaced" problem `notify`
+   exists to prevent. `kubestellar/homebrew-tap` closed the equivalent gap for
+   its own alerting via an `alert-canary.yml` workflow
+   ([homebrew-tap#709](https://github.com/kubestellar/homebrew-tap/pull/709));
+   #1245 proposes the matching workflow for this repo but cannot land it
+   directly (workflow files need a maintainer or merge-capable agent to push).
+   Until it lands, periodically spot-check both `notify` jobs directly:
+   ```bash
+   gh run view --repo kubestellar/kubestellar-mcp --job <job-id>  # notify job from the latest scheduled run
+   ```
+   A `failure` conclusion on `notify` itself (not just on `build`/`lint`/etc.)
+   means the alert step broke, not just the thing it was watching.
 
 ## Detecting a Broken PR-Gating Check (`pull_request_target` startup_failure)
 
