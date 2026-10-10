@@ -22,7 +22,7 @@
 12. [Diagnosing High GitOps Sync or Drift-Detection Latency](#diagnosing-high-gitops-sync-or-drift-detection-latency)
 13. [Diagnosing High GitOps Sync Failure Rate or Multi-Cluster Fan-Out Failures/Latency](#diagnosing-high-gitops-sync-failure-rate-or-multi-cluster-fan-out-failureslatency)
 14. [Diagnosing Blocked-IP (SSRF Guard) Attempts](#diagnosing-blocked-ip-ssrf-guard-attempts)
-15. [Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage, Release, Build/Test)](#detecting-a-failed-scheduled-workflow-security-scans-stale-triage-release-buildtest)
+15. [Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage, Release, Build/Test, Fuzz)](#detecting-a-failed-scheduled-workflow-security-scans-stale-triage-release-buildtest-fuzz)
 16. [Detecting a Broken PR-Gating Check (pull_request_target startup_failure)](#detecting-a-broken-pr-gating-check-pull_request_target-startup_failure)
 17. [Escalation](#escalation)
 18. [Release Rollback](release-rollback.md) (separate runbook, for a bad automated nightly/weekly release)
@@ -587,13 +587,14 @@ resolved to a private/internal address.
 
 ---
 
-## Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage, Release, Build/Test)
+## Detecting a Failed Scheduled Workflow (Security Scans, Stale Triage, Release, Build/Test, Fuzz)
 
 **Symptom:** No symptom is surfaced automatically — this is the problem. `codeql.yml`
 (weekly, Monday 04:00 UTC), `scorecard.yml` (weekly, Monday 06:00 UTC),
 `stale.yml` (daily, midnight UTC), `release.yml` (nightly 05:00 UTC and
-weekly Sunday 05:00 UTC), and `build-test.yml` (daily, 06:00 UTC) all run
-unattended on a cron schedule in addition to their other triggers, and
+weekly Sunday 05:00 UTC), `build-test.yml` (daily, 06:00 UTC), and
+`fuzz.yml` (weekly, Sunday 07:00 UTC) all run unattended on a cron
+schedule in addition to their other triggers, and
 `release.yml`'s `notify` job (as of
 [#865](https://github.com/kubestellar/kubestellar-mcp/issues/865)) and
 `build-test.yml`'s `notify` job (as of
@@ -601,20 +602,23 @@ unattended on a cron schedule in addition to their other triggers, and
 [#1214](https://github.com/kubestellar/kubestellar-mcp/issues/1214)) now
 have an `if: failure()`-equivalent step that opens an alert-labeled issue
 on a failed *scheduled* run; `codeql.yml` and `scorecard.yml` (tracked in
-[#730](https://github.com/kubestellar/kubestellar-mcp/issues/730)) and
+[#730](https://github.com/kubestellar/kubestellar-mcp/issues/730)),
 `stale.yml` (tracked in
-[#753](https://github.com/kubestellar/kubestellar-mcp/issues/753)) still
-lack an equivalent alert step. For those, a failed scheduled run is still
-visible only as a red X in the Actions tab, so a failure can go unnoticed
-indefinitely unless someone is watching. `build-test.yml`'s daily run was
-a particularly important case before #1216: per `docs/slo.md` "Alerting
-Guidance", it is the only automated check that re-validates SLO 2
-(Cluster Discovery Latency) and SLO 4 (Tool-Call Accuracy) against
-environmental drift during windows with no commits — a silent failure
-there would mean that drift-detection signal goes dark with no one aware
-of it.
+[#753](https://github.com/kubestellar/kubestellar-mcp/issues/753)), and
+`fuzz.yml` still lack an equivalent alert step — `fuzz.yml`'s single
+`fuzz` job (7-way matrix over the security-relevant validators in
+`pkg/gitops`, `pkg/deploy/mcp/helm`, `pkg/security/namespace`, and
+`pkg/security/sanitize`) has no second `notify`/alert job at all. For
+those, a failed scheduled run is still visible only as a red X in the
+Actions tab, so a failure can go unnoticed indefinitely unless someone is
+watching. `build-test.yml`'s daily run was a particularly important case
+before #1216: per `docs/slo.md` "Alerting Guidance", it is the only
+automated check that re-validates SLO 2 (Cluster Discovery Latency) and
+SLO 4 (Tool-Call Accuracy) against environmental drift during windows
+with no commits — a silent failure there would mean that drift-detection
+signal goes dark with no one aware of it.
 
-### Interim manual safeguards (for `codeql.yml`, `scorecard.yml`, and `stale.yml`, until an automated alert exists)
+### Interim manual safeguards (for `codeql.yml`, `scorecard.yml`, `stale.yml`, and `fuzz.yml`, until an automated alert exists)
 
 1. **Enable per-repo/per-user "Failed workflows only" notifications:** GitHub
    Settings → Notifications → Actions → "Only notify for failed workflows".
@@ -626,6 +630,7 @@ of it.
    gh run list --repo kubestellar/kubestellar-mcp --workflow scorecard.yml --limit 5
    gh run list --repo kubestellar/kubestellar-mcp --workflow stale.yml --limit 5
    gh run list --repo kubestellar/kubestellar-mcp --workflow release.yml --limit 5
+   gh run list --repo kubestellar/kubestellar-mcp --workflow fuzz.yml --limit 5
    ```
    A `failure` conclusion on the most recent scheduled (non-push, non-PR,
    non-`workflow_dispatch`) run means the scan/triage did not complete;
@@ -671,6 +676,22 @@ of it.
    `docs/slo.md` "Alerting Guidance", this run is the only mechanism
    re-validating SLO 2 (Cluster Discovery Latency) and SLO 4 (Tool-Call
    Accuracy) against environmental drift during windows with no commits.
+8. **If `fuzz.yml`'s weekly run has failed silently:** the security-relevant
+   fuzz targets (`pkg/gitops` repo-URL/branch-name validation,
+   `pkg/deploy/mcp/helm` identifier/set-value validation,
+   `pkg/security/namespace`, `pkg/security/sanitize`) were not re-exercised
+   for that week — a crash found by one target does not block the others
+   (`fail-fast: false`), but a crash also does not surface anywhere outside
+   the Actions tab today, unlike `build-test.yml`/`release.yml`. Check run
+   status directly and re-run manually via `workflow_dispatch` once the
+   underlying failure is fixed:
+   ```bash
+   gh run list --repo kubestellar/kubestellar-mcp --workflow fuzz.yml --limit 5
+   ```
+   A `failure` conclusion on a specific matrix entry (visible per-target in
+   the run's job list) means that target either found a crashing input
+   (check the uploaded `fuzz-crashers-<target>` artifact) or the `go test
+   -fuzz` invocation itself errored (e.g. toolchain or build regression).
 
 ## Detecting a Broken PR-Gating Check (`pull_request_target` startup_failure)
 
