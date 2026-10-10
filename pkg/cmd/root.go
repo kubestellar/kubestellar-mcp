@@ -87,6 +87,8 @@ Examples:
 
 			srv := newMCPServer(kubeconfig)
 
+			klog.InfoS("starting MCP server", "server", "kubestellar-ops", "metricsEnabled", metricsAddr != "")
+
 			// Handle shutdown gracefully
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
@@ -101,6 +103,7 @@ Examples:
 					exitFunc(1)
 					return
 				}
+				klog.InfoS("metrics server listening", "addr", metricsAddr)
 				defer func() {
 					shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 					defer shutdownCancel()
@@ -112,13 +115,17 @@ Examples:
 			signalNotify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
 			go func() {
-				<-sigCh
+				sig := <-sigCh
+				klog.InfoS("received shutdown signal", "signal", sig)
 				cancel()
 			}()
 
 			if err := srv.Run(ctx); err != nil {
+				klog.ErrorS(err, "MCP server stopped with an error")
 				_, _ = fmt.Fprintf(stderr, "MCP server error: %v\n", err)
 				exitFunc(1)
+			} else {
+				klog.InfoS("MCP server stopped")
 			}
 			return
 		}
