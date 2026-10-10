@@ -1,0 +1,64 @@
+# Canary for the scheduled-run failure alerting in build-test.yml and
+# release.yml. Those `notify` jobs' github-script steps are themselves
+# unmonitored — if the script errors (bad token scope, GitHub API change,
+# a typo in a future edit) the notify job can fail silently and the
+# alert-on-failure safety net goes dark with no one aware. This independently
+# scheduled workflow checks that the most recent *scheduled* run of each
+# watched workflow had a `notify` job that did not itself fail.
+name: Alert Workflow Canary
+
+on:
+  schedule:
+    - cron: '0 8 * * *' # daily, offset from build-test.yml (06:00) and release.yml (05:00)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      issues: write
+    steps:
+      - name: Check notify job health on recent scheduled runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          FAILED=""
+          for WORKFLOW in build-test.yml release.yml; do
+            RUN_ID=$(gh run list --repo "$REPOSITORY" --workflow "$WORKFLOW" \
+              --event schedule --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+            if [ -z "$RUN_ID" ]; then
+              echo "No scheduled run found for $WORKFLOW yet; skipping."
+              continue
+            fi
+            CONCLUSION=$(gh api "repos/$REPOSITORY/actions/runs/$RUN_ID/jobs" \
+              --jq '.jobs[] | select(.name == "notify") | .conclusion')
+            echo "$WORKFLOW run $RUN_ID notify job conclusion: ${CONCLUSION:-missing}"
+            if [ "$CONCLUSION" = "failure" ]; then
+              FAILED="$FAILED $WORKFLOW"
+            fi
+          done
+          if [ -z "$FAILED" ]; then
+            exit 0
+          fi
+          TITLE="Alert canary: notify job failing on$FAILED"
+          BODY="The \`notify\` job itself (not the build/release job it watches) failed on the most recent scheduled run of:$FAILED. This means the scheduled-run failure alert for that workflow may no longer fire. See runbooks/mcp-server-operations.md \"Detecting a Failed Scheduled Workflow\" and check the notify job's logs at https://github.com/$REPOSITORY/actions/runs/$GITHUB_RUN_ID."
+          EXISTING=$(gh issue list --repo "$REPOSITORY" --state open \
+            --label alert-canary --json number,title \
+            | jq -r --arg t "$TITLE" '.[] | select(.title == $t) | .number' | head -n1)
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --repo "$REPOSITORY" --body "$BODY"
+          else
+            gh label create alert-canary --repo "$REPOSITORY" \
+              --description "Auto-filed when a notify job's own alert step fails (see runbooks/mcp-server-operations.md)" \
+              --color b60205 2>/dev/null || true
+            gh issue create --repo "$REPOSITORY" --title "$TITLE" \
+              --label alert-canary --body "$BODY"
+          fi
+          exit 1

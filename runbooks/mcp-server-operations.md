@@ -603,11 +603,11 @@ in addition to their other triggers, and
 have an `if: failure()`-equivalent step that opens an alert-labeled issue
 on a failed *scheduled* run; `codeql.yml` and `scorecard.yml` (tracked in
 [#730](https://github.com/kubestellar/kubestellar-mcp/issues/730)),
-`stale.yml` (tracked in
-[#753](https://github.com/kubestellar/kubestellar-mcp/issues/753)), and
-`fuzz.yml` (tracked in
-[#1241](https://github.com/kubestellar/kubestellar-mcp/issues/1241)) still
-lack an equivalent alert step. For those, a failed scheduled run is still
+and `stale.yml` (tracked in
+[#753](https://github.com/kubestellar/kubestellar-mcp/issues/753)) still
+lack an equivalent alert step; `fuzz.yml` now has a `notify` job that opens
+a `fuzz-alert` issue
+([#1241](https://github.com/kubestellar/kubestellar-mcp/issues/1241)). For those, a failed scheduled run is still
 visible only as a red X in the Actions tab, so a failure can go unnoticed
 indefinitely unless someone is watching. `build-test.yml`'s daily run was
 a particularly important case before #1216: per `docs/slo.md` "Alerting
@@ -691,17 +691,17 @@ down with no one aware, for an unbounded number of weeks.
    exists to prevent. `kubestellar/homebrew-tap` closed the equivalent gap for
    its own alerting via an `alert-canary.yml` workflow
    ([homebrew-tap#709](https://github.com/kubestellar/homebrew-tap/pull/709));
-   #1245 proposes the matching workflow for this repo but cannot land it
-   directly (workflow files need a maintainer or merge-capable agent to push).
-   Until it lands, periodically spot-check both `notify` jobs directly:
+   this repo now has `.github/workflows/alert-canary.yml` (#1245), which runs
+   daily, checks the `notify` job of the latest scheduled `build-test.yml` and
+   `release.yml` runs, and files an `alert-canary` issue if one failed.
+   To spot-check manually:
    ```bash
    gh run view --repo kubestellar/kubestellar-mcp --job <job-id>  # notify job from the latest scheduled run
    ```
    A `failure` conclusion on `notify` itself (not just on `build`/`lint`/etc.)
    means the alert step broke, not just the thing it was watching.
-9. **If `fuzz.yml`'s weekly run has failed silently** (tracked in
-   [#1241](https://github.com/kubestellar/kubestellar-mcp/issues/1241), not
-   yet auto-alerted): the `FuzzValidateRepoURL`, `FuzzValidateBranchName`,
+9. **If `fuzz.yml`'s weekly run has failed** (auto-alerted via a `fuzz-alert`
+   issue, [#1241](https://github.com/kubestellar/kubestellar-mcp/issues/1241)): the `FuzzValidateRepoURL`, `FuzzValidateBranchName`,
    `FuzzValidateHelmIdentifier`, `FuzzValidateHelmSetKey`,
    `FuzzValidateHelmSetValue`, `FuzzValidateNamespace`, and
    `FuzzSanitizeControlChars` targets have stopped being exercised against
