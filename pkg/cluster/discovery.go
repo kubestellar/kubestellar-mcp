@@ -13,14 +13,20 @@ import (
 
 const healthCheckTimeout = 10 * time.Second
 
-// ClusterInfo contains information about a discovered cluster
+// ClusterInfo contains information about a discovered cluster. It is the
+// single cluster representation shared by both binaries:
+// pkg/cluster.Discoverer (kubestellar-ops) and, via the
+// multicluster.ClusterInfo type alias, pkg/multicluster.ClientManager
+// (kubestellar-deploy). Each discoverer populates only the fields it knows
+// about; the rest are left at their zero value.
 type ClusterInfo struct {
-	Name    string
-	Source  string // "kubeconfig" or "kubestellar"
-	Server  string
-	Context string
-	Current bool
-	Status  string
+	Name    string            // Context name
+	Source  string            // "kubeconfig" or "kubestellar"
+	Server  string            // API server URL
+	Context string            // Kubeconfig context to use when connecting
+	Current bool              // Is this the current context?
+	Status  string            // Cluster status, e.g. "Unknown"
+	Labels  map[string]string // Cluster labels (from kubeconfig or annotations)
 }
 
 // HealthInfo contains health information about a cluster
