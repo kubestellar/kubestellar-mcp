@@ -234,8 +234,9 @@ spec:
         # GitOps sync failure rate. mcpserver_gitops_sync_total is recorded
         # by pkg/gitops/sync.go via metrics.RecordGitOpsSync (kubestellar-
         # deploy only - kubestellar-ops does not call the gitops Syncer).
-        # Not yet tied to a formal SLO in ../slo.md; this is a general
-        # operational signal, same pattern as MCPServerHighToolErrorRate.
+        # SLO 6 — GitOps Sync Reliability (../slo.md): 30-day target >=95%
+        # success (5% error budget), 7-day target >=90% success - same
+        # pattern as MCPServerHighToolErrorRate's SLO 1.
         - alert: MCPServerHighGitOpsSyncFailureRate
           expr: |
             sum(rate(mcpserver_gitops_sync_total{action="failed"}[1h]))
@@ -248,7 +249,8 @@ spec:
           annotations:
             summary: "kubestellar-mcp (kubestellar-deploy) GitOps sync failure rate is elevated"
             description: >-
-              GitOps sync resource failure rate has been above 5% for 1h.
+              GitOps sync resource failure rate has been above 5% for 1h,
+              which exceeds the SLO 6 30-day error budget in ../slo.md.
               Inspect mcpserver_gitops_sync_total{cluster,action="failed"}
               to isolate the affected cluster; see
               runbooks/mcp-server-operations.md#diagnosing-high-gitops-sync-failure-rate-or-multi-cluster-fan-out-failureslatency.
@@ -258,8 +260,10 @@ spec:
         # metrics.RecordMulticlusterOperation (kubestellar-deploy only -
         # kubestellar-ops never constructs a multicluster.Executor, same
         # scoping caveat as MCPServerActiveClustersDroppedToZero above).
-        # Not yet tied to a formal SLO in ../slo.md; this is a general
-        # operational signal, same pattern as MCPServerHighGitOpsSyncFailureRate.
+        # SLO 7 — Multi-Cluster Fan-Out Reliability (../slo.md): 30-day
+        # target >=95% success (5% error budget), 7-day target >=90%
+        # success - same pattern as MCPServerHighGitOpsSyncFailureRate's
+        # SLO 6.
         - alert: MCPServerHighMulticlusterOperationFailureRate
           expr: |
             sum(rate(mcpserver_multicluster_operation_total{status="error"}[1h]))
@@ -273,7 +277,8 @@ spec:
             summary: "kubestellar-mcp (kubestellar-deploy) multi-cluster operation failure rate is elevated"
             description: >-
               Per-cluster multi-cluster fan-out operation failure rate has
-              been above 5% for 1h. Inspect
+              been above 5% for 1h, which exceeds the SLO 7 30-day error
+              budget in ../slo.md. Inspect
               mcpserver_multicluster_operation_total{cluster,status="error"}
               to isolate the affected cluster; see
               runbooks/mcp-server-operations.md#diagnosing-high-gitops-sync-failure-rate-or-multi-cluster-fan-out-failureslatency.
