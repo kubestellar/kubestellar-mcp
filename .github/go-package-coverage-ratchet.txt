@@ -68,3 +68,4 @@ internal/version/versioncmd 100.0
 internal/version -
 pkg/mcp/protocol 100
 pkg/deploy/mcp/tooldef -
+pkg/deploy/mcp/testsupport -
