@@ -42,10 +42,9 @@ Alert rules aligned with the SLOs in [`../slo.md`](../slo.md):
 - `MCPServerHighAIQueryLatencyP95` — p95 AI provider query latency versus
   SLO 5 targets.
 - `MCPServerHighGitOpsSyncFailureRate` — GitOps sync resource failure rate
-  (`mcpserver_gitops_sync_total{action="failed"}`) versus a general
-  operational threshold; not yet tied to a formal SLO in
-  [`../slo.md`](../slo.md) (`kubestellar-deploy`-only — `kubestellar-ops`
-  does not call the GitOps `Syncer`).
+  (`mcpserver_gitops_sync_total{action="failed"}`) versus the SLO 6 error
+  budget in [`../slo.md`](../slo.md) (`kubestellar-deploy`-only —
+  `kubestellar-ops` does not call the GitOps `Syncer`).
   **No equivalent alert exists for `mcpserver_gitops_drift_total`:**
   drift detection reports informational drift counts (`missing`/
   `modified`), not pass/fail outcomes like sync, and resource-check
@@ -56,8 +55,9 @@ Alert rules aligned with the SLOs in [`../slo.md`](../slo.md):
   check failures.
 - `MCPServerHighGitOpsSyncLatencyP95` — p95 GitOps sync operation latency
   (`mcpserver_gitops_sync_duration_seconds`) versus a general operational
-  threshold (10s); not yet tied to a formal SLO in
-  [`../slo.md`](../slo.md) (`kubestellar-deploy`-only, same scope as
+  threshold (10s); a companion signal for SLO 6 in
+  [`../slo.md`](../slo.md), not itself a formal latency objective
+  (`kubestellar-deploy`-only, same scope as
   `MCPServerHighGitOpsSyncFailureRate` above). A sync can stall against a
   slow/degraded cluster API server and still eventually succeed, which
   the failure-rate alert would miss, so this gives an independent
@@ -65,7 +65,7 @@ Alert rules aligned with the SLOs in [`../slo.md`](../slo.md):
   `MCPServerHighAIQueryLatencyP95`'s pattern.
 - `MCPServerHighGitOpsDriftLatencyP95` — p95 GitOps drift-detection
   operation latency (`mcpserver_gitops_drift_duration_seconds`) versus a
-  general operational threshold (10s); not yet tied to a formal SLO in
+  general operational threshold (10s); not tied to a formal SLO in
   [`../slo.md`](../slo.md) (`kubestellar-deploy`-only). Unlike
   `mcpserver_gitops_drift_total` (see the "No equivalent alert" note
   above), duration reflects actual operation health rather than drift's
@@ -73,16 +73,16 @@ Alert rules aligned with the SLOs in [`../slo.md`](../slo.md):
   fits here.
 - `MCPServerHighMulticlusterOperationFailureRate` — per-cluster
   multi-cluster fan-out operation failure rate
-  (`mcpserver_multicluster_operation_total{status="error"}`) versus a
-  general operational threshold; not yet tied to a formal SLO in
-  [`../slo.md`](../slo.md) (`kubestellar-deploy`-only — `kubestellar-ops`
-  never constructs a `multicluster.Executor`, same scoping caveat as
-  `MCPServerActiveClustersDroppedToZero` below).
+  (`mcpserver_multicluster_operation_total{status="error"}`) versus the
+  SLO 7 error budget in [`../slo.md`](../slo.md) (`kubestellar-deploy`-only
+  — `kubestellar-ops` never constructs a `multicluster.Executor`, same
+  scoping caveat as `MCPServerActiveClustersDroppedToZero` below).
 - `MCPServerHighMulticlusterOperationLatencyP95` — p95 per-cluster
   multi-cluster fan-out operation latency
   (`mcpserver_multicluster_operation_duration_seconds`) versus a general
-  operational threshold (10s); not yet tied to a formal SLO in
-  [`../slo.md`](../slo.md) (`kubestellar-deploy`-only, same scope as
+  operational threshold (10s); a companion signal for SLO 7 in
+  [`../slo.md`](../slo.md), not itself a formal latency objective
+  (`kubestellar-deploy`-only, same scope as
   `MCPServerHighMulticlusterOperationFailureRate`). A single slow/degraded
   cluster in a fan-out call can stall and still eventually record
   `status="success"`, which the failure-rate alert would miss, so this
