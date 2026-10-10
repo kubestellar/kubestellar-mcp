@@ -13,7 +13,7 @@ import (
 
 // MustMarshalJSON marshals v to JSON and fails the test immediately if
 // marshaling errors, returning the encoded bytes as a json.RawMessage.
-func MustMarshalJSON(t *testing.T, v interface{}) json.RawMessage {
+func MustMarshalJSON(t testing.TB, v interface{}) json.RawMessage {
 	t.Helper()
 	data, err := json.Marshal(v)
 	if err != nil {
