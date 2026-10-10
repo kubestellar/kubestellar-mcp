@@ -11,13 +11,11 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// ClusterInfo represents a discovered cluster
-type ClusterInfo struct {
-	Name       string            // Context name
-	Server     string            // API server URL
-	Current    bool              // Is this the current context?
-	Labels     map[string]string // Cluster labels (from kubeconfig or annotations)
-}
+// ClusterInfo represents a discovered cluster. It is an alias of
+// cluster.ClusterInfo so that kubestellar-ops and kubestellar-deploy share a
+// single cluster type; existing multicluster.ClusterInfo references and
+// keyed literals keep compiling unchanged.
+type ClusterInfo = cluster.ClusterInfo
 
 // ClientManager manages Kubernetes clients for multiple clusters
 type ClientManager struct {
