@@ -592,8 +592,9 @@ resolved to a private/internal address.
 **Symptom:** No symptom is surfaced automatically — this is the problem. `codeql.yml`
 (weekly, Monday 04:00 UTC), `scorecard.yml` (weekly, Monday 06:00 UTC),
 `stale.yml` (daily, midnight UTC), `release.yml` (nightly 05:00 UTC and
-weekly Sunday 05:00 UTC), and `build-test.yml` (daily, 06:00 UTC) all run
-unattended on a cron schedule in addition to their other triggers, and
+weekly Sunday 05:00 UTC), `build-test.yml` (daily, 06:00 UTC), and
+`fuzz.yml` (weekly, Sunday 07:00 UTC) all run unattended on a cron schedule
+in addition to their other triggers, and
 `release.yml`'s `notify` job (as of
 [#865](https://github.com/kubestellar/kubestellar-mcp/issues/865)) and
 `build-test.yml`'s `notify` job (as of
@@ -601,9 +602,11 @@ unattended on a cron schedule in addition to their other triggers, and
 [#1214](https://github.com/kubestellar/kubestellar-mcp/issues/1214)) now
 have an `if: failure()`-equivalent step that opens an alert-labeled issue
 on a failed *scheduled* run; `codeql.yml` and `scorecard.yml` (tracked in
-[#730](https://github.com/kubestellar/kubestellar-mcp/issues/730)) and
+[#730](https://github.com/kubestellar/kubestellar-mcp/issues/730)),
 `stale.yml` (tracked in
-[#753](https://github.com/kubestellar/kubestellar-mcp/issues/753)) still
+[#753](https://github.com/kubestellar/kubestellar-mcp/issues/753)), and
+`fuzz.yml` (tracked in
+[#1241](https://github.com/kubestellar/kubestellar-mcp/issues/1241)) still
 lack an equivalent alert step. For those, a failed scheduled run is still
 visible only as a red X in the Actions tab, so a failure can go unnoticed
 indefinitely unless someone is watching. `build-test.yml`'s daily run was
@@ -612,9 +615,15 @@ Guidance", it is the only automated check that re-validates SLO 2
 (Cluster Discovery Latency) and SLO 4 (Tool-Call Accuracy) against
 environmental drift during windows with no commits — a silent failure
 there would mean that drift-detection signal goes dark with no one aware
-of it.
+of it. `fuzz.yml`'s weekly run is similarly the only automated check
+continuously exercising `FuzzValidateRepoURL`, `FuzzValidateBranchName`,
+`FuzzValidateHelmIdentifier`, `FuzzValidateHelmSetKey`,
+`FuzzValidateHelmSetValue`, `FuzzValidateNamespace`, and
+`FuzzSanitizeControlChars` against newly generated inputs — a silent
+failure there means that input-validation/sanitization regression net is
+down with no one aware, for an unbounded number of weeks.
 
-### Interim manual safeguards (for `codeql.yml`, `scorecard.yml`, and `stale.yml`, until an automated alert exists)
+### Interim manual safeguards (for `codeql.yml`, `scorecard.yml`, `stale.yml`, and `fuzz.yml`, until an automated alert exists)
 
 1. **Enable per-repo/per-user "Failed workflows only" notifications:** GitHub
    Settings → Notifications → Actions → "Only notify for failed workflows".
@@ -626,6 +635,7 @@ of it.
    gh run list --repo kubestellar/kubestellar-mcp --workflow scorecard.yml --limit 5
    gh run list --repo kubestellar/kubestellar-mcp --workflow stale.yml --limit 5
    gh run list --repo kubestellar/kubestellar-mcp --workflow release.yml --limit 5
+   gh run list --repo kubestellar/kubestellar-mcp --workflow fuzz.yml --limit 5
    ```
    A `failure` conclusion on the most recent scheduled (non-push, non-PR,
    non-`workflow_dispatch`) run means the scan/triage did not complete;
@@ -671,6 +681,18 @@ of it.
    `docs/slo.md` "Alerting Guidance", this run is the only mechanism
    re-validating SLO 2 (Cluster Discovery Latency) and SLO 4 (Tool-Call
    Accuracy) against environmental drift during windows with no commits.
+8. **If `fuzz.yml`'s weekly run has failed silently** (tracked in
+   [#1241](https://github.com/kubestellar/kubestellar-mcp/issues/1241), not
+   yet auto-alerted): the `FuzzValidateRepoURL`, `FuzzValidateBranchName`,
+   `FuzzValidateHelmIdentifier`, `FuzzValidateHelmSetKey`,
+   `FuzzValidateHelmSetValue`, `FuzzValidateNamespace`, and
+   `FuzzSanitizeControlChars` targets have stopped being exercised against
+   new inputs for at least a week. A `failure` conclusion can mean either a
+   genuine crasher was found (check the uploaded `fuzz-crashers-*` artifact
+   on the failed run) or an environmental issue (Go toolchain update,
+   runner regression). Re-run manually via `workflow_dispatch` (with an
+   explicit `fuzztime` input) once triaged, rather than waiting for the
+   next Sunday's cron.
 
 ## Detecting a Broken PR-Gating Check (`pull_request_target` startup_failure)
 
