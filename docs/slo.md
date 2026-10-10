@@ -84,6 +84,48 @@ These targets mirror SLO 1 and are the basis for the existing `MCPServerHighAIQu
 
 ---
 
+### SLO 6 — GitOps Sync Reliability
+
+**`kubestellar-deploy`-only** (`kubestellar-ops` does not call the GitOps `Syncer`; see "Scope note" above).
+
+**SLI:** Proportion of GitOps sync resource operations (`mcpserver_gitops_sync_total`, recorded by `pkg/gitops/sync.go` via `metrics.RecordGitOpsSync`) that do not result in `action="failed"`.
+
+**Measurement:** `1 - sum(rate(mcpserver_gitops_sync_total{action="failed"}[<window>])) / sum(rate(mcpserver_gitops_sync_total[<window>]))`, opt-in via `--metrics-addr` per [Alerting Guidance](#alerting-guidance) below.
+
+**Objective:**
+
+| Window | Target |
+|--------|--------|
+| 30-day rolling | ≥ 95% of GitOps sync resource operations succeed |
+| 7-day rolling | ≥ 90% of GitOps sync resource operations succeed |
+
+These targets mirror SLO 1/SLO 5 and are the basis for the existing `MCPServerHighGitOpsSyncFailureRate` alert in [`docs/alerts/mcpserver-rules.yaml`](alerts/mcpserver-rules.yaml) (5% over 1h). `MCPServerHighGitOpsSyncLatencyP95` (`mcpserver_gitops_sync_duration_seconds`, 10s threshold) is a companion operational signal for this SLO but is not itself a formal latency objective — a sync can stall against a slow cluster API server and still eventually succeed, which the failure-rate SLI above would miss.
+
+**Exclusions:** Failures attributable to the target cluster API server itself being unavailable, not the GitOps sync path, are excluded (same as SLO 1).
+
+---
+
+### SLO 7 — Multi-Cluster Fan-Out Reliability
+
+**`kubestellar-deploy`-only** (`kubestellar-ops` never constructs a `multicluster.Executor`; see "Scope note" above).
+
+**SLI:** Proportion of per-cluster multi-cluster fan-out operations (`mcpserver_multicluster_operation_total`, recorded by `pkg/multicluster/executor.go` via `metrics.RecordMulticlusterOperation`) that do not result in `status="error"`.
+
+**Measurement:** `1 - sum(rate(mcpserver_multicluster_operation_total{status="error"}[<window>])) / sum(rate(mcpserver_multicluster_operation_total[<window>]))`, opt-in via `--metrics-addr` per [Alerting Guidance](#alerting-guidance) below.
+
+**Objective:**
+
+| Window | Target |
+|--------|--------|
+| 30-day rolling | ≥ 95% of per-cluster fan-out operations succeed |
+| 7-day rolling | ≥ 90% of per-cluster fan-out operations succeed |
+
+These targets mirror SLO 1/SLO 5/SLO 6 and are the basis for the existing `MCPServerHighMulticlusterOperationFailureRate` alert in [`docs/alerts/mcpserver-rules.yaml`](alerts/mcpserver-rules.yaml) (5% over 1h). `MCPServerHighMulticlusterOperationLatencyP95` (10s threshold) is a companion operational signal, not itself a formal latency objective, for the same reason given under SLO 6.
+
+**Exclusions:** Failures attributable to the target cluster API server itself being unavailable, not the fan-out orchestration path, are excluded (same as SLO 1). `mcpserver_active_clusters == 0` (`MCPServerActiveClustersDroppedToZero`) signals a distinct connectivity-loss condition, not this SLI, and is not included in this objective.
+
+---
+
 ## Error Budget Policy
 
 | SLO | 30-day budget (5% = 36 hours) |
@@ -91,6 +133,8 @@ These targets mirror SLO 1 and are the basis for the existing `MCPServerHighAIQu
 | Tool Response Availability | 36 hours of degraded availability per 30 days |
 | Cluster Discovery Latency (p95) | Up to 5% of requests may exceed 2 s |
 | AI Provider Query Availability | 36 hours of degraded availability per 30 days |
+| GitOps Sync Reliability (`kubestellar-deploy`) | 36 hours of degraded reliability per 30 days |
+| Multi-Cluster Fan-Out Reliability (`kubestellar-deploy`) | 36 hours of degraded reliability per 30 days |
 
 When the error budget for SLO 1 drops below 50%, the team should:
 1. Halt non-critical feature work.
@@ -106,7 +150,7 @@ By default the MCP server has no HTTP interface and no Prometheus metrics endpoi
 - **MCP client-side instrumentation:** Claude Code and other MCP clients can record tool-call latency and error rates.
 - **CI integration tests:** `build-test.yml` runs `go test -race ./...` (covering cluster discovery and tool accuracy paths) on every push and pull request to `main`, and additionally on a daily `schedule:` (`0 6 * * *` UTC) plus `workflow_dispatch`, so SLO 2/SLO 4 behavior is re-validated against environmental drift (e.g., Kubernetes API or dependency behavior changes) even during windows with no commits.
 - **Container exit code monitoring:** If run in Docker or a process supervisor, monitor for non-zero exit codes.
-- **Prometheus metrics (opt-in):** when an operator starts the server with `--metrics-addr`, `pkg/metrics` exposes `mcpserver_tool_calls_total`, `mcpserver_tool_errors_total`, `mcpserver_tool_duration_seconds`, `mcpserver_discovery_latency_seconds`, `mcpserver_active_clusters`, `mcpserver_ai_query_total`, `mcpserver_ai_query_duration_seconds`, `mcpserver_ai_query_errors_total`, `mcpserver_gitops_sync_total`, `mcpserver_gitops_sync_duration_seconds`, `mcpserver_gitops_drift_total`, `mcpserver_gitops_drift_duration_seconds`, `mcpserver_multicluster_operation_total`, and `mcpserver_multicluster_operation_duration_seconds` on `/metrics` (plus a `/healthz` liveness handler). See [`docs/dashboards/`](dashboards/README.md) for an importable Grafana dashboard and [`docs/alerts/`](alerts/README.md) for `PrometheusRule` alert rules aligned with SLO 1/2/5 above (the GitOps and multi-cluster metrics back alert rules not yet tied to a formal SLO in this document — see `docs/alerts/README.md`). Neither is applied automatically; both require an operator-configured Prometheus, and none of this is enabled unless `--metrics-addr` is set.
+- **Prometheus metrics (opt-in):** when an operator starts the server with `--metrics-addr`, `pkg/metrics` exposes `mcpserver_tool_calls_total`, `mcpserver_tool_errors_total`, `mcpserver_tool_duration_seconds`, `mcpserver_discovery_latency_seconds`, `mcpserver_active_clusters`, `mcpserver_ai_query_total`, `mcpserver_ai_query_duration_seconds`, `mcpserver_ai_query_errors_total`, `mcpserver_gitops_sync_total`, `mcpserver_gitops_sync_duration_seconds`, `mcpserver_gitops_drift_total`, `mcpserver_gitops_drift_duration_seconds`, `mcpserver_multicluster_operation_total`, and `mcpserver_multicluster_operation_duration_seconds` on `/metrics` (plus a `/healthz` liveness handler). See [`docs/dashboards/`](dashboards/README.md) for an importable Grafana dashboard and [`docs/alerts/`](alerts/README.md) for `PrometheusRule` alert rules aligned with SLO 1/2/5/6/7 above (`mcpserver_gitops_drift_total` and its duration/latency companion back an alert rule with no formal SLO in this document — see `docs/alerts/README.md`). Neither is applied automatically; both require an operator-configured Prometheus, and none of this is enabled unless `--metrics-addr` is set.
 - **`kubestellar-deploy` also exposes a metrics endpoint:** `kubestellar-deploy` records into the same in-process `pkg/metrics` registry as `kubestellar-ops` (see "Scope note" above) and now exposes its own `--metrics-addr` flag and `/metrics` HTTP endpoint (`pkg/deploy/cmd/root.go`). An operator who enables it on both binaries **must** scrape them as distinct Prometheus targets — e.g. separate `job`/`instance` labels or a relabel rule — before applying the alert rules in `docs/alerts/`, to avoid blending `kubestellar-ops` diagnostic traffic with `kubestellar-deploy` GitOps/blue-green-deploy traffic in every SLO 1 alert expression and masking a real outage in one binary with healthy volume from the other.
 
 **Note on `mcpserver_tool_duration_seconds` vs. SLO 2:** this metric (and the `MCPServerHighToolLatencyP95` alert built on it) measures end-to-end latency across *all* tool calls. It is a general latency proxy, not a direct measurement of SLO 2's SLI. A dedicated metric, `mcpserver_discovery_latency_seconds`, now directly measures SLO 2's SLI (time from `initialize` request receipt to the first `tools/list` response) — recorded once per connection by `pkg/mcp/rpcloop.DiscoveryTimer`, shared by both `kubestellar-ops` and `kubestellar-deploy`. The `MCPServerHighDiscoveryLatencyP95` alert in [`docs/alerts/mcpserver-rules.yaml`](alerts/mcpserver-rules.yaml) is built directly on this metric, so a firing alert is now direct evidence of an SLO 2 breach; `MCPServerHighToolLatencyP95` remains as a general tool-latency signal, not an SLO 2 proxy.

@@ -24,7 +24,7 @@ pkg/deploy/mcp/helm 99.0
 pkg/deploy/mcp/kubectl 98.9
 pkg/deploy/mcp/kustomize 96.4
 pkg/deploy/mcp/labels 100.0
-pkg/deploy/mcp/testsupport 100.0
+pkg/deploy/mcp/testsupport -
 pkg/mcp/server 100.0
 pkg/mcp/server/cluster 100.0
 pkg/mcp/server/diagnostics 99.1
@@ -69,3 +69,4 @@ internal/version/versioncmd 100.0
 internal/version -
 pkg/mcp/protocol 100
 pkg/deploy/mcp/tooldef -
+pkg/deploy/mcp/testsupport -

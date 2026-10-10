@@ -5,7 +5,10 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"os"
+	"syscall"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -120,4 +123,64 @@ func TestDeployRootCommandRunE_NoMetricsAddrSkipsServer(t *testing.T) {
 	require.NoError(t, cmd.PersistentFlags().Set("mcp-server", "true"))
 	require.NoError(t, cmd.RunE(cmd, nil))
 	require.True(t, runCalled, "expected MCP runner to be invoked")
+}
+
+func TestDeployRootCommandRunE_MCPServerErrorIsLoggedAndReturned(t *testing.T) {
+	oldMCPServer, oldMetricsAddr := mcpServer, metricsAddr
+	oldRunMCPServer := runMCPServer
+	t.Cleanup(func() {
+		mcpServer = oldMCPServer
+		metricsAddr = oldMetricsAddr
+		runMCPServer = oldRunMCPServer
+	})
+
+	wantErr := errors.New("mcp boom")
+	runMCPServer = func(_ context.Context) error {
+		return wantErr
+	}
+
+	cmd := NewRootCommand()
+	require.NoError(t, cmd.PersistentFlags().Set("mcp-server", "true"))
+	err := cmd.RunE(cmd, nil)
+	require.ErrorIs(t, err, wantErr)
+}
+
+func TestDeployRootCommandRunE_SignalCancelsContext(t *testing.T) {
+	oldMCPServer, oldMetricsAddr := mcpServer, metricsAddr
+	oldRunMCPServer, oldSignalNotify := runMCPServer, signalNotify
+	t.Cleanup(func() {
+		mcpServer = oldMCPServer
+		metricsAddr = oldMetricsAddr
+		runMCPServer = oldRunMCPServer
+		signalNotify = oldSignalNotify
+	})
+
+	var capturedCh chan<- os.Signal
+	signalNotify = func(c chan<- os.Signal, sig ...os.Signal) {
+		capturedCh = c
+	}
+
+	ctxCanceled := make(chan struct{})
+	runMCPServer = func(ctx context.Context) error {
+		capturedCh <- syscall.SIGTERM
+		select {
+		case <-ctx.Done():
+			close(ctxCanceled)
+			return ctx.Err()
+		case <-time.After(5 * time.Second):
+			t.Error("context was not canceled after signal delivery")
+			return nil
+		}
+	}
+
+	cmd := NewRootCommand()
+	require.NoError(t, cmd.PersistentFlags().Set("mcp-server", "true"))
+	err := cmd.RunE(cmd, nil)
+	require.ErrorIs(t, err, context.Canceled)
+
+	select {
+	case <-ctxCanceled:
+	case <-time.After(5 * time.Second):
+		t.Fatal("expected context cancellation signal to be observed")
+	}
 }
