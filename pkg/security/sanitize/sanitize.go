@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 )
 
 var validClusterNamePattern = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
@@ -38,9 +39,20 @@ func SanitizeControlChars(s string) string {
 	// Collapse multiple spaces
 	s = strings.Join(strings.Fields(s), " ")
 
-	// Truncate to prevent token stuffing (200 chars is reasonable for cluster/namespace names)
+	// Truncate to prevent token stuffing (200 bytes is reasonable for
+	// cluster/namespace names). A straight byte slice can split a
+	// multi-byte UTF-8 rune at the boundary, so back off to the last
+	// complete rune before appending the ellipsis.
 	if len(s) > 200 {
-		s = s[:200] + "..."
+		truncated := s[:200]
+		for len(truncated) > 0 {
+			r, size := utf8.DecodeLastRuneInString(truncated)
+			if r != utf8.RuneError || size != 1 {
+				break
+			}
+			truncated = truncated[:len(truncated)-1]
+		}
+		s = truncated + "..."
 	}
 
 	return s

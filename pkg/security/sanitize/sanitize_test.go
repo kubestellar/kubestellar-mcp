@@ -46,6 +46,11 @@ func TestSanitizeForPrompt(t *testing.T) {
 			input: "cluster   with    many     spaces",
 			want:  "cluster with many spaces",
 		},
+		{
+			name:  "truncation does not split multi-byte rune",
+			input: strings.Repeat("a", 199) + "é" + strings.Repeat("b", 100),
+			want:  strings.Repeat("a", 199) + "...",
+		},
 	}
 
 	for _, tt := range tests {
