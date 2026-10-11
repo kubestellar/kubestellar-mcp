@@ -602,11 +602,9 @@ in addition to their other triggers, and
 [#1214](https://github.com/kubestellar/kubestellar-mcp/issues/1214)) now
 have an `if: failure()`-equivalent step that opens an alert-labeled issue
 on a failed *scheduled* run; `codeql.yml`, `scorecard.yml`, and `stale.yml`
-still lack an equivalent alert step (tracked in
-[#1262](https://github.com/kubestellar/kubestellar-mcp/issues/1262) —
-superseding #730/#753, which were closed by a doc-only PR that documented
-the interim manual safeguard below without landing the automated alert
-step itself); `fuzz.yml` now has a `notify` job that opens
+now have `notify` jobs too
+([#1262](https://github.com/kubestellar/kubestellar-mcp/issues/1262), superseding
+#730/#753, which were closed by a doc-only PR); `fuzz.yml` now has a `notify` job that opens
 a `fuzz-alert` issue
 ([#1241](https://github.com/kubestellar/kubestellar-mcp/issues/1241)). For those, a failed scheduled run is still
 visible only as a red X in the Actions tab, so a failure can go unnoticed
@@ -624,7 +622,7 @@ continuously exercising `FuzzValidateRepoURL`, `FuzzValidateBranchName`,
 failure there means that input-validation/sanitization regression net is
 down with no one aware, for an unbounded number of weeks.
 
-### Interim manual safeguards (for `codeql.yml`, `scorecard.yml`, `stale.yml`, and `fuzz.yml`, until an automated alert exists)
+### Manual safeguards (scheduled runs of `codeql.yml`, `scorecard.yml`, `stale.yml`, and `fuzz.yml` are now auto-alerted; use these for `workflow_dispatch` runs and as a backstop)
 
 1. **Enable per-repo/per-user "Failed workflows only" notifications:** GitHub
    Settings → Notifications → Actions → "Only notify for failed workflows".

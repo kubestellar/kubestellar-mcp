@@ -11,3 +11,54 @@ permissions:
 jobs:
   stale:
     uses: kubestellar/infra/.github/workflows/reusable-stale.yml@220beeeb8dae67e2fd8e89338ada8144609fc6ef  # main
+
+  notify:
+    needs: [stale]
+    runs-on: ubuntu-latest
+    if: always()
+    permissions:
+      issues: write
+    steps:
+      - name: Alert on scheduled-run failure
+        if: |
+          github.event_name == 'schedule' &&
+          needs.stale.result == 'failure'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v8.0.0
+        with:
+          script: |
+            const title = 'Scheduled stale-issues run failed';
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              `The scheduled \`stale.yml\` run (${context.payload.schedule || 'cron'}) failed.`,
+              '',
+              `- Run: ${runUrl}`,
+              `- stale: ${{ needs.stale.result }}`,
+              '',
+              'Issue/PR staleness labeling and auto-closing has stopped accumulating repo-wide since this run failed; this runs daily so a silent failure compounds fast.',
+              'See runbooks/mcp-server-operations.md "Detecting a Failed Scheduled Workflow" for triage steps.',
+            ].join('\n');
+            try {
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: 'stale-alert',
+                color: 'b60205',
+                description: 'Auto-filed when a scheduled stale.yml run fails (see runbooks/mcp-server-operations.md)',
+              });
+            } catch (err) {
+              if (err.status !== 422) throw err;
+            }
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'stale-alert',
+            });
+            if (existing.data.some(i => i.title === title)) return;
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['stale-alert', 'help wanted'],
+            });

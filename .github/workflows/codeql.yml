@@ -49,3 +49,54 @@ jobs:
         uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
         with:
           category: "/language:go"
+
+  notify:
+    needs: [analyze]
+    runs-on: ubuntu-latest
+    if: always()
+    permissions:
+      issues: write
+    steps:
+      - name: Alert on scheduled-run failure
+        if: |
+          github.event_name == 'schedule' &&
+          needs.analyze.result == 'failure'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v8.0.0
+        with:
+          script: |
+            const title = 'Scheduled CodeQL run failed';
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              `The scheduled \`codeql.yml\` run (${context.payload.schedule || 'cron'}) failed.`,
+              '',
+              `- Run: ${runUrl}`,
+              `- analyze: ${{ needs.analyze.result }}`,
+              '',
+              'Treat main as unscanned by CodeQL for this window until re-run.',
+              'See runbooks/mcp-server-operations.md "Detecting a Failed Scheduled Workflow" for triage steps.',
+            ].join('\n');
+            try {
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: 'codeql-alert',
+                color: 'b60205',
+                description: 'Auto-filed when a scheduled codeql.yml run fails (see runbooks/mcp-server-operations.md)',
+              });
+            } catch (err) {
+              if (err.status !== 422) throw err;
+            }
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'codeql-alert',
+            });
+            if (existing.data.some(i => i.title === title)) return;
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['codeql-alert', 'help wanted'],
+            });
