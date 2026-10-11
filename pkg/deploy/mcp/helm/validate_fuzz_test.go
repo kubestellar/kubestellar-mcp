@@ -59,7 +59,7 @@ func FuzzValidateHelmIdentifier(f *testing.F) {
 		}
 
 		flagInjection := strings.HasPrefix(value, "-")
-		badPattern := !labelRe.MatchString(value)
+		badPattern := !labelRe.MatchString(value) || len(value) > 63
 		shouldReject := flagInjection || badPattern
 
 		if shouldReject && err == nil {
@@ -76,7 +76,7 @@ func FuzzValidateHelmIdentifier(f *testing.F) {
 			if strings.HasPrefix(value, "-") {
 				t.Fatalf("validateHelmIdentifier(%q, %q) accepted a leading '-' value (flag injection)", kind, value)
 			}
-			if !labelRe.MatchString(value) {
+			if !labelRe.MatchString(value) || len(value) > 63 {
 				t.Fatalf("validateHelmIdentifier(%q, %q) accepted a value that does not match the identifier pattern", kind, value)
 			}
 		}
