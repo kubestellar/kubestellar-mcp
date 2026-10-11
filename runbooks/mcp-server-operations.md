@@ -681,7 +681,7 @@ down with no one aware, for an unbounded number of weeks.
    `docs/slo.md` "Alerting Guidance", this run is the only mechanism
    re-validating SLO 2 (Cluster Discovery Latency) and SLO 4 (Tool-Call
    Accuracy) against environmental drift during windows with no commits.
-8. **The `notify` jobs in `build-test.yml` and `release.yml` are themselves
+8. **The `notify` jobs in `build-test.yml`, `release.yml`, and `fuzz.yml` are themselves
    currently unmonitored** (tracked in
    [#1245](https://github.com/kubestellar/kubestellar-mcp/issues/1245)): if a
    `notify` job's own `github-script` step errors — a token-permission
@@ -692,8 +692,8 @@ down with no one aware, for an unbounded number of weeks.
    its own alerting via an `alert-canary.yml` workflow
    ([homebrew-tap#709](https://github.com/kubestellar/homebrew-tap/pull/709));
    this repo now has `.github/workflows/alert-canary.yml` (#1245), which runs
-   daily, checks the `notify` job of the latest scheduled `build-test.yml` and
-   `release.yml` runs, and files an `alert-canary` issue if one failed.
+   daily, checks the `notify` job of the latest scheduled `build-test.yml`,
+   `release.yml`, and `fuzz.yml` runs, and files an `alert-canary` issue if one failed.
    To spot-check manually:
    ```bash
    gh run view --repo kubestellar/kubestellar-mcp --job <job-id>  # notify job from the latest scheduled run
