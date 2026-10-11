@@ -1,5 +1,5 @@
-# Canary for the scheduled-run failure alerting in build-test.yml and
-# release.yml. Those `notify` jobs' github-script steps are themselves
+# Canary for the scheduled-run failure alerting in build-test.yml,
+# release.yml, and fuzz.yml. Those `notify` jobs' github-script steps are themselves
 # unmonitored — if the script errors (bad token scope, GitHub API change,
 # a typo in a future edit) the notify job can fail silently and the
 # alert-on-failure safety net goes dark with no one aware. This independently
@@ -30,7 +30,7 @@ jobs:
         run: |
           set -euo pipefail
           FAILED=""
-          for WORKFLOW in build-test.yml release.yml; do
+          for WORKFLOW in build-test.yml release.yml fuzz.yml; do
             RUN_ID=$(gh run list --repo "$REPOSITORY" --workflow "$WORKFLOW" \
               --event schedule --limit 1 --json databaseId --jq '.[0].databaseId // empty')
             if [ -z "$RUN_ID" ]; then
