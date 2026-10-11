@@ -208,6 +208,8 @@ func TestValidateHelmIdentifier(t *testing.T) {
 		{name: "spaces", value: "my release", wantErr: true},
 		{name: "semicolon injection", value: "release;rm -rf /", wantErr: true},
 		{name: "shell substitution", value: "release$(pwd)", wantErr: true},
+		{name: "63 chars allowed", value: strings.Repeat("a", 63), wantErr: false},
+		{name: "64 chars rejected", value: strings.Repeat("a", 64), wantErr: true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"net"
 	"net/url"
-	"regexp"
 	"strings"
 
 	nsval "github.com/kubestellar/kubestellar-mcp/pkg/security/namespace"
 	"github.com/kubestellar/kubestellar-mcp/pkg/security/netguard"
+	"github.com/kubestellar/kubestellar-mcp/pkg/security/sanitize"
 )
 
 // helmHostResolver can be replaced in tests to avoid real DNS lookups.
@@ -164,12 +164,6 @@ func resolveAndBlock(ctx context.Context, host string) error {
 	})
 }
 
-// validHelmIdentifierPattern enforces Kubernetes DNS label format for Helm
-// release names, namespaces, and kube-context names. This prevents flag-injection
-// attacks where a leading "--" value would be parsed as a CLI flag by helm.
-// See: https://github.com/kubestellar/kubestellar-mcp/issues/269
-var validHelmIdentifierPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9\-\.]*[a-z0-9]$|^[a-z0-9]$`)
-
 // helmSetSpecialChars are characters that Helm's --set parser treats as
 // structural delimiters: comma (list separator), braces (set syntax),
 // brackets (index syntax), and backtick (raw string quoting). Any of these
@@ -187,8 +181,8 @@ func validateHelmIdentifier(kind, value string) error {
 	if strings.HasPrefix(value, "-") {
 		return fmt.Errorf("%s %q must not begin with '-' (possible flag injection)", kind, value)
 	}
-	if !validHelmIdentifierPattern.MatchString(value) {
-		return fmt.Errorf("%s %q is not a valid Kubernetes identifier (must be lowercase alphanumeric, hyphens, or dots, and start/end with alphanumeric)", kind, value)
+	if err := sanitize.ValidateK8sName(value); err != nil {
+		return fmt.Errorf("%s %q is not a valid Kubernetes identifier: %w", kind, value, err)
 	}
 	return nil
 }
