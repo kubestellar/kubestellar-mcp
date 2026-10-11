@@ -3,6 +3,7 @@ package sanitize
 import (
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 func TestSanitizeForPrompt(t *testing.T) {
@@ -158,5 +159,23 @@ func TestValidateK8sName(t *testing.T) {
 				t.Errorf("ValidateK8sName(%q) error = %v, wantError %v", tt.input, err, tt.wantError)
 			}
 		})
+	}
+}
+
+func TestSanitizeControlChars_TruncationKeepsValidUTF8(t *testing.T) {
+	// 199 ASCII bytes + a 3-byte rune straddles the 200-byte cut.
+	in := strings.Repeat("a", 199) + "日本語"
+	got := SanitizeControlChars(in)
+	if !utf8.ValidString(got) {
+		t.Fatalf("output not valid UTF-8: %q", got)
+	}
+	if got != strings.Repeat("a", 199)+"..." {
+		t.Fatalf("unexpected output: %q", got)
+	}
+
+	// Invalid bytes become 3-byte U+FFFD; truncation must not split them.
+	got = SanitizeControlChars(strings.Repeat("\xd7", 100))
+	if !utf8.ValidString(got) {
+		t.Fatalf("output not valid UTF-8: %q", got)
 	}
 }

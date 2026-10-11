@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 )
 
 var validClusterNamePattern = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
@@ -40,7 +41,13 @@ func SanitizeControlChars(s string) string {
 
 	// Truncate to prevent token stuffing (200 chars is reasonable for cluster/namespace names)
 	if len(s) > 200 {
-		s = s[:200] + "..."
+		// Back up to a rune boundary so a multi-byte rune (including the
+		// 3-byte U+FFFD substituted for invalid input) is never split.
+		cut := 200
+		for cut > 0 && !utf8.RuneStart(s[cut]) {
+			cut--
+		}
+		s = s[:cut] + "..."
 	}
 
 	return s
