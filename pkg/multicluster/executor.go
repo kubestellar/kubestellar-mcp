@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/klog/v2"
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/metrics"
 )
@@ -53,6 +54,7 @@ func (e *Executor) Execute(ctx context.Context, clusterName string, fn ExecuteFu
 func (e *Executor) executeSingle(ctx context.Context, clusterName string, fn ExecuteFunc) ([]ClusterResult, error) {
 	client, err := e.manager.GetClient(clusterName)
 	if err != nil {
+		klog.ErrorS(err, "multicluster operation failed to get client", "cluster", clusterName)
 		return []ClusterResult{{
 			Cluster: clusterName,
 			Error:   err.Error(),
@@ -61,6 +63,7 @@ func (e *Executor) executeSingle(ctx context.Context, clusterName string, fn Exe
 
 	result, err := fn(ctx, client, clusterName)
 	if err != nil {
+		klog.ErrorS(err, "multicluster operation failed", "cluster", clusterName)
 		return []ClusterResult{{
 			Cluster: clusterName,
 			Error:   err.Error(),
@@ -113,6 +116,7 @@ func (e *Executor) executeAcrossClusters(ctx context.Context, clusterNames []str
 
 			client, err := e.manager.GetClient(name)
 			if err != nil {
+				klog.ErrorS(err, "multicluster fan-out failed to get client", "cluster", name)
 				metrics.RecordMulticlusterOperation(name, err)
 				mu.Lock()
 				results = append(results, ClusterResult{
@@ -127,6 +131,9 @@ func (e *Executor) executeAcrossClusters(ctx context.Context, clusterNames []str
 			result, err := fn(ctx, client, name)
 			metrics.RecordMulticlusterOperationDuration(name, time.Since(start))
 			metrics.RecordMulticlusterOperation(name, err)
+			if err != nil {
+				klog.ErrorS(err, "multicluster fan-out operation failed", "cluster", name)
+			}
 			mu.Lock()
 			if err != nil {
 				results = append(results, ClusterResult{
