@@ -35,6 +35,9 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
+      - name: Shell lint
+        run: make shell-lint
+
       - name: Build
         run: go build -v ./...
 
