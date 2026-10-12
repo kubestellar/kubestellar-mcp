@@ -9,6 +9,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/klog/v2"
 )
 
 const healthCheckTimeout = 10 * time.Second
@@ -136,7 +137,15 @@ func (d *Discoverer) discoverFromKubeconfig() ([]ClusterInfo, error) {
 
 	var clusters []ClusterInfo
 
-	for _, entry := range DiscoverRawClusterEntries(*config, nil) {
+	// Log each skipped context via klog, matching the parity sibling
+	// pkg/multicluster.ClientManager.DiscoverClusters, so a dangling
+	// context (its Cluster entry missing from the kubeconfig) is visible
+	// to an operator instead of being silently dropped.
+	onSkipped := func(contextName, clusterRef string) {
+		klog.Warningf("skipping context %q: referenced cluster %q not found in kubeconfig", contextName, clusterRef)
+	}
+
+	for _, entry := range DiscoverRawClusterEntries(*config, onSkipped) {
 		clusters = append(clusters, ClusterInfo{
 			Name:    entry.ContextName,
 			Source:  "kubeconfig",
