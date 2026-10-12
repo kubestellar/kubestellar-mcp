@@ -1,11 +1,10 @@
 package helm
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"os/exec"
+	"io"
 	"strings"
 )
 
@@ -152,16 +151,12 @@ func (s *Server) helmInstall(ctx context.Context, cluster, releaseName, chart, n
 		cmdArgs = append(cmdArgs, "--dry-run")
 	}
 
-	cmd := exec.CommandContext(ctx, "helm", cmdArgs...)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
+	var stdin io.Reader
 	if valuesYAML != "" {
-		cmd.Stdin = strings.NewReader(valuesYAML)
+		stdin = strings.NewReader(valuesYAML)
 	}
 
-	err := cmd.Run()
+	stdout, stderr, err := execHelm(ctx, stdin, cmdArgs...)
 
 	if dryRun && err == nil {
 		return HelmResult{

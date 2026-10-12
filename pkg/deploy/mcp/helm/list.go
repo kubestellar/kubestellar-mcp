@@ -1,11 +1,9 @@
 package helm
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"os/exec"
 	"strings"
 
 	nsval "github.com/kubestellar/kubestellar-mcp/pkg/security/namespace"
@@ -90,11 +88,8 @@ func (s *Server) helmList(ctx context.Context, cluster, namespace string, allNs 
 		cmdArgs = append(cmdArgs, "--filter", filter)
 	}
 
-	cmd := exec.CommandContext(ctx, "helm", cmdArgs...)
-	var stdout bytes.Buffer
-	cmd.Stdout = &stdout
-
-	if err := cmd.Run(); err != nil {
+	stdout, _, err := execHelm(ctx, nil, cmdArgs...)
+	if err != nil {
 		return nil
 	}
 
@@ -112,6 +107,6 @@ func (s *Server) helmReleaseExists(ctx context.Context, cluster, releaseName, na
 		"--kube-context", cluster,
 	}
 
-	cmd := exec.CommandContext(ctx, "helm", cmdArgs...)
-	return cmd.Run() == nil
+	_, _, err := execHelm(ctx, nil, cmdArgs...)
+	return err == nil
 }

@@ -1,11 +1,9 @@
 package helm
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"os/exec"
 
 	nsval "github.com/kubestellar/kubestellar-mcp/pkg/security/namespace"
 )
@@ -103,12 +101,7 @@ func (s *Server) helmRollback(ctx context.Context, cluster, releaseName, namespa
 		cmdArgs = append(cmdArgs, "--dry-run")
 	}
 
-	cmd := exec.CommandContext(ctx, "helm", cmdArgs...)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	err := cmd.Run()
+	stdout, stderr, err := execHelm(ctx, nil, cmdArgs...)
 
 	if dryRun && err == nil {
 		return HelmResult{
