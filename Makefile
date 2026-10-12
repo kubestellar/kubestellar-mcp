@@ -93,6 +93,15 @@ alert-lint:
 	python3 scripts/check-runbook-anchors.py || fail=1; \
 	exit $$fail
 
+.PHONY: shell-lint
+shell-lint:
+	@command -v shellcheck >/dev/null 2>&1 || { echo "shellcheck not found: https://github.com/koalaman/shellcheck#installing"; exit 1; }
+	# --severity=warning: these scripts gate the coverage ratchet CI relies
+	# on (kubestellar-mcp#802), so this must catch real bugs (warning and
+	# above); style/info-level nits (e.g. SC2016 on an intentionally
+	# single-quoted sed literal) are not worth failing the build over.
+	shellcheck --severity=warning scripts/*.sh scripts/__tests__/*.sh
+
 .PHONY: help
 help:
 	@echo "Available targets:"
@@ -108,3 +117,4 @@ help:
 	@echo "  lint          - Run linter"
 	@echo "  dashboard-lint - Validate docs/dashboards/*.json syntax and required fields"
 	@echo "  alert-lint    - Validate docs/alerts/*.yaml syntax and required fields"
+	@echo "  shell-lint    - Run shellcheck over scripts/*.sh and scripts/__tests__/*.sh"
