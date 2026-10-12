@@ -283,7 +283,9 @@ and the SLOs in [`docs/slo.md`](../docs/slo.md) would blend `kubestellar-ops`
 diagnostic traffic with `kubestellar-deploy` GitOps/blue-green-deploy
 traffic, masking a real outage in one binary with healthy volume from the
 other. See the "Scope note" in `docs/slo.md` for which SLOs are shared and
-which are `kubestellar-ops`-specific.
+which are `kubestellar-ops`-specific, and see
+["Example scrape config separating the two binaries by `job`"](../docs/alerts/README.md)
+in `docs/alerts/README.md` for a copy-pasteable `scrape_configs` snippet.
 
 ### What to look for
 

@@ -22,6 +22,28 @@ traffic together, and an alert firing couldn't tell you which binary is
 actually degraded. See the "Scope note" in [`../slo.md`](../slo.md) for
 which SLOs apply to which binary.
 
+**Example scrape config separating the two binaries by `job`:** assuming
+`kubestellar-ops --metrics-addr 127.0.0.1:9090` and
+`kubestellar-deploy --metrics-addr 127.0.0.1:9091` on the same host (see
+`--metrics-addr` defaults in `pkg/cmd/root.go` / `pkg/deploy/cmd/root.go`):
+
+```yaml
+scrape_configs:
+  - job_name: kubestellar-ops
+    static_configs:
+      - targets: ["127.0.0.1:9090"]
+  - job_name: kubestellar-deploy
+    static_configs:
+      - targets: ["127.0.0.1:9091"]
+```
+
+Every alert expression below is written as a bare `mcpserver_*` metric
+selector with no `job` filter, so it still matches series from *either*
+job once scraped this way. To scope an expression to one binary only
+(e.g. to apply the `kubestellar-deploy`-only alerts below without relying
+on readers to remember which binary they cover), add `job="kubestellar-deploy"`
+(or `kubestellar-ops`) to the metric selector before importing the rule.
+
 ## `mcpserver-rules.yaml`
 
 Alert rules aligned with the SLOs in [`../slo.md`](../slo.md):
