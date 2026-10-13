@@ -151,6 +151,31 @@ func TestQueryCommand_DiscoveryFailureWarnsAndContinues(t *testing.T) {
 	require.Contains(t, output, "fallback answer")
 }
 
+func TestQueryCommand_IncludeStatusHealthCheckFailureWarnsAndContinues(t *testing.T) {
+	client := &fakeClaudeQueryClient{response: "fallback answer"}
+	discoverer := &fakeClusterDiscoverer{
+		clusters:  []cluster.ClusterInfo{{Name: "alpha", Current: true}},
+		healthErr: errors.New("health check failed"),
+	}
+	_, restore := stubQueryDependencies(t, client, discoverer)
+	defer restore()
+
+	configFlags := genericclioptions.NewConfigFlags(true)
+	cmd := NewQueryCommand(configFlags)
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--include-status", "what", "is", "the", "cluster", "status"})
+
+	output := captureStdout(t, func() {
+		require.NoError(t, cmd.ExecuteContext(context.Background()))
+	})
+
+	require.Equal(t, 1, discoverer.checkHealthCalls)
+	require.Equal(t, "what is the cluster status", client.userQuery)
+	require.Contains(t, output, "Warning: failed to check cluster health: health check failed")
+	require.Contains(t, output, "fallback answer")
+}
+
 func TestQueryCommand_ReturnsClaudeClientCreationError(t *testing.T) {
 	clientErr := errors.New("missing API key")
 	originalClientFactory := newClaudeQueryClient

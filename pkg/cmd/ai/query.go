@@ -127,13 +127,20 @@ func (o *queryOptions) run(ctx context.Context) error {
 		for _, c := range clusters {
 			if c.Current {
 				health, err := discoverer.CheckHealth(c)
-				if err == nil {
+				if err != nil {
+					// Matches the DiscoverClusters warning above: a failed
+					// best-effort enrichment call must not vanish silently,
+					// or an operator has no way to tell "status omitted
+					// because of an error" from "status omitted because the
+					// cluster is healthy with nothing to report".
+					fmt.Printf("Warning: failed to check cluster health: %v\n", err)
+				} else {
 					userQuery = claude.BuildQueryPrompt(o.query, fmt.Sprintf(
 						"Current cluster: %s\nStatus: %s\nNodes: %s\nAPI Server: %s",
-					sanitize.ValidateClusterName(c.Name),
-					sanitize.SanitizeForPrompt(health.Status),
-					sanitize.SanitizeForPrompt(health.NodesReady),
-					sanitize.SanitizeForPrompt(health.APIServerStatus),
+						sanitize.ValidateClusterName(c.Name),
+						sanitize.SanitizeForPrompt(health.Status),
+						sanitize.SanitizeForPrompt(health.NodesReady),
+						sanitize.SanitizeForPrompt(health.APIServerStatus),
 					))
 				}
 				break
