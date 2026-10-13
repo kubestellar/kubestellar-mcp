@@ -3,7 +3,7 @@
 #
 # Reports Go packages that ship non-test .go files but are NOT listed in the
 # per-package coverage ratchet file. Unlisted packages are silently unenforced
-# by check-go-package-coverage.sh — their coverage can regress to 0% without
+# by check-go-coverage-ratchet.sh — their coverage can regress to 0% without
 # failing CI as long as the overall total floor is met (kubestellar-mcp#802).
 #
 # By default the script only reports (exit 0). Pass --strict (or set
