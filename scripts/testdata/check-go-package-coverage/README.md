@@ -1,10 +1,10 @@
-Test fixture for scripts/__tests__/check-go-package-coverage.test.sh.
+Test fixture for scripts/__tests__/check-go-coverage-ratchet.test.sh.
 
 The file is stored as `sample.coverprofile.txt` (not `.coverprofile`)
 because the repo root `.gitignore` matches `*.coverprofile` — the
 `.txt` suffix keeps the fixture tracked while preserving Go's standard
 coverprofile line format so the test can feed it to
-`scripts/check-go-package-coverage.sh` unchanged.
+`scripts/check-go-coverage-ratchet.sh` unchanged.
 
 The fixture uses a synthetic module prefix (kubestellar-mcp) and two
 packages:
