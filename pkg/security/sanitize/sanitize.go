@@ -44,14 +44,13 @@ func SanitizeControlChars(s string) string {
 	// multi-byte UTF-8 rune at the boundary, so back off to the last
 	// complete rune before appending the ellipsis.
 	if len(s) > 200 {
-		truncated := s[:200]
-		for len(truncated) > 0 {
-			r, size := utf8.DecodeLastRuneInString(truncated)
-			if r != utf8.RuneError || size != 1 {
-				break
-			}
-			truncated = truncated[:len(truncated)-1]
+		// s is valid UTF-8 here (range/WriteRune above), so cutting at a
+		// rune-start byte never splits a rune.
+		cut := 200
+		for cut > 0 && !utf8.RuneStart(s[cut]) {
+			cut--
 		}
+		truncated := s[:cut]
 		s = truncated + "..."
 	}
 
