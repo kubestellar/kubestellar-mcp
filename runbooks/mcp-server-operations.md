@@ -106,11 +106,25 @@ docker stop <container_id>
    kubectl config get-contexts
    ```
 
+5. Check process logs for a dangling-context warning. A context is silently
+   excluded from discovery (not an error, no metric) when its referenced
+   `Cluster` entry is missing from the kubeconfig — both `kubestellar-ops`
+   (`pkg/cluster/discovery.go`) and `kubestellar-deploy`
+   (`pkg/multicluster/client.go`) log this identically via `klog`:
+   ```
+   skipping context "<context-name>": referenced cluster "<cluster-name>" not found in kubeconfig
+   ```
+   If this appears for a context you expect to see in tool results, the
+   kubeconfig's `clusters:` section is missing or misnames the entry that
+   `contexts:` points to — fix the kubeconfig rather than treating it as a
+   cluster-reachability issue.
+
 ### Recovery
 
 - If credentials are expired: follow [Credential Rotation](#credential-rotation).
 - If a cluster API server is unreachable: coordinate with the cluster owner; the MCP server will continue serving other clusters.
 - If kubeconfig is malformed: replace with a valid kubeconfig and restart the server.
+- If a dangling-context warning appears: correct the kubeconfig's `clusters:`/`contexts:` mismatch and restart the server; no partial-outage handling applies since the context was never usable.
 
 ---
 
