@@ -68,6 +68,38 @@ func TestToolDetectDrift(t *testing.T) {
 		}
 	})
 
+	t.Run("invalid namespace", func(t *testing.T) {
+		result, rpcErr := callTool(t, &handlers.Deps{}, "detect_drift", map[string]interface{}{
+			"repo_url":  "https://github.com/example/configs",
+			"namespace": "Not_A_Valid_Namespace!",
+		})
+		if rpcErr != nil {
+			t.Fatalf("unexpected RPC error: %v", rpcErr)
+		}
+		if !result.IsError {
+			t.Fatal("expected tool error for invalid namespace")
+		}
+		if !strings.Contains(result.Content[0].Text, "Invalid namespace") {
+			t.Fatalf("unexpected error text: %s", result.Content[0].Text)
+		}
+	})
+
+	t.Run("non-string namespace", func(t *testing.T) {
+		result, rpcErr := callTool(t, &handlers.Deps{}, "detect_drift", map[string]interface{}{
+			"repo_url":  "https://github.com/example/configs",
+			"namespace": 42,
+		})
+		if rpcErr != nil {
+			t.Fatalf("unexpected RPC error: %v", rpcErr)
+		}
+		if !result.IsError {
+			t.Fatal("expected tool error for non-string namespace")
+		}
+		if !strings.Contains(result.Content[0].Text, "Invalid namespace") {
+			t.Fatalf("unexpected error text: %s", result.Content[0].Text)
+		}
+	})
+
 	t.Run("empty manifests", func(t *testing.T) {
 		reader := &fakeManifestReader{}
 		detectorCreated := false
