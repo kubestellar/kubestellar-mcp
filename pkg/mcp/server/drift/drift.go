@@ -21,7 +21,11 @@ func toolDetectDrift(ctx context.Context, d *handlers.Deps, args map[string]inte
 	path, _ := args["path"].(string)
 	branch, _ := args["branch"].(string)
 	cluster, _ := args["cluster"].(string)
-	namespace, _ := args["namespace"].(string)
+
+	namespace, err := handlers.ExtractAndValidateNamespace(args)
+	if err != nil {
+		return fmt.Sprintf("Invalid namespace: %v", err), true
+	}
 
 	if repoURL == "" {
 		return "repo_url is required", true
