@@ -1,3 +1,6 @@
+// Package server implements the kubestellar-ops MCP server: the JSON-RPC
+// handshake and tool-registry wiring that expose the cluster, drift, policy,
+// RBAC, and workload tools over the Model Context Protocol.
 package server
 
 import (
