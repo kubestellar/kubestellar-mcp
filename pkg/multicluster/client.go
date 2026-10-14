@@ -1,3 +1,6 @@
+// Package multicluster manages per-cluster Kubernetes clients built from a
+// single kubeconfig, so callers can discover and talk to every context in
+// that kubeconfig without re-parsing it per cluster.
 package multicluster
 
 import (
