@@ -62,12 +62,12 @@ func toolAuditKubeconfig(ctx context.Context, d *handlers.Deps, args map[string]
 			result.Server = clusterInfo.Server
 		}
 
-		// Try to connect with timeout
-		clientConfig := clientcmd.NewDefaultClientConfig(*config, &clientcmd.ConfigOverrides{
-			CurrentContext: contextName,
-		})
-
-		restConfig, err := clientConfig.ClientConfig()
+		// Try to connect with timeout. Go through the shared handlers.Deps
+		// seam (same as every other RBAC/workloads/drift handler) instead of
+		// re-deriving a client config by hand: this keeps client
+		// construction in one place and lets tests inject a fake
+		// RESTConfigFactory instead of depending on real DNS resolution.
+		restConfig, err := d.GetRESTConfigForCluster(contextName)
 		if err != nil {
 			result.Accessible = false
 			result.Error = fmt.Sprintf("Config error: %v", err)
