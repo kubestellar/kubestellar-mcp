@@ -150,8 +150,17 @@ func (d Deps) handleKustomizeBuild(ctx context.Context, args json.RawMessage) (i
 	}, nil
 }
 
-// handleKustomizeApply applies kustomize output to clusters
-func (d Deps) handleKustomizeApply(ctx context.Context, args json.RawMessage) (interface{}, error) {
+// kustomizeClusterAction applies or deletes a kustomize-built manifest on a
+// single cluster, returning the per-cluster result.
+type kustomizeClusterAction func(ctx context.Context, cluster, path, manifest string, resourceCount int, dryRun bool) KustomizeResult
+
+// handleKustomizeOperation holds the orchestration shared by
+// handleKustomizeApply and handleKustomizeDelete: parse/validate args,
+// build+validate the manifest, resolve target clusters, run action per
+// cluster, and tally successes against successStatuses. The two callers
+// differ only in which per-cluster action runs and which result statuses
+// count as success.
+func (d Deps) handleKustomizeOperation(ctx context.Context, args json.RawMessage, action kustomizeClusterAction, successStatuses ...string) (interface{}, error) {
 	var params struct {
 		Path     string   `json:"path"`
 		Clusters []string `json:"clusters"`
@@ -207,14 +216,17 @@ func (d Deps) handleKustomizeApply(ctx context.Context, args json.RawMessage) (i
 
 	var results []KustomizeResult
 	for _, cluster := range targetClusters {
-		result := d.applyKustomize(ctx, cluster, params.Path, manifest, resourceCount, params.DryRun)
+		result := action(ctx, cluster, params.Path, manifest, resourceCount, params.DryRun)
 		results = append(results, result)
 	}
 
 	successCount := 0
 	for _, r := range results {
-		if r.Status == "applied" || r.Status == "would-apply" {
-			successCount++
+		for _, status := range successStatuses {
+			if r.Status == status {
+				successCount++
+				break
+			}
 		}
 	}
 
@@ -226,6 +238,11 @@ func (d Deps) handleKustomizeApply(ctx context.Context, args json.RawMessage) (i
 		"results":        results,
 		"dryRun":         params.DryRun,
 	}, nil
+}
+
+// handleKustomizeApply applies kustomize output to clusters
+func (d Deps) handleKustomizeApply(ctx context.Context, args json.RawMessage) (interface{}, error) {
+	return d.handleKustomizeOperation(ctx, args, d.applyKustomize, "applied", "would-apply")
 }
 
 // applyKustomize applies kustomize manifest to a single cluster
@@ -264,80 +281,7 @@ func (d Deps) applyKustomize(ctx context.Context, cluster, path, manifest string
 
 // handleKustomizeDelete deletes resources from kustomize output
 func (d Deps) handleKustomizeDelete(ctx context.Context, args json.RawMessage) (interface{}, error) {
-	var params struct {
-		Path     string   `json:"path"`
-		Clusters []string `json:"clusters"`
-		DryRun   bool     `json:"dry_run"`
-	}
-	if err := json.Unmarshal(args, &params); err != nil {
-		return nil, fmt.Errorf("invalid arguments: %w", err)
-	}
-
-	if params.Path == "" {
-		return nil, fmt.Errorf("path is required")
-	}
-
-	if err := d.ValidateClusters(params.Clusters); err != nil {
-		return nil, err
-	}
-
-	resolvedPath, err := resolveKustomizePath(params.Path)
-	if err != nil {
-		return nil, err
-	}
-	params.Path = resolvedPath
-
-	// Build kustomize output first
-	buildResult, err := d.handleKustomizeBuild(ctx, args)
-	if err != nil {
-		return nil, fmt.Errorf("kustomize build failed: %w", err)
-	}
-
-	manifest, resourceCount, err := parseKustomizeBuildResult(buildResult)
-	if err != nil {
-		return nil, err
-	}
-	if err := d.ValidateManifest(manifest); err != nil {
-		return nil, err
-	}
-
-	// Get target clusters
-	targetClusters := params.Clusters
-	if len(targetClusters) == 0 {
-		clusters, err := d.DiscoverClusters()
-		if err != nil {
-			return nil, err
-		}
-		for _, c := range clusters {
-			targetClusters = append(targetClusters, c.Name)
-		}
-	}
-
-	if len(targetClusters) == 0 {
-		return nil, fmt.Errorf("no clusters available")
-	}
-
-	var results []KustomizeResult
-	for _, cluster := range targetClusters {
-		result := d.deleteKustomize(ctx, cluster, params.Path, manifest, resourceCount, params.DryRun)
-		results = append(results, result)
-	}
-
-	successCount := 0
-	for _, r := range results {
-		if r.Status == "deleted" || r.Status == "would-delete" {
-			successCount++
-		}
-	}
-
-	return map[string]interface{}{
-		"path":           params.Path,
-		"targetClusters": targetClusters,
-		"successCount":   successCount,
-		"totalClusters":  len(targetClusters),
-		"results":        results,
-		"dryRun":         params.DryRun,
-	}, nil
+	return d.handleKustomizeOperation(ctx, args, d.deleteKustomize, "deleted", "would-delete")
 }
 
 // deleteKustomize deletes resources from a single cluster
