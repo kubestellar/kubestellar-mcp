@@ -12,12 +12,17 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/server/handlers"
 )
 
 // CheckHelmReleaseUpgrades checks Helm releases in the cluster.
 func CheckHelmReleaseUpgrades(ctx context.Context, ca ClusterAccess, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
-	namespace, _ := args["namespace"].(string)
+	namespace, err := handlers.ExtractAndValidateNamespace(args)
+	if err != nil {
+		return fmt.Sprintf("error: %v", err), true
+	}
 
 	client, err := ca.GetClientForCluster(cluster)
 	if err != nil {
