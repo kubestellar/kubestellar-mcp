@@ -7,12 +7,17 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/server/handlers"
 )
 
 // CheckOLMOperatorUpgrades checks OLM operators for available upgrades.
 func CheckOLMOperatorUpgrades(ctx context.Context, ca ClusterAccess, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
-	namespace, _ := args["namespace"].(string)
+	namespace, err := handlers.ExtractAndValidateNamespace(args)
+	if err != nil {
+		return fmt.Sprintf("error: %v", err), true
+	}
 
 	dynClient, err := ca.GetDynamicClientForCluster(cluster)
 	if err != nil {
