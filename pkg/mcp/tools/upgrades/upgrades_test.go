@@ -406,6 +406,16 @@ func TestCheckHelmReleaseUpgrades_WithNamespace(t *testing.T) {
 	assert.Contains(t, result, "cert-manager")
 }
 
+func TestCheckHelmReleaseUpgrades_BlockedNamespace(t *testing.T) {
+	cs := kubefake.NewSimpleClientset()
+	ca := &mockClusterAccess{client: cs}
+	result, isErr := CheckHelmReleaseUpgrades(context.Background(), ca, map[string]interface{}{
+		"namespace": "kube-system",
+	})
+	assert.True(t, isErr)
+	assert.Contains(t, result, "error:")
+}
+
 // --- CheckOLMOperatorUpgrades tests ---
 
 func TestCheckOLMOperatorUpgrades_ClientError(t *testing.T) {
@@ -413,6 +423,15 @@ func TestCheckOLMOperatorUpgrades_ClientError(t *testing.T) {
 	result, isErr := CheckOLMOperatorUpgrades(context.Background(), ca, map[string]interface{}{})
 	assert.True(t, isErr)
 	assert.Contains(t, result, "Failed to create client")
+}
+
+func TestCheckOLMOperatorUpgrades_BlockedNamespace(t *testing.T) {
+	ca := &mockClusterAccess{}
+	result, isErr := CheckOLMOperatorUpgrades(context.Background(), ca, map[string]interface{}{
+		"namespace": "kube-system",
+	})
+	assert.True(t, isErr)
+	assert.Contains(t, result, "error:")
 }
 
 // --- GetUpgradeStatus tests ---
