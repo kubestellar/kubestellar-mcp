@@ -22,7 +22,7 @@ pkg/deploy/mcp/deploy 96.0
 pkg/deploy/mcp/gitops 97.5
 pkg/deploy/mcp/helm 99.0
 pkg/deploy/mcp/kubectl 98.9
-pkg/deploy/mcp/kustomize 96.4
+pkg/deploy/mcp/kustomize 97.1
 pkg/deploy/mcp/labels 100.0
 pkg/deploy/mcp/testsupport -
 pkg/mcp/server 100.0
@@ -44,7 +44,7 @@ pkg/ai/claude 98.7
 
 # --- Tier 2: CLI / commands ---
 pkg/cmd 97.1
-pkg/cmd/ai 95.5
+pkg/cmd/ai 95.6
 pkg/cmd/clusters 94.0
 pkg/cmd/upgrade 98.7
 pkg/deploy/cmd 100.0
