@@ -24,9 +24,9 @@ File an issue or comment here to influence what gets prioritized.
 | Helm install / rollback across clusters | ✅ Stable |
 | Kustomize build + apply | ✅ Stable |
 | Prometheus reconciliation metrics | 🔄 In progress (PR #3785 in kubestellar core) |
-| OpenSSF Scorecard CI | ⚠️ Broken — stale worktree submodule (#170) |
-| Dependabot / automated dep updates | ❌ Not configured (#179) |
-| Branch protection on `main` | ❌ Not enforced (#178) |
+| OpenSSF Scorecard CI | ✅ Fixed — stale worktree submodule removed (#170) |
+| Dependabot / automated dep updates | ✅ Configured — `.github/dependabot.yml` (#179) |
+| Branch protection on `main` | ❌ Not enforced — requires repo-admin action, not a code change (#178) |
 
 ---
 
@@ -39,16 +39,16 @@ File an issue or comment here to influence what gets prioritized.
 - [ ] Link from main `kubestellar/kubestellar` README ecosystem section
 
 ### Technical debt / hardening
-- [ ] Fix OpenSSF Scorecard CI — remove stale `.worktrees/docs-61-62` from git index (#170)
-- [ ] Configure Dependabot for automated Go module updates (#179)
-- [ ] Enforce branch protection on `main` (require PR + 1 approver + status checks) (#178)
-- [ ] Harden workflow token permissions to least-privilege (`read-all` default, scoped writes) (#172)
-- [ ] Pin all GitHub Actions to commit SHAs (#171)
-- [ ] Validate and restrict URL schemes in GitOps manifest fetching (HTTP → HTTPS only) (#175)
-- [ ] Pin GoReleaser action version (remove `version: latest`) (#176)
+- [x] Fix OpenSSF Scorecard CI — remove stale `.worktrees/docs-61-62` from git index (#170)
+- [x] Configure Dependabot for automated Go module updates (#179)
+- [ ] Enforce branch protection on `main` (require PR + 1 approver + status checks) — repo-admin action, not fixable in a code PR; closed not-planned, remains outstanding (#178)
+- [x] Harden workflow token permissions to least-privilege (`read-all` default, scoped writes) (#172)
+- [ ] Pin all GitHub Actions to commit SHAs — closed not-planned, remains outstanding (#171)
+- [x] Validate and restrict URL schemes in GitOps manifest fetching (HTTP → HTTPS only) (#175)
+- [x] Pin GoReleaser action version (remove `version: latest`) (#176)
 
 ### Tooling expansion
-- [ ] Domain-split `pkg/mcp/server/tools.go` (65KB → focused files) — architect PR #177
+- [x] Domain-split `pkg/mcp/server/tools.go` (65KB → focused files) — architect PR #177 (merged); `pkg/mcp/server/` is now split into `tool_registry.go` and per-domain `tools_*_registry.go` files
 - [x] Add Prometheus metrics to ops server reconciliation path — `kubestellar-deploy`'s GitOps `reconcile`/`sync_from_git` path records `mcpserver_gitops_sync_total`/`mcpserver_gitops_sync_duration_seconds` (`pkg/gitops/sync.go`), and `detect_drift` records `mcpserver_gitops_drift_total`/`mcpserver_gitops_drift_duration_seconds` (`pkg/gitops/drift.go`)
 - [ ] Improve error messages for RBAC analysis on locked-down clusters
 
