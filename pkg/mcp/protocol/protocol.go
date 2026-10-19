@@ -91,6 +91,20 @@ type Items struct {
 	Type string `json:"type"`
 }
 
+// ClusterProperty returns the standard "cluster" string property shared by
+// every tool that accepts an optional cluster name (uses current context if
+// not specified). Before this helper existed, each domain's register.go
+// re-declared this exact literal (same type, same description)
+// independently, letting the wording drift across packages without any
+// single place to fix it (see kubestellar-mcp#1302 for the same pattern in
+// the sibling pkg/deploy/mcp/tooldef package).
+func ClusterProperty() Property {
+	return Property{
+		Type:        "string",
+		Description: "Cluster name (uses current context if not specified)",
+	}
+}
+
 // ToolsListResult wraps the tools/list response.
 type ToolsListResult struct {
 	Tools []Tool `json:"tools"`
