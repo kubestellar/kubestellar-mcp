@@ -21,10 +21,7 @@ func Register(reg *handlers.Registry) {
 		InputSchema: protocol.InputSchema{
 			Type: "object",
 			Properties: map[string]protocol.Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
+				"cluster": protocol.ClusterProperty(),
 				"namespace": {
 					Type:        "string",
 					Description: "Namespace to list pods from (all namespaces if not specified)",
@@ -44,10 +41,7 @@ func Register(reg *handlers.Registry) {
 		InputSchema: protocol.InputSchema{
 			Type: "object",
 			Properties: map[string]protocol.Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
+				"cluster": protocol.ClusterProperty(),
 				"namespace": {
 					Type:        "string",
 					Description: "Namespace to list deployments from (all namespaces if not specified)",
@@ -63,10 +57,7 @@ func Register(reg *handlers.Registry) {
 		InputSchema: protocol.InputSchema{
 			Type: "object",
 			Properties: map[string]protocol.Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
+				"cluster": protocol.ClusterProperty(),
 				"namespace": {
 					Type:        "string",
 					Description: "Namespace to list services from (all namespaces if not specified)",
@@ -82,10 +73,7 @@ func Register(reg *handlers.Registry) {
 		InputSchema: protocol.InputSchema{
 			Type: "object",
 			Properties: map[string]protocol.Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
+				"cluster": protocol.ClusterProperty(),
 			},
 		},
 	},
@@ -97,10 +85,7 @@ func Register(reg *handlers.Registry) {
 		InputSchema: protocol.InputSchema{
 			Type: "object",
 			Properties: map[string]protocol.Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
+				"cluster": protocol.ClusterProperty(),
 				"namespace": {
 					Type:        "string",
 					Description: "Namespace to get events from (all namespaces if not specified)",
@@ -120,10 +105,7 @@ func Register(reg *handlers.Registry) {
 		InputSchema: protocol.InputSchema{
 			Type: "object",
 			Properties: map[string]protocol.Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
+				"cluster": protocol.ClusterProperty(),
 				"namespace": {
 					Type:        "string",
 					Description: "Namespace of the pod",
@@ -144,10 +126,7 @@ func Register(reg *handlers.Registry) {
 		InputSchema: protocol.InputSchema{
 			Type: "object",
 			Properties: map[string]protocol.Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
+				"cluster": protocol.ClusterProperty(),
 				"namespace": {
 					Type:        "string",
 					Description: "Namespace of the pod",

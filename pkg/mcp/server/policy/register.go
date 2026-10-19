@@ -16,10 +16,7 @@ func Register(reg *handlers.Registry) {
 		InputSchema: protocol.InputSchema{
 			Type: "object",
 			Properties: map[string]protocol.Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
+				"cluster": protocol.ClusterProperty(),
 			},
 		},
 	},
@@ -31,10 +28,7 @@ func Register(reg *handlers.Registry) {
 		InputSchema: protocol.InputSchema{
 			Type: "object",
 			Properties: map[string]protocol.Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
+				"cluster": protocol.ClusterProperty(),
 			},
 		},
 	},
@@ -46,10 +40,7 @@ func Register(reg *handlers.Registry) {
 		InputSchema: protocol.InputSchema{
 			Type: "object",
 			Properties: map[string]protocol.Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
+				"cluster": protocol.ClusterProperty(),
 				"namespace": {
 					Type:        "string",
 					Description: "Filter violations by namespace",
@@ -69,10 +60,7 @@ func Register(reg *handlers.Registry) {
 		InputSchema: protocol.InputSchema{
 			Type: "object",
 			Properties: map[string]protocol.Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
+				"cluster": protocol.ClusterProperty(),
 				"labels": {
 					Type:        "array",
 					Description: "Required labels (default: [\"owner\", \"team\"])",
@@ -104,10 +92,7 @@ func Register(reg *handlers.Registry) {
 		InputSchema: protocol.InputSchema{
 			Type: "object",
 			Properties: map[string]protocol.Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
+				"cluster": protocol.ClusterProperty(),
 				"mode": {
 					Type:        "string",
 					Description: "Enforcement mode: dryrun, warn, or enforce",
@@ -125,10 +110,7 @@ func Register(reg *handlers.Registry) {
 		InputSchema: protocol.InputSchema{
 			Type: "object",
 			Properties: map[string]protocol.Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
+				"cluster": protocol.ClusterProperty(),
 			},
 		},
 	},

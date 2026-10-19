@@ -16,10 +16,7 @@ func Register(reg *handlers.Registry) {
 		InputSchema: protocol.InputSchema{
 			Type: "object",
 			Properties: map[string]protocol.Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
+				"cluster": protocol.ClusterProperty(),
 				"namespace": {
 					Type:        "string",
 					Description: "Namespace to check (all namespaces if not specified)",
@@ -39,10 +36,7 @@ func Register(reg *handlers.Registry) {
 		InputSchema: protocol.InputSchema{
 			Type: "object",
 			Properties: map[string]protocol.Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
+				"cluster": protocol.ClusterProperty(),
 				"namespace": {
 					Type:        "string",
 					Description: "Namespace to check (all namespaces if not specified)",
@@ -58,10 +52,7 @@ func Register(reg *handlers.Registry) {
 		InputSchema: protocol.InputSchema{
 			Type: "object",
 			Properties: map[string]protocol.Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
+				"cluster": protocol.ClusterProperty(),
 				"namespace": {
 					Type:        "string",
 					Description: "Namespace to check (all namespaces if not specified)",
@@ -77,10 +68,7 @@ func Register(reg *handlers.Registry) {
 		InputSchema: protocol.InputSchema{
 			Type: "object",
 			Properties: map[string]protocol.Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
+				"cluster": protocol.ClusterProperty(),
 				"namespace": {
 					Type:        "string",
 					Description: "Namespace to check (all namespaces if not specified)",
@@ -96,10 +84,7 @@ func Register(reg *handlers.Registry) {
 		InputSchema: protocol.InputSchema{
 			Type: "object",
 			Properties: map[string]protocol.Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
+				"cluster": protocol.ClusterProperty(),
 				"namespace": {
 					Type:        "string",
 					Description: "Namespace to analyze",
@@ -116,10 +101,7 @@ func Register(reg *handlers.Registry) {
 		InputSchema: protocol.InputSchema{
 			Type: "object",
 			Properties: map[string]protocol.Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
+				"cluster": protocol.ClusterProperty(),
 				"namespace": {
 					Type:        "string",
 					Description: "Namespace to check (all namespaces if not specified)",

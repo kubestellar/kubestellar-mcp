@@ -104,3 +104,21 @@ func TestNewErrorWithData(t *testing.T) {
 		t.Errorf("json = %s, want %s", data, want)
 	}
 }
+
+func TestClusterProperty(t *testing.T) {
+	p := ClusterProperty()
+	if p.Type != "string" {
+		t.Errorf("Type = %q, want string", p.Type)
+	}
+	if want := "Cluster name (uses current context if not specified)"; p.Description != want {
+		t.Errorf("Description = %q, want %q", p.Description, want)
+	}
+	// Optional fields must stay unset so they are omitted from the wire form.
+	data, err := json.Marshal(p)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if want := `{"type":"string","description":"Cluster name (uses current context if not specified)"}`; string(data) != want {
+		t.Errorf("json = %s, want %s", data, want)
+	}
+}

@@ -23,10 +23,7 @@ func Tools() []ToolDef {
 				InputSchema: protocol.InputSchema{
 					Type: "object",
 					Properties: map[string]protocol.Property{
-						"cluster": {
-							Type:        "string",
-							Description: "Cluster name (uses current context if not specified)",
-						},
+						"cluster": protocol.ClusterProperty(),
 					},
 				},
 			},
@@ -39,10 +36,7 @@ func Tools() []ToolDef {
 				InputSchema: protocol.InputSchema{
 					Type: "object",
 					Properties: map[string]protocol.Property{
-						"cluster": {
-							Type:        "string",
-							Description: "Cluster name (uses current context if not specified)",
-						},
+						"cluster": protocol.ClusterProperty(),
 					},
 				},
 			},
@@ -55,10 +49,7 @@ func Tools() []ToolDef {
 				InputSchema: protocol.InputSchema{
 					Type: "object",
 					Properties: map[string]protocol.Property{
-						"cluster": {
-							Type:        "string",
-							Description: "Cluster name (uses current context if not specified)",
-						},
+						"cluster": protocol.ClusterProperty(),
 						"namespace": {
 							Type:        "string",
 							Description: "Namespace to check (all namespaces if not specified)",
@@ -75,10 +66,7 @@ func Tools() []ToolDef {
 				InputSchema: protocol.InputSchema{
 					Type: "object",
 					Properties: map[string]protocol.Property{
-						"cluster": {
-							Type:        "string",
-							Description: "Cluster name (uses current context if not specified)",
-						},
+						"cluster": protocol.ClusterProperty(),
 						"namespace": {
 							Type:        "string",
 							Description: "Namespace to check (all namespaces if not specified)",
@@ -95,10 +83,7 @@ func Tools() []ToolDef {
 				InputSchema: protocol.InputSchema{
 					Type: "object",
 					Properties: map[string]protocol.Property{
-						"cluster": {
-							Type:        "string",
-							Description: "Cluster name (uses current context if not specified)",
-						},
+						"cluster": protocol.ClusterProperty(),
 					},
 				},
 			},
@@ -111,10 +96,7 @@ func Tools() []ToolDef {
 				InputSchema: protocol.InputSchema{
 					Type: "object",
 					Properties: map[string]protocol.Property{
-						"cluster": {
-							Type:        "string",
-							Description: "Cluster name (uses current context if not specified)",
-						},
+						"cluster": protocol.ClusterProperty(),
 						"target_version": {
 							Type:        "string",
 							Description: "Target OpenShift version to upgrade to (e.g., 4.14.5)",
@@ -136,10 +118,7 @@ func Tools() []ToolDef {
 				InputSchema: protocol.InputSchema{
 					Type: "object",
 					Properties: map[string]protocol.Property{
-						"cluster": {
-							Type:        "string",
-							Description: "Cluster name (uses current context if not specified)",
-						},
+						"cluster": protocol.ClusterProperty(),
 					},
 				},
 			},

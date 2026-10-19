@@ -21,10 +21,7 @@ func Register(reg *handlers.Registry) {
 		InputSchema: protocol.InputSchema{
 			Type: "object",
 			Properties: map[string]protocol.Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
+				"cluster": protocol.ClusterProperty(),
 				"namespace": {
 					Type:        "string",
 					Description: "Namespace to list roles from (all namespaces if not specified)",
@@ -40,10 +37,7 @@ func Register(reg *handlers.Registry) {
 		InputSchema: protocol.InputSchema{
 			Type: "object",
 			Properties: map[string]protocol.Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
+				"cluster": protocol.ClusterProperty(),
 				"include_system": {
 					Type:        "string",
 					Description: "Include system ClusterRoles (true/false, default false)",
@@ -59,10 +53,7 @@ func Register(reg *handlers.Registry) {
 		InputSchema: protocol.InputSchema{
 			Type: "object",
 			Properties: map[string]protocol.Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
+				"cluster": protocol.ClusterProperty(),
 				"namespace": {
 					Type:        "string",
 					Description: "Namespace to list role bindings from (all namespaces if not specified)",
@@ -78,10 +69,7 @@ func Register(reg *handlers.Registry) {
 		InputSchema: protocol.InputSchema{
 			Type: "object",
 			Properties: map[string]protocol.Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
+				"cluster": protocol.ClusterProperty(),
 				"include_system": {
 					Type:        "string",
 					Description: "Include system ClusterRoleBindings (true/false, default false)",
@@ -97,10 +85,7 @@ func Register(reg *handlers.Registry) {
 		InputSchema: protocol.InputSchema{
 			Type: "object",
 			Properties: map[string]protocol.Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
+				"cluster": protocol.ClusterProperty(),
 				"verb": {
 					Type:        "string",
 					Description: "The action verb (get, list, create, update, delete, watch, etc.)",
@@ -133,10 +118,7 @@ func Register(reg *handlers.Registry) {
 		InputSchema: protocol.InputSchema{
 			Type: "object",
 			Properties: map[string]protocol.Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
+				"cluster": protocol.ClusterProperty(),
 				"subject_kind": {
 					Type:        "string",
 					Description: "Kind of subject: User, Group, or ServiceAccount",
@@ -162,10 +144,7 @@ func Register(reg *handlers.Registry) {
 		InputSchema: protocol.InputSchema{
 			Type: "object",
 			Properties: map[string]protocol.Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
+				"cluster": protocol.ClusterProperty(),
 				"name": {
 					Type:        "string",
 					Description: "Name of the Role or ClusterRole",
@@ -201,10 +180,7 @@ func Register(reg *handlers.Registry) {
 		InputSchema: protocol.InputSchema{
 			Type: "object",
 			Properties: map[string]protocol.Property{
-				"cluster": {
-					Type:        "string",
-					Description: "Cluster name (uses current context if not specified)",
-				},
+				"cluster": protocol.ClusterProperty(),
 				"namespace": {
 					Type:        "string",
 					Description: "Namespace to check (required)",
