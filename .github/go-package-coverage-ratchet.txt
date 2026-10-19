@@ -25,6 +25,7 @@ pkg/deploy/mcp/kubectl 98.9
 pkg/deploy/mcp/kustomize 97.1
 pkg/deploy/mcp/labels 100.0
 pkg/deploy/mcp/testsupport -
+pkg/deploy/mcp/tooldef 100.0
 pkg/mcp/server 100.0
 pkg/mcp/server/cluster 100.0
 pkg/mcp/server/diagnostics 99.1
@@ -68,5 +69,4 @@ internal/version/versioncmd 100.0
 # package that never appears in the coverprofile. See kubestellar-mcp#872.
 internal/version -
 pkg/mcp/protocol 100
-pkg/deploy/mcp/tooldef -
 pkg/deploy/mcp/testsupport -
