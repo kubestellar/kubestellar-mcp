@@ -7,7 +7,6 @@ import (
 
 	"github.com/kubestellar/kubestellar-mcp/pkg/mcp/server/handlers"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func toolCheckSecurityIssues(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
@@ -17,20 +16,9 @@ func toolCheckSecurityIssues(ctx context.Context, d *handlers.Deps, args map[str
 		return fmt.Sprintf("error: %v", err), true
 	}
 
-	client, err := d.GetClientForCluster(cluster)
-	if err != nil {
-		return fmt.Sprintf("Failed to create client: %v", err), true
-	}
-
-	var pods *corev1.PodList
-	if namespace == "" {
-		pods, err = client.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
-	} else {
-		pods, err = client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
-	}
-
-	if err != nil {
-		return fmt.Sprintf("Failed to list pods: %v", err), true
+	pods, errMsg, isErr := listPodsForCluster(ctx, d, cluster, namespace)
+	if isErr {
+		return errMsg, true
 	}
 
 	var sb strings.Builder

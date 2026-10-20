@@ -26,6 +26,28 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// listPodsForCluster builds a client for cluster, lists pods (namespace-scoped
+// if namespace is non-empty, otherwise cluster-wide), and formats a single
+// "error: true" tuple shared by every diagnostics tool that starts by
+// listing pods. Callers that get a non-empty errMsg should return it as-is.
+func listPodsForCluster(ctx context.Context, d *handlers.Deps, cluster, namespace string) (pods *corev1.PodList, errMsg string, isErr bool) {
+	client, err := d.GetClientForCluster(cluster)
+	if err != nil {
+		return nil, fmt.Sprintf("Failed to create client: %v", err), true
+	}
+
+	if namespace == "" {
+		pods, err = client.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
+	} else {
+		pods, err = client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
+	}
+	if err != nil {
+		return nil, fmt.Sprintf("Failed to list pods: %v", err), true
+	}
+
+	return pods, "", false
+}
+
 func toolGetWarningEvents(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
 	namespace, err := handlers.ExtractAndValidateNamespace(args)
