@@ -24,6 +24,7 @@ This changelog focuses on stable operator-facing releases. Nightly prereleases r
 ### Fixed
 - Fixed apply-method handling, resource kind handling, path traversal checks, and the `tempDir` leak.
 - Fixed nil panics in `scaleApp` and `findAppInCluster`, plus cluster discovery source handling.
+- Fixed a goroutine and `signal.Notify` registration leak in the `--mcp-server` entry points of `kubestellar-ops` and `kubestellar-deploy` when the server stops without a signal.
 
 ### Security
 - Pinned workflow references, removed `secrets:inherit`, and added fork guards for workflow execution.

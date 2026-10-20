@@ -60,3 +60,40 @@ func TestNewMCPServerDefaultConstructsRealServer(t *testing.T) {
 	srv := newMCPServer("some-kubeconfig-path")
 	require.NotNil(t, srv, "expected default newMCPServer to construct a runner")
 }
+
+// TestRootRunMCPServerStopsSignalNotificationOnNormalReturn guards against
+// leaking the signal.Notify registration when the MCP server returns without
+// any signal being delivered.
+func TestRootRunMCPServerStopsSignalNotificationOnNormalReturn(t *testing.T) {
+	oldMCPServer, oldConfigFlags := mcpServer, configFlags
+	oldNewMCPServer, oldSignalNotify, oldSignalStop := newMCPServer, signalNotify, signalStop
+	t.Cleanup(func() {
+		mcpServer = oldMCPServer
+		configFlags = oldConfigFlags
+		newMCPServer = oldNewMCPServer
+		signalNotify = oldSignalNotify
+		signalStop = oldSignalStop
+	})
+
+	mcpServer = true
+	configFlags = genericclioptions.NewConfigFlags(true)
+
+	var notifiedCh chan<- os.Signal
+	signalNotify = func(c chan<- os.Signal, sig ...os.Signal) {
+		notifiedCh = c
+	}
+
+	var stoppedCh chan<- os.Signal
+	signalStop = func(c chan<- os.Signal) {
+		stoppedCh = c
+	}
+
+	newMCPServer = func(string) mcpServerRunner {
+		return fakeMCPRunner{runFn: func(ctx context.Context) error { return nil }}
+	}
+
+	rootCmd.Run(rootCmd, nil)
+
+	require.NotNil(t, notifiedCh)
+	require.Equal(t, notifiedCh, stoppedCh, "expected signalStop to be called with the channel passed to signalNotify")
+}

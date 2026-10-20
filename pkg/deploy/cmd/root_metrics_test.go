@@ -184,3 +184,34 @@ func TestDeployRootCommandRunE_SignalCancelsContext(t *testing.T) {
 		t.Fatal("expected context cancellation signal to be observed")
 	}
 }
+
+func TestDeployRootCommandRunE_StopsSignalNotificationOnNormalReturn(t *testing.T) {
+	oldMCPServer, oldMetricsAddr := mcpServer, metricsAddr
+	oldRunMCPServer, oldSignalNotify, oldSignalStop := runMCPServer, signalNotify, signalStop
+	t.Cleanup(func() {
+		mcpServer = oldMCPServer
+		metricsAddr = oldMetricsAddr
+		runMCPServer = oldRunMCPServer
+		signalNotify = oldSignalNotify
+		signalStop = oldSignalStop
+	})
+
+	var notifiedCh chan<- os.Signal
+	signalNotify = func(c chan<- os.Signal, sig ...os.Signal) {
+		notifiedCh = c
+	}
+
+	var stoppedCh chan<- os.Signal
+	signalStop = func(c chan<- os.Signal) {
+		stoppedCh = c
+	}
+
+	runMCPServer = func(ctx context.Context) error { return nil }
+
+	cmd := NewRootCommand()
+	require.NoError(t, cmd.PersistentFlags().Set("mcp-server", "true"))
+	require.NoError(t, cmd.RunE(cmd, nil))
+
+	require.NotNil(t, notifiedCh)
+	require.Equal(t, notifiedCh, stoppedCh, "expected signalStop to be called with the channel passed to signalNotify")
+}
