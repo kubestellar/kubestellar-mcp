@@ -25,6 +25,7 @@ var (
 	startMetricsServer                                = metrics.StartServer
 	shutdownMetricsServer                             = metrics.Shutdown
 	signalNotify                                      = signal.Notify
+	signalStop                                        = signal.Stop
 	stderr                io.Writer                   = os.Stderr
 )
 
@@ -103,11 +104,15 @@ Examples:
 
 				sigCh := make(chan os.Signal, 1)
 				signalNotify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+				defer signalStop(sigCh)
 
 				go func() {
-					sig := <-sigCh
-					klog.InfoS("received shutdown signal", "signal", sig)
-					cancel()
+					select {
+					case sig := <-sigCh:
+						klog.InfoS("received shutdown signal", "signal", sig)
+						cancel()
+					case <-ctx.Done():
+					}
 				}()
 
 				err := runMCPServer(ctx)
