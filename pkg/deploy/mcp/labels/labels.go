@@ -182,17 +182,7 @@ func AddLabelsInCluster(ctx context.Context, d Deps, client *kubernetes.Clientse
 		return result, nil
 	}
 
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			result.Status = "not-found"
-			result.Message = fmt.Sprintf("%s/%s not found", kind, name)
-		} else {
-			result.Status = "failed"
-			result.Message = err.Error()
-		}
-	} else {
-		result.Status = "labeled"
-	}
+	result.Status, result.Message = multicluster.ClassifyMutationResult(err, "labeled", fmt.Sprintf("%s/%s not found", kind, name))
 
 	return result, nil
 }
@@ -311,17 +301,7 @@ func RemoveLabelsInCluster(ctx context.Context, d Deps, client *kubernetes.Clien
 		return result, nil
 	}
 
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			result.Status = "not-found"
-			result.Message = fmt.Sprintf("%s/%s not found", kind, name)
-		} else {
-			result.Status = "failed"
-			result.Message = err.Error()
-		}
-	} else {
-		result.Status = "unlabeled"
-	}
+	result.Status, result.Message = multicluster.ClassifyMutationResult(err, "unlabeled", fmt.Sprintf("%s/%s not found", kind, name))
 
 	return result, nil
 }
