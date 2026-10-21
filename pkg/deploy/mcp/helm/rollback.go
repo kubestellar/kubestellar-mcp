@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-
-	nsval "github.com/kubestellar/kubestellar-mcp/pkg/security/namespace"
 )
 
 func (s *Server) handleHelmRollback(ctx context.Context, args json.RawMessage) (interface{}, error) {
@@ -20,70 +18,18 @@ func (s *Server) handleHelmRollback(ctx context.Context, args json.RawMessage) (
 		return nil, fmt.Errorf("invalid arguments: %w", err)
 	}
 
-	if params.ReleaseName == "" {
-		return nil, fmt.Errorf("release_name is required")
-	}
-
-	if params.Namespace == "" {
-		params.Namespace = "default"
-	}
-
-	// Validate namespace to prevent access to system namespaces (#377).
-	if err := nsval.ValidateNamespace(params.Namespace); err != nil {
-		return nil, fmt.Errorf("invalid namespace: %w", err)
-	}
-
-	// Validate identifiers against Kubernetes naming rules to prevent flag injection (#269).
-	if err := validateHelmIdentifier("release_name", params.ReleaseName); err != nil {
+	namespace, targetClusters, err := s.prepareHelmReleaseRequest(ctx, params.ReleaseName, params.Namespace, params.Clusters)
+	if err != nil {
 		return nil, err
-	}
-	if err := validateHelmIdentifier("namespace", params.Namespace); err != nil {
-		return nil, err
-	}
-
-	// Validate user-supplied cluster names (#289).
-	if err := validateHelmClusters(params.Clusters); err != nil {
-		return nil, err
-	}
-
-	// Get target clusters
-	targetClusters := params.Clusters
-	if len(targetClusters) == 0 {
-		clusters, err := s.Access.DiscoverClusters()
-		if err != nil {
-			return nil, err
-		}
-		for _, c := range clusters {
-			if s.helmReleaseExists(ctx, c.Name, params.ReleaseName, params.Namespace) {
-				targetClusters = append(targetClusters, c.Name)
-			}
-		}
-	}
-
-	if len(targetClusters) == 0 {
-		return nil, fmt.Errorf("release %s not found in any cluster", params.ReleaseName)
 	}
 
 	var results []HelmResult
 	for _, cluster := range targetClusters {
-		result := s.helmRollback(ctx, cluster, params.ReleaseName, params.Namespace, params.Revision, params.DryRun)
+		result := s.helmRollback(ctx, cluster, params.ReleaseName, namespace, params.Revision, params.DryRun)
 		results = append(results, result)
 	}
 
-	successCount := 0
-	for _, r := range results {
-		if r.Status == "rolled-back" || r.Status == "would-rollback" {
-			successCount++
-		}
-	}
-
-	return map[string]interface{}{
-		"targetClusters": targetClusters,
-		"successCount":   successCount,
-		"totalClusters":  len(targetClusters),
-		"results":        results,
-		"dryRun":         params.DryRun,
-	}, nil
+	return aggregateHelmResults(targetClusters, results, params.DryRun, "rolled-back", "would-rollback"), nil
 }
 
 // helmRollback runs helm rollback for a single cluster

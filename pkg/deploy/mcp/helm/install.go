@@ -21,20 +21,7 @@ func (s *Server) handleHelmInstall(ctx context.Context, args json.RawMessage) (i
 		results = append(results, result)
 	}
 
-	successCount := 0
-	for _, r := range results {
-		if r.Status == "installed" || r.Status == "upgraded" || r.Status == "would-install" {
-			successCount++
-		}
-	}
-
-	return map[string]interface{}{
-		"targetClusters": targetClusters,
-		"successCount":   successCount,
-		"totalClusters":  len(targetClusters),
-		"results":        results,
-		"dryRun":         params.DryRun,
-	}, nil
+	return aggregateHelmResults(targetClusters, results, params.DryRun, "installed", "upgraded", "would-install"), nil
 }
 
 // helmInstallParams holds the parsed and validated arguments for a
