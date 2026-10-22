@@ -14,7 +14,7 @@ GO := go
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
 
-.PHONY: all build build-ops build-deploy clean test test-integration test-shell install lint
+.PHONY: all build build-ops build-deploy clean test test-integration test-shell install lint duplication-check
 
 all: build
 
@@ -58,6 +58,9 @@ install: build
 
 lint:
 	golangci-lint run ./...
+
+duplication-check:
+	npx --yes jscpd@4 --config .jscpd.json
 
 .PHONY: dashboard-lint
 dashboard-lint:
