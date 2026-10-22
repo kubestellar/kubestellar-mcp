@@ -60,7 +60,7 @@ lint:
 	golangci-lint run ./...
 
 duplication-check:
-	npx --yes jscpd@4 --config .jscpd.json
+	npx --yes jscpd --config .jscpd.json
 
 .PHONY: dashboard-lint
 dashboard-lint:
