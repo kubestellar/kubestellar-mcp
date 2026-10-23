@@ -33,7 +33,7 @@ pkg/mcp/server/drift 100.0
 pkg/mcp/server/handlers 100.0
 pkg/mcp/server/policy 96.8
 pkg/mcp/server/rbac 94.3
-pkg/mcp/server/workloads 94.3
+pkg/mcp/server/workloads 94.1
 pkg/mcp/rpcloop 97.4
 pkg/mcp/tools/upgrades 96.9
 

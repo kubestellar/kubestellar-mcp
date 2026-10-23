@@ -60,25 +60,14 @@ func toolGetWarningEvents(ctx context.Context, d *handlers.Deps, args map[string
 		limit = int64(v)
 	}
 
-	client, err := d.GetClientForCluster(cluster)
-	if err != nil {
-		return fmt.Sprintf("Failed to create client: %v", err), true
-	}
-
 	listOpts := metav1.ListOptions{
 		FieldSelector: "type=Warning",
 		Limit:         limit,
 	}
 
-	var events *corev1.EventList
-	if namespace == "" {
-		events, err = client.CoreV1().Events("").List(ctx, listOpts)
-	} else {
-		events, err = client.CoreV1().Events(namespace).List(ctx, listOpts)
-	}
-
-	if err != nil {
-		return fmt.Sprintf("Failed to list events: %v", err), true
+	events, errMsg, isErr := d.ListEventsForCluster(ctx, cluster, namespace, listOpts)
+	if isErr {
+		return errMsg, true
 	}
 
 	var sb strings.Builder
