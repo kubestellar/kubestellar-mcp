@@ -12,14 +12,9 @@ import (
 func DetectClusterType(ctx context.Context, ca ClusterAccess, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
 
-	client, err := ca.GetClientForCluster(cluster)
-	if err != nil {
-		return fmt.Sprintf("Failed to create client: %v", err), true
-	}
-
-	dynClient, err := ca.GetDynamicClientForCluster(cluster)
-	if err != nil {
-		return fmt.Sprintf("Failed to create dynamic client: %v", err), true
+	client, dynClient, errMsg, ok := getClusterClients(ca, cluster)
+	if !ok {
+		return errMsg, true
 	}
 
 	var sb strings.Builder
