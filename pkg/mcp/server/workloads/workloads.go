@@ -228,24 +228,13 @@ func toolGetEvents(ctx context.Context, d *handlers.Deps, args map[string]interf
 		limit = int64(v)
 	}
 
-	client, err := d.GetClientForCluster(cluster)
-	if err != nil {
-		return fmt.Sprintf("Failed to create client: %v", err), true
-	}
-
 	listOpts := metav1.ListOptions{
 		Limit: limit,
 	}
 
-	var events *corev1.EventList
-	if namespace == "" {
-		events, err = client.CoreV1().Events("").List(ctx, listOpts)
-	} else {
-		events, err = client.CoreV1().Events(namespace).List(ctx, listOpts)
-	}
-
-	if err != nil {
-		return fmt.Sprintf("Failed to list events: %v", err), true
+	events, errMsg, isErr := d.ListEventsForCluster(ctx, cluster, namespace, listOpts)
+	if isErr {
+		return errMsg, true
 	}
 
 	if len(events.Items) == 0 {
