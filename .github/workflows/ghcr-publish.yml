@@ -105,7 +105,7 @@ jobs:
               echo "✓ Image manifest verified: $IMAGE"
               break
             fi
-            if [ $i -eq 6 ]; then
+            if [ "$i" -eq 6 ]; then
               echo "::error::Failed to verify image manifest after 30 seconds"
               exit 1
             fi
