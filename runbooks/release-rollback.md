@@ -48,6 +48,26 @@ manually:
    `publish-mcp-registry.yml` with the same tag, or the release stays
    missing from the MCP Registry.
 
+### GoReleaser selected a nightly tag during a stable release
+
+If `Create and push tag` reports the expected stable tag but GoReleaser's
+`using tags` / `current` log names an older nightly tag, multiple tags point
+at the same commit. GoReleaser's automatic tag selection can choose the nightly
+and fail with `422 ... ReleaseAsset ... already_exists` when uploading assets
+(kubestellar-mcp#1331, run [40164657906](https://github.com/kubestellar/kubestellar-mcp/actions/runs/40164657906)).
+`release.yml` now sets `GORELEASER_CURRENT_TAG` to the `determine-version`
+output so the binaries, release assets, GHCR image, and MCP Registry use the
+same version.
+
+Before recovery, compare the intended stable tag with the `current` tag in the
+failed run and inspect both GitHub Releases. Do not delete the nightly release,
+its assets, or either tag to work around the collision. Once the fix lands,
+a maintainer can dispatch a new `patch` release from the corrected workflow;
+re-running an old run uses its old workflow and does not pick up the fix.
+Verify GoReleaser's `current` tag matches the calculated version, then confirm
+`release`, `publish-ghcr`, and `publish-mcp-registry` all succeed. Recovery of
+already-published artifacts remains a maintainer action.
+
 ## 1. Stop the bleeding: pause the next scheduled run
 
 The nightly/weekly cron in `release.yml` will otherwise re-publish before a fix
