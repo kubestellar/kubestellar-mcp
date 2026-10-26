@@ -22,6 +22,9 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # Codecov OIDC upload (no CODECOV_TOKEN secret needed)
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -107,7 +110,10 @@ jobs:
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           files: coverage.out
-          token: ${{ secrets.CODECOV_TOKEN }}
+          # Tokenless uploads are rejected on protected branches and no
+          # CODECOV_TOKEN secret is configured; authenticate via GitHub OIDC
+          # instead (supported for public repos by codecov-action v4+).
+          use_oidc: true
           fail_ci_if_error: false
 
   validate-server-json:
