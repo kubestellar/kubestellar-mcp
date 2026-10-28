@@ -105,6 +105,28 @@ func ClusterProperty() Property {
 	}
 }
 
+// PodNamespaceProperty returns the standard "namespace" string property
+// shared by every tool that targets a specific pod. Before this helper
+// existed, describe_pod and get_pod_logs each re-declared this exact
+// literal (same type, same description) independently in register.go.
+func PodNamespaceProperty() Property {
+	return Property{
+		Type:        "string",
+		Description: "Namespace of the pod",
+	}
+}
+
+// PodNameProperty returns the standard "name" string property shared by
+// every tool that targets a specific pod. Before this helper existed,
+// describe_pod and get_pod_logs each re-declared this exact literal (same
+// type, same description) independently in register.go.
+func PodNameProperty() Property {
+	return Property{
+		Type:        "string",
+		Description: "Name of the pod",
+	}
+}
+
 // ToolsListResult wraps the tools/list response.
 type ToolsListResult struct {
 	Tools []Tool `json:"tools"`

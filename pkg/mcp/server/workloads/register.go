@@ -105,15 +105,9 @@ func Register(reg *handlers.Registry) {
 		InputSchema: protocol.InputSchema{
 			Type: "object",
 			Properties: map[string]protocol.Property{
-				"cluster": protocol.ClusterProperty(),
-				"namespace": {
-					Type:        "string",
-					Description: "Namespace of the pod",
-				},
-				"name": {
-					Type:        "string",
-					Description: "Name of the pod",
-				},
+				"cluster":   protocol.ClusterProperty(),
+				"namespace": protocol.PodNamespaceProperty(),
+				"name":      protocol.PodNameProperty(),
 			},
 			Required: []string{"name"},
 		},
@@ -126,15 +120,9 @@ func Register(reg *handlers.Registry) {
 		InputSchema: protocol.InputSchema{
 			Type: "object",
 			Properties: map[string]protocol.Property{
-				"cluster": protocol.ClusterProperty(),
-				"namespace": {
-					Type:        "string",
-					Description: "Namespace of the pod",
-				},
-				"name": {
-					Type:        "string",
-					Description: "Name of the pod",
-				},
+				"cluster":   protocol.ClusterProperty(),
+				"namespace": protocol.PodNamespaceProperty(),
+				"name":      protocol.PodNameProperty(),
 				"container": {
 					Type:        "string",
 					Description: "Container name (required if pod has multiple containers)",
