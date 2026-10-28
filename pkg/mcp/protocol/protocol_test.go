@@ -122,3 +122,37 @@ func TestClusterProperty(t *testing.T) {
 		t.Errorf("json = %s, want %s", data, want)
 	}
 }
+
+func TestPodNamespaceProperty(t *testing.T) {
+	p := PodNamespaceProperty()
+	if p.Type != "string" {
+		t.Errorf("Type = %q, want string", p.Type)
+	}
+	if want := "Namespace of the pod"; p.Description != want {
+		t.Errorf("Description = %q, want %q", p.Description, want)
+	}
+	data, err := json.Marshal(p)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if want := `{"type":"string","description":"Namespace of the pod"}`; string(data) != want {
+		t.Errorf("json = %s, want %s", data, want)
+	}
+}
+
+func TestPodNameProperty(t *testing.T) {
+	p := PodNameProperty()
+	if p.Type != "string" {
+		t.Errorf("Type = %q, want string", p.Type)
+	}
+	if want := "Name of the pod"; p.Description != want {
+		t.Errorf("Description = %q, want %q", p.Description, want)
+	}
+	data, err := json.Marshal(p)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if want := `{"type":"string","description":"Name of the pod"}`; string(data) != want {
+		t.Errorf("json = %s, want %s", data, want)
+	}
+}
