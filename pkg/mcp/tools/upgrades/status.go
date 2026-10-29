@@ -141,6 +141,16 @@ func writeKubernetesUpgradeStatus(ctx context.Context, client kubernetes.Interfa
 		return fmt.Sprintf("Failed to list nodes: %v", err), true
 	}
 
+	writeNodeVersionsTable(sb, nodes)
+
+	sb.WriteString("\n**Note:** For non-OpenShift clusters, detailed upgrade progress tracking\n")
+	sb.WriteString("depends on your installation method (kubeadm, EKS, GKE, AKS, etc.)\n")
+	return sb.String(), false
+}
+
+// writeNodeVersionsTable writes a "Node Versions" markdown table listing each
+// node's kubelet version and Ready/NotReady status.
+func writeNodeVersionsTable(sb *strings.Builder, nodes *corev1.NodeList) {
 	sb.WriteString("## Node Versions\n\n")
 	sb.WriteString("| Node | Kubelet Version | Status |\n")
 	sb.WriteString("|------|-----------------|--------|\n")
@@ -158,10 +168,6 @@ func writeKubernetesUpgradeStatus(ctx context.Context, client kubernetes.Interfa
 			node.Status.NodeInfo.KubeletVersion,
 			status)
 	}
-
-	sb.WriteString("\n**Note:** For non-OpenShift clusters, detailed upgrade progress tracking\n")
-	sb.WriteString("depends on your installation method (kubeadm, EKS, GKE, AKS, etc.)\n")
-	return sb.String(), false
 }
 
 // writeOpenShiftUpgradeStatus writes upgrade status for an OpenShift cluster,
