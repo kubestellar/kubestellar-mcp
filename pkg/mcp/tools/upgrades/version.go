@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -41,23 +40,7 @@ func GetClusterVersionInfo(ctx context.Context, ca ClusterAccess, args map[strin
 
 	nodes, err := client.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 	if err == nil && len(nodes.Items) > 0 {
-		sb.WriteString("## Node Versions\n\n")
-		sb.WriteString("| Node | Kubelet Version | Status |\n")
-		sb.WriteString("|------|-----------------|--------|\n")
-
-		for _, node := range nodes.Items {
-			status := "NotReady"
-			for _, cond := range node.Status.Conditions {
-				if cond.Type == corev1.NodeReady && cond.Status == corev1.ConditionTrue {
-					status = "Ready"
-					break
-				}
-			}
-			_, _ = fmt.Fprintf(&sb, "| %s | %s | %s |\n",
-				node.Name,
-				node.Status.NodeInfo.KubeletVersion,
-				status)
-		}
+		writeNodeVersionsTable(&sb, nodes)
 	}
 
 	sb.WriteString("\n## Upgrade Information\n\n")
