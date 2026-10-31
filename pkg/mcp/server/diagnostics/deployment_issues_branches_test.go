@@ -234,3 +234,85 @@ func TestToolFindDeploymentIssues_ClientFactoryError(t *testing.T) {
 		}
 	}
 }
+
+// TestToolFindDeploymentIssues_InvalidNamespace covers the
+// ExtractAndValidateNamespace error return, which stayed inline in
+// toolFindDeploymentIssues when the pod-listing handlers moved to
+// listPodsForClusterArgs.
+func TestToolFindDeploymentIssues_InvalidNamespace(t *testing.T) {
+	s := &testServer{
+		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
+			return k8sfake.NewSimpleClientset(), nil
+		},
+	}
+
+	result, isErr := toolFindDeploymentIssues(context.Background(), s.deps(), map[string]interface{}{
+		"namespace": "INVALID_UPPERCASE_NS",
+	})
+	if !isErr {
+		t.Fatalf("toolFindDeploymentIssues() expected error for invalid namespace, got: %s", result)
+	}
+	if !strings.HasPrefix(result, "error:") {
+		t.Errorf("toolFindDeploymentIssues() error = %q, want prefix 'error:'", result)
+	}
+}
+
+// TestToolFindDeploymentIssues_NamespaceScopedList covers the namespaced
+// Deployments().List and ReplicaSets().List arms (namespace != ""), which no
+// other test exercised: results must include only the requested namespace's
+// deployment and still surface ReplicaSet-level failures via rsMap.
+func TestToolFindDeploymentIssues_NamespaceScopedList(t *testing.T) {
+	client := k8sfake.NewSimpleClientset(
+		&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{Name: "scoped-deploy", Namespace: "apps"},
+			Status: appsv1.DeploymentStatus{
+				Replicas: 2, ReadyReplicas: 1, UnavailableReplicas: 1,
+			},
+		},
+		&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{Name: "other-deploy", Namespace: "other"},
+			Status: appsv1.DeploymentStatus{
+				Replicas: 3, ReadyReplicas: 0, UnavailableReplicas: 3,
+			},
+		},
+		&appsv1.ReplicaSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "scoped-deploy-abc123",
+				Namespace: "apps",
+				OwnerReferences: []metav1.OwnerReference{
+					{Kind: "Deployment", Name: "scoped-deploy"},
+				},
+			},
+			Status: appsv1.ReplicaSetStatus{
+				Conditions: []appsv1.ReplicaSetCondition{
+					{
+						Type:    appsv1.ReplicaSetReplicaFailure,
+						Status:  corev1.ConditionTrue,
+						Message: "pods \"scoped-deploy-abc123-\" is forbidden: exceeded quota",
+					},
+				},
+			},
+		},
+	)
+
+	s := &testServer{
+		clientFactory: func(clusterName string) (kubernetes.Interface, error) {
+			return client, nil
+		},
+	}
+
+	result, isErr := toolFindDeploymentIssues(context.Background(), s.deps(), map[string]interface{}{
+		"namespace": "apps",
+	})
+	if isErr {
+		t.Fatalf("toolFindDeploymentIssues() returned error: %s", result)
+	}
+	for _, want := range []string{"scoped-deploy", "1/2 replicas ready", "ReplicaSet error", "exceeded quota"} {
+		if !strings.Contains(result, want) {
+			t.Errorf("toolFindDeploymentIssues() namespaced mode missing %q in:\n%s", want, result)
+		}
+	}
+	if strings.Contains(result, "other-deploy") {
+		t.Errorf("toolFindDeploymentIssues() namespaced mode leaked other namespace's deployment:\n%s", result)
+	}
+}
