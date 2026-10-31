@@ -12,18 +12,13 @@ import (
 )
 
 func toolFindDeploymentIssues(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
-	cluster, _ := args["cluster"].(string)
-	namespace, err := handlers.ExtractAndValidateNamespace(args)
-	if err != nil {
-		return fmt.Sprintf("error: %v", err), true
-	}
-
-	client, err := d.GetClientForCluster(cluster)
-	if err != nil {
-		return fmt.Sprintf("Failed to create client: %v", err), true
+	client, _, namespace, errMsg, isErr := d.ResolveClusterClient(args)
+	if isErr {
+		return errMsg, true
 	}
 
 	var deployments *appsv1.DeploymentList
+	var err error
 	if namespace == "" {
 		deployments, err = client.AppsV1().Deployments("").List(ctx, metav1.ListOptions{})
 	} else {
