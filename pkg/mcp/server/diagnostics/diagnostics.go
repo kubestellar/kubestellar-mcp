@@ -48,6 +48,18 @@ func listPodsForCluster(ctx context.Context, d *handlers.Deps, cluster, namespac
 	return pods, "", false
 }
 
+// listPodsForClusterArgs extracts and validates cluster/namespace from raw tool
+// args, then delegates to listPodsForCluster. Validation failures use the same
+// "error: ..." format as the inline handlers did.
+func listPodsForClusterArgs(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (pods *corev1.PodList, errMsg string, isErr bool) {
+	cluster, _ := args["cluster"].(string)
+	namespace, err := handlers.ExtractAndValidateNamespace(args)
+	if err != nil {
+		return nil, fmt.Sprintf("error: %v", err), true
+	}
+	return listPodsForCluster(ctx, d, cluster, namespace)
+}
+
 func toolGetWarningEvents(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
 	cluster, _ := args["cluster"].(string)
 	namespace, err := handlers.ExtractAndValidateNamespace(args)

@@ -114,13 +114,8 @@ func toolFindDeploymentIssues(ctx context.Context, d *handlers.Deps, args map[st
 }
 
 func toolCheckResourceLimits(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
-	cluster, _ := args["cluster"].(string)
-	namespace, err := handlers.ExtractAndValidateNamespace(args)
-	if err != nil {
-		return fmt.Sprintf("error: %v", err), true
-	}
 
-	pods, errMsg, isErr := listPodsForCluster(ctx, d, cluster, namespace)
+	pods, errMsg, isErr := listPodsForClusterArgs(ctx, d, args)
 	if isErr {
 		return errMsg, true
 	}
