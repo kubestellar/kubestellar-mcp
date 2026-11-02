@@ -62,13 +62,13 @@ jobs:
             RELEASE_TYPE="nightly"
           fi
 
-          echo "release_type=$RELEASE_TYPE" >> $GITHUB_OUTPUT
+          echo "release_type=$RELEASE_TYPE" >> "$GITHUB_OUTPUT"
 
           # Only nightly builds are pre-releases; weekly builds are stable releases
           if [ "$RELEASE_TYPE" = "nightly" ]; then
-            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
           else
-            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
           fi
 
           echo "Release type: $RELEASE_TYPE"
@@ -81,7 +81,7 @@ jobs:
           if [ -z "$LATEST_TAG" ]; then
             LATEST_TAG="v0.0.0"
           fi
-          echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          echo "latest_tag=$LATEST_TAG" >> "$GITHUB_OUTPUT"
           echo "Latest tag: $LATEST_TAG"
 
           # Get latest stable version tag (for version calculation)
@@ -89,7 +89,7 @@ jobs:
           if [ -z "$LATEST_STABLE" ]; then
             LATEST_STABLE="v0.0.0"
           fi
-          echo "latest_stable=$LATEST_STABLE" >> $GITHUB_OUTPUT
+          echo "latest_stable=$LATEST_STABLE" >> "$GITHUB_OUTPUT"
           echo "Latest stable tag: $LATEST_STABLE"
 
       - name: Check for changes since last release
@@ -103,31 +103,31 @@ jobs:
           # For stable releases (weekly/patch/minor/major), always release
           if [ "$RELEASE_TYPE" != "nightly" ]; then
             echo "Stable release - proceeding"
-            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           # Check if forced
           if [ "$FORCE" = "true" ]; then
             echo "Force release requested"
-            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           # Check for any changes since last tag
           if [ "$LATEST_TAG" = "v0.0.0" ]; then
             echo "No previous tag - proceeding"
-            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           # Check for any changes at all
           TOTAL_CHANGES=$(git rev-list "$LATEST_TAG"..HEAD --count)
           if [ "$TOTAL_CHANGES" -gt 0 ]; then
-            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
             echo "Total commits since last release: $TOTAL_CHANGES"
           else
-            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
             echo "No changes since last release"
           fi
 
@@ -141,9 +141,9 @@ jobs:
 
           # Remove 'v' prefix
           VERSION=${LATEST#v}
-          MAJOR=$(echo $VERSION | cut -d. -f1)
-          MINOR=$(echo $VERSION | cut -d. -f2)
-          PATCH=$(echo $VERSION | cut -d. -f3)
+          MAJOR=$(echo "$VERSION" | cut -d. -f1)
+          MINOR=$(echo "$VERSION" | cut -d. -f2)
+          PATCH=$(echo "$VERSION" | cut -d. -f3)
 
           case $RELEASE_TYPE in
             nightly)
@@ -168,8 +168,8 @@ jobs:
               ;;
           esac
 
-          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "release_name=$RELEASE_NAME" >> $GITHUB_OUTPUT
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "release_name=$RELEASE_NAME" >> "$GITHUB_OUTPUT"
           echo "New version: $NEW_VERSION (release name: $RELEASE_NAME)"
 
   test:
@@ -293,26 +293,28 @@ jobs:
     steps:
       - name: Release summary
         run: |
-          echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Version**: ${{ needs.determine-version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Type**: ${{ needs.determine-version.outputs.release_type }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Pre-release**: ${{ needs.determine-version.outputs.is_prerelease }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Has changes**: ${{ needs.determine-version.outputs.has_changes }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Release Summary"
+            echo ""
+            echo "- **Version**: ${{ needs.determine-version.outputs.version }}"
+            echo "- **Type**: ${{ needs.determine-version.outputs.release_type }}"
+            echo "- **Pre-release**: ${{ needs.determine-version.outputs.is_prerelease }}"
+            echo "- **Has changes**: ${{ needs.determine-version.outputs.has_changes }}"
+            echo ""
 
-          if [ "${{ needs.determine-version.outputs.has_changes }}" != "true" ]; then
-            echo "### Skipped" >> $GITHUB_STEP_SUMMARY
-            echo "No changes since last release. Release was skipped." >> $GITHUB_STEP_SUMMARY
-          elif [ "${{ needs.release.result }}" = "success" ]; then
-            echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
-            echo "- GitHub Release: https://github.com/${{ github.repository }}/releases/tag/${{ needs.determine-version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-            echo "- Homebrew: \`brew upgrade kubestellar-ops kubestellar-deploy\` (formulas updated)" >> $GITHUB_STEP_SUMMARY
-            echo "- GHCR image: ${{ needs.publish-ghcr.result }}" >> $GITHUB_STEP_SUMMARY
-            echo "- MCP Registry: ${{ needs.publish-mcp-registry.result }}" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "### Status: ${{ needs.release.result }}" >> $GITHUB_STEP_SUMMARY
-          fi
+            if [ "${{ needs.determine-version.outputs.has_changes }}" != "true" ]; then
+              echo "### Skipped"
+              echo "No changes since last release. Release was skipped."
+            elif [ "${{ needs.release.result }}" = "success" ]; then
+              echo "### Artifacts"
+              echo "- GitHub Release: https://github.com/${{ github.repository }}/releases/tag/${{ needs.determine-version.outputs.version }}"
+              echo "- Homebrew: \`brew upgrade kubestellar-ops kubestellar-deploy\` (formulas updated)"
+              echo "- GHCR image: ${{ needs.publish-ghcr.result }}"
+              echo "- MCP Registry: ${{ needs.publish-mcp-registry.result }}"
+            else
+              echo "### Status: ${{ needs.release.result }}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Alert on scheduled-run failure
         if: |
