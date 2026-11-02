@@ -245,6 +245,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          # Multiple tags can point at HEAD (e.g. a nightly and weekly release).
+          # Do not let git tag ordering select an older, already-published tag.
+          GORELEASER_CURRENT_TAG: ${{ needs.determine-version.outputs.version }}
           RELEASE_NAME: ${{ needs.determine-version.outputs.release_name }}
 
       - name: Trigger docs version branch
