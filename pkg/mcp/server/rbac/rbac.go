@@ -20,17 +20,12 @@ import (
 )
 
 func toolGetRoles(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
-	cluster, _ := args["cluster"].(string)
-	namespace, err := handlers.ExtractAndValidateNamespace(args)
-	if err != nil {
-		return fmt.Sprintf("error: %v", err), true
+	client, _, namespace, errMsg, isErr := d.ResolveClusterClient(args)
+	if isErr {
+		return errMsg, true
 	}
 
-	client, err := d.GetClientForCluster(cluster)
-	if err != nil {
-		return fmt.Sprintf("Failed to create client: %v", err), true
-	}
-
+	var err error
 	var roles *rbacv1.RoleList
 	if namespace == "" {
 		roles, err = client.RbacV1().Roles("").List(ctx, metav1.ListOptions{})
@@ -98,17 +93,12 @@ func toolGetClusterRoles(ctx context.Context, d *handlers.Deps, args map[string]
 }
 
 func toolGetRoleBindings(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
-	cluster, _ := args["cluster"].(string)
-	namespace, err := handlers.ExtractAndValidateNamespace(args)
-	if err != nil {
-		return fmt.Sprintf("error: %v", err), true
+	client, _, namespace, errMsg, isErr := d.ResolveClusterClient(args)
+	if isErr {
+		return errMsg, true
 	}
 
-	client, err := d.GetClientForCluster(cluster)
-	if err != nil {
-		return fmt.Sprintf("Failed to create client: %v", err), true
-	}
-
+	var err error
 	var bindings *rbacv1.RoleBindingList
 	if namespace == "" {
 		bindings, err = client.RbacV1().RoleBindings("").List(ctx, metav1.ListOptions{})

@@ -85,17 +85,12 @@ func toolGetPods(ctx context.Context, d *handlers.Deps, args map[string]interfac
 }
 
 func toolGetDeployments(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
-	cluster, _ := args["cluster"].(string)
-	namespace, err := handlers.ExtractAndValidateNamespace(args)
-	if err != nil {
-		return fmt.Sprintf("error: %v", err), true
+	client, _, namespace, errMsg, isErr := d.ResolveClusterClient(args)
+	if isErr {
+		return errMsg, true
 	}
 
-	client, err := d.GetClientForCluster(cluster)
-	if err != nil {
-		return fmt.Sprintf("Failed to create client: %v", err), true
-	}
-
+	var err error
 	var deployments interface{}
 	if namespace == "" {
 		deployments, err = client.AppsV1().Deployments("").List(ctx, metav1.ListOptions{})
@@ -112,17 +107,12 @@ func toolGetDeployments(ctx context.Context, d *handlers.Deps, args map[string]i
 }
 
 func toolGetServices(ctx context.Context, d *handlers.Deps, args map[string]interface{}) (string, bool) {
-	cluster, _ := args["cluster"].(string)
-	namespace, err := handlers.ExtractAndValidateNamespace(args)
-	if err != nil {
-		return fmt.Sprintf("error: %v", err), true
+	client, _, namespace, errMsg, isErr := d.ResolveClusterClient(args)
+	if isErr {
+		return errMsg, true
 	}
 
-	client, err := d.GetClientForCluster(cluster)
-	if err != nil {
-		return fmt.Sprintf("Failed to create client: %v", err), true
-	}
-
+	var err error
 	var services *corev1.ServiceList
 	if namespace == "" {
 		services, err = client.CoreV1().Services("").List(ctx, metav1.ListOptions{})
