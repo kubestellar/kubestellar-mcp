@@ -97,6 +97,16 @@ jobs:
           ./scripts/check-go-ratchet-completeness.sh \
             .github/go-package-coverage-ratchet.txt --strict
 
+      - name: Check fuzz matrix completeness
+        # Fails if any `func FuzzXxx(f *testing.F)` under pkg/ cmd/
+        # internal/ is missing from .github/workflows/fuzz.yml's matrix —
+        # an unlisted target is never run by the weekly fuzz job
+        # (kubestellar-mcp#1169, #1357).
+        run: |
+          chmod +x scripts/check-fuzz-matrix-completeness.sh
+          ./scripts/check-fuzz-matrix-completeness.sh \
+            .github/workflows/fuzz.yml --strict
+
       - name: Run shell tests
         # Auto-discovers scripts/__tests__/*.test.sh (regression suite for
         # the coverage-ratchet helpers this workflow already invokes) and
