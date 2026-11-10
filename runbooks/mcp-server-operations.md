@@ -685,7 +685,7 @@ down with no one aware, for an unbounded number of weeks.
    [#1216](https://github.com/kubestellar/kubestellar-mcp/pull/1216)): its
    `notify` job opens a `build-test-alert`-labeled issue when
    `github.event_name == 'schedule'` and any of `build`,
-   `validate-server-json`, or `lint` fail, mirroring `release.yml`'s
+   `validate-server-json`, `lint`, or `duplication-check` fail, mirroring `release.yml`'s
    pattern. Manual `workflow_dispatch` runs still need a direct check:
    ```bash
    gh run list --repo kubestellar/kubestellar-mcp --workflow build-test.yml --limit 5

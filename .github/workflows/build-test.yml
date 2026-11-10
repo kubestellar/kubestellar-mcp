@@ -162,6 +162,17 @@ jobs:
           print(f"  - repository: {data['repository']}")
           EOF
 
+  duplication-check:
+    # jscpd gate (config .jscpd.json, threshold 4.5%) so a duplication
+    # regression fails CI instead of being found by hand (kubestellar-mcp#1351).
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Run jscpd duplication-check
+        run: make duplication-check
+
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -184,7 +195,7 @@ jobs:
           args: --timeout=5m
 
   notify:
-    needs: [build, validate-server-json, lint]
+    needs: [build, validate-server-json, lint, duplication-check]
     runs-on: ubuntu-latest
     if: always()
     permissions:
@@ -194,7 +205,7 @@ jobs:
         if: |
           github.event_name == 'schedule' &&
           (needs.build.result == 'failure' || needs.validate-server-json.result == 'failure' ||
-           needs.lint.result == 'failure')
+           needs.lint.result == 'failure' || needs.duplication-check.result == 'failure')
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v8.0.0
         with:
           script: |
@@ -207,6 +218,7 @@ jobs:
               `- build: ${{ needs.build.result }}`,
               `- validate-server-json: ${{ needs.validate-server-json.result }}`,
               `- lint: ${{ needs.lint.result }}`,
+              `- duplication-check: ${{ needs.duplication-check.result }}`,
               '',
               'This is the only automated check re-validating SLO 2 (Cluster Discovery Latency) and SLO 4 (Tool-Call Accuracy) against environmental drift during windows with no commits.',
               'See runbooks/mcp-server-operations.md §13 "Detecting a Failed Scheduled Workflow" for triage steps.',
