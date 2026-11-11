@@ -15,6 +15,7 @@ permissions: read-all
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: write  # Required: GoReleaser creates GitHub releases and uploads release artifacts
     steps:

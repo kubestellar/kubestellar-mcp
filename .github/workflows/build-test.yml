@@ -22,6 +22,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
       id-token: write  # Codecov OIDC upload (no CODECOV_TOKEN secret needed)
@@ -128,6 +129,7 @@ jobs:
 
   validate-server-json:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -166,6 +168,7 @@ jobs:
     # jscpd gate (config .jscpd.json, threshold 4.5%) so a duplication
     # regression fails CI instead of being found by hand (kubestellar-mcp#1351).
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -175,6 +178,7 @@ jobs:
 
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -197,6 +201,7 @@ jobs:
   notify:
     needs: [build, validate-server-json, lint, duplication-check]
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     if: always()
     permissions:
       issues: write

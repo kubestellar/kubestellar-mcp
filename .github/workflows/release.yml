@@ -35,6 +35,7 @@ permissions: read-all  # default read; write permissions scoped to release job b
 jobs:
   determine-version:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       version: ${{ steps.version.outputs.version }}
       release_name: ${{ steps.version.outputs.release_name }}
@@ -174,6 +175,7 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: determine-version
     if: needs.determine-version.outputs.has_changes == 'true'
     steps:
@@ -195,6 +197,7 @@ jobs:
   release:
     needs: [determine-version, test]
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     if: ${{ github.event.inputs.dry_run != 'true' && needs.determine-version.outputs.has_changes == 'true' }}
     permissions:
       contents: write  # Required: creates git tags, pushes tags, and creates GitHub releases with artifacts
@@ -290,6 +293,7 @@ jobs:
   notify:
     needs: [determine-version, release, publish-ghcr, publish-mcp-registry]
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     if: always()
     permissions:
       issues: write
